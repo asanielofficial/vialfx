@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
@@ -19,7 +19,7 @@
 #include "processor.h"
 #include "synth_filter.h"
 
-namespace vital {
+namespace vial {
 
   class DigitalSvf : public Processor, public SynthFilter {
     public:
@@ -31,7 +31,7 @@ namespace vital {
 
       static force_inline mono_float computeSvfOnePoleFilterCoefficient(mono_float frequency_ratio) {
         static constexpr float kMaxRatio = 0.499f;
-        return std::tan(std::min(kMaxRatio, frequency_ratio) * vital::kPi);
+        return std::tan(std::min(kMaxRatio, frequency_ratio) * vial::kPi);
       }
 
       typedef OneDimLookup<computeSvfOnePoleFilterCoefficient, 2048> SvfCoefficientLookup;
@@ -157,5 +157,5 @@ namespace vital {
 
       JUCE_LEAK_DETECTOR(DigitalSvf)
   };
-} // namespace vital
+} // namespace vial
 

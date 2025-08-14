@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "chorus_section.h"
@@ -28,8 +28,8 @@
 
 class ChorusViewer : public BarRenderer {
   public:
-    static constexpr int kDelays = vital::ChorusModule::kMaxDelayPairs;
-    static constexpr int kNumBars = kDelays * vital::poly_float::kSize;
+    static constexpr int kDelays = vial::ChorusModule::kMaxDelayPairs;
+    static constexpr int kNumBars = kDelays * vial::poly_float::kSize;
   
     ChorusViewer() : BarRenderer(kNumBars, true), delays_() {
       active_ = true;
@@ -60,10 +60,10 @@ class ChorusViewer : public BarRenderer {
       if (delays_[0] == nullptr)
         return;
       
-      int num_voices = num_voices_->getValue() * vital::poly_float::kSize;
+      int num_voices = num_voices_->getValue() * vial::poly_float::kSize;
       for (int i = 0; i < num_voices; ++i) {
-        vital::poly_float delay_frequency = delays_[i / vital::poly_float::kSize]->value();
-        float delay = 1.0f / delay_frequency[i % vital::poly_float::kSize];
+        vial::poly_float delay_frequency = delays_[i / vial::poly_float::kSize]->value();
+        float delay = 1.0f / delay_frequency[i % vial::poly_float::kSize];
         setX(i, 2.0f * (delay - kMinDelay) / kDelayRange - 1.0f);
         setY(i, 0.5f);
         setBottom(i, -0.5f);
@@ -93,13 +93,13 @@ class ChorusViewer : public BarRenderer {
 
   private:
     bool active_;
-    const vital::StatusOutput* delays_[4];
+    const vial::StatusOutput* delays_[4];
     SynthSlider* num_voices_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ChorusViewer)
 };
 
-ChorusSection::ChorusSection(const String& name, const vital::output_map& mono_modulations) : SynthSection(name) {
+ChorusSection::ChorusSection(const String& name, const vial::output_map& mono_modulations) : SynthSection(name) {
   static const double kTempoDragSensitivity = 0.5;
   static constexpr int kViewerResolution = 64;
 

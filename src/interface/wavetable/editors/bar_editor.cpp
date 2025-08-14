@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "bar_editor.h"
@@ -164,7 +164,7 @@ void BarEditor::changeValues(const MouseEvent& e) {
   for (int index = selected_index; index != from_index + direction; index += direction) {
     if (index >= 0 && index < num_points_) {
       float new_value = -2.0f * y / getHeight() + 1.0f;
-      setY(index, vital::utils::clamp(new_value, -1.0f, 1.0f));
+      setY(index, vial::utils::clamp(new_value, -1.0f, 1.0f));
     }
 
     y += inc_x * slope;
@@ -182,5 +182,5 @@ void BarEditor::changeValues(const MouseEvent& e) {
 
 int BarEditor::getHoveredIndex(Point<int> position) {
   int index = floorf(num_points_ * (1.0f * position.x) / getWidth() / scale_);
-  return vital::utils::iclamp(index, 0, num_points_ - 1);
+  return vial::utils::iclamp(index, 0, num_points_ - 1);
 }

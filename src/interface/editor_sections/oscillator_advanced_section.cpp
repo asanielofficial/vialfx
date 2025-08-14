@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "oscillator_advanced_section.h"
@@ -75,7 +75,7 @@ class OscillatorOptions : public SynthSection {
       smooth_interpolation_->setBounds(x, smooth_y, width, getHeight() - smooth_y - widget_margin);
     }
 
-    void setAllValues(vital::control_map& controls) override {
+    void setAllValues(vial::control_map& controls) override {
       SynthSection::setAllValues(controls);
 
       if (oscillator_active_)
@@ -109,8 +109,8 @@ class SpreadVisualizer : public BarRenderer {
   public:
     static constexpr int kNumSpreads = 3;
 
-    SpreadVisualizer(int index, const vital::output_map& mono_modulations, const vital::output_map& poly_modulations) :
-        BarRenderer(kNumSpreads * vital::SynthOscillator::kMaxUnison) {
+    SpreadVisualizer(int index, const vial::output_map& mono_modulations, const vial::output_map& poly_modulations) :
+        BarRenderer(kNumSpreads * vial::SynthOscillator::kMaxUnison) {
       setAdditiveBlending(false);
       std::string number = std::to_string(index);
 
@@ -175,8 +175,8 @@ class SpreadVisualizer : public BarRenderer {
     void setSpectralSpreadSlider(const SynthSlider* slider) { spectral_spread_slider_ = slider; }
     void setDistortionSpreadSlider(const SynthSlider* slider) { distortion_spread_slider_ = slider; }
 
-    inline vital::poly_float getOutputsTotal(std::pair<vital::Output*, vital::Output*> outputs,
-                                             vital::poly_float default_value, bool animate) {
+    inline vial::poly_float getOutputsTotal(std::pair<vial::Output*, vial::Output*> outputs,
+                                             vial::poly_float default_value, bool animate) {
       if (!outputs.first->owner->enabled() || !animate)
         return default_value;
       return outputs.first->trigger_value + outputs.second->trigger_value;
@@ -199,15 +199,15 @@ class SpreadVisualizer : public BarRenderer {
       if (voices <= 2)
         return;
 
-      vital::poly_float frame = getOutputsTotal(wave_frame_outputs_, wave_frame_slider_->getValue(), animate);
-      vital::poly_float morph = getOutputsTotal(spectral_morph_outputs_, spectral_morph_slider_->getValue(), animate);
-      vital::poly_float distortion = getOutputsTotal(distortion_outputs_, distortion_slider_->getValue(), animate);
+      vial::poly_float frame = getOutputsTotal(wave_frame_outputs_, wave_frame_slider_->getValue(), animate);
+      vial::poly_float morph = getOutputsTotal(spectral_morph_outputs_, spectral_morph_slider_->getValue(), animate);
+      vial::poly_float distortion = getOutputsTotal(distortion_outputs_, distortion_slider_->getValue(), animate);
 
-      vital::poly_float frame_spread = getOutputsTotal(table_spread_outputs_,
+      vial::poly_float frame_spread = getOutputsTotal(table_spread_outputs_,
                                                        table_spread_slider_->getValue(), animate);
-      vital::poly_float morph_spread = getOutputsTotal(spectral_spread_outputs_,
+      vial::poly_float morph_spread = getOutputsTotal(spectral_spread_outputs_,
                                                        spectral_spread_slider_->getValue(), animate);
-      vital::poly_float distortion_spread = getOutputsTotal(distortion_spread_outputs_,
+      vial::poly_float distortion_spread = getOutputsTotal(distortion_spread_outputs_,
                                                             distortion_spread_slider_->getValue(), animate);
 
       setColor(findColour(Skin::kWidgetSecondary1, true));
@@ -217,8 +217,8 @@ class SpreadVisualizer : public BarRenderer {
       float height = (2.0f - height_buffer) / kNumSpreads - height_buffer;
       float y = height_buffer - 1.0f;
       for (int s = 0; s < kNumSpreads; ++s) {
-        int start = s * vital::SynthOscillator::kMaxUnison;
-        for (int i = 0; i < vital::SynthOscillator::kMaxUnison; ++i) {
+        int start = s * vial::SynthOscillator::kMaxUnison;
+        for (int i = 0; i < vial::SynthOscillator::kMaxUnison; ++i) {
           setBottom(start + i, y + height);
           setY(start + i, y);
         }
@@ -229,28 +229,28 @@ class SpreadVisualizer : public BarRenderer {
       float buffer = 2.0f * findValue(Skin::kWidgetMargin) / getWidth();
       float mult = 2.0f - 2.0f * buffer;
       float offset = -1.0f + buffer - 1.0f / getWidth();
-      float frame_scale = 1.0f / (vital::kNumOscillatorWaveFrames - 1.0f);
+      float frame_scale = 1.0f / (vial::kNumOscillatorWaveFrames - 1.0f);
       voices += voices % 2;
       for (int i = 0; i < voices; i += 2) {
         float t = 2.0f * i / (voices - 2.0f);
-        vital::poly_float voice_frame = frame + frame_spread * t;
-        voice_frame = vital::utils::clamp(voice_frame * frame_scale, 0.0f, 1.0f);
-        vital::poly_float voice_morph = vital::utils::clamp(morph + morph_spread * t, 0.0f, 1.0f);
-        vital::poly_float voice_distortion = vital::utils::clamp(distortion + distortion_spread * t, 0.0f, 1.0f);
+        vial::poly_float voice_frame = frame + frame_spread * t;
+        voice_frame = vial::utils::clamp(voice_frame * frame_scale, 0.0f, 1.0f);
+        vial::poly_float voice_morph = vial::utils::clamp(morph + morph_spread * t, 0.0f, 1.0f);
+        vial::poly_float voice_distortion = vial::utils::clamp(distortion + distortion_spread * t, 0.0f, 1.0f);
 
         setX(i, voice_frame[0] * mult + offset);
         setX(i + 1, voice_frame[1] * mult + offset);
 
-        setX(i + vital::SynthOscillator::kMaxUnison, voice_morph[0] * mult + offset);
-        setX(i + vital::SynthOscillator::kMaxUnison + 1, voice_morph[1] * mult + offset);
+        setX(i + vial::SynthOscillator::kMaxUnison, voice_morph[0] * mult + offset);
+        setX(i + vial::SynthOscillator::kMaxUnison + 1, voice_morph[1] * mult + offset);
 
-        setX(i + 2 * vital::SynthOscillator::kMaxUnison, voice_distortion[0] * mult + offset);
-        setX(i + 2 * vital::SynthOscillator::kMaxUnison + 1, voice_distortion[1] * mult + offset);
+        setX(i + 2 * vial::SynthOscillator::kMaxUnison, voice_distortion[0] * mult + offset);
+        setX(i + 2 * vial::SynthOscillator::kMaxUnison + 1, voice_distortion[1] * mult + offset);
       }
 
       for (int s = 0; s < kNumSpreads; ++s) {
-        int start = s * vital::SynthOscillator::kMaxUnison;
-        for (int i = voices; i < vital::SynthOscillator::kMaxUnison; ++i)
+        int start = s * vial::SynthOscillator::kMaxUnison;
+        for (int i = voices; i < vial::SynthOscillator::kMaxUnison; ++i)
           setX(start + i, -2.0f);
       }
 
@@ -268,22 +268,22 @@ class SpreadVisualizer : public BarRenderer {
     const SynthSlider* spectral_spread_slider_;
     const SynthSlider* distortion_spread_slider_;
 
-    std::pair<vital::Output*, vital::Output*> voices_outputs_;
+    std::pair<vial::Output*, vial::Output*> voices_outputs_;
 
-    std::pair<vital::Output*, vital::Output*> wave_frame_outputs_;
-    std::pair<vital::Output*, vital::Output*> spectral_morph_outputs_;
-    std::pair<vital::Output*, vital::Output*> distortion_outputs_;
+    std::pair<vial::Output*, vial::Output*> wave_frame_outputs_;
+    std::pair<vial::Output*, vial::Output*> spectral_morph_outputs_;
+    std::pair<vial::Output*, vial::Output*> distortion_outputs_;
 
-    std::pair<vital::Output*, vital::Output*> table_spread_outputs_;
-    std::pair<vital::Output*, vital::Output*> spectral_spread_outputs_;
-    std::pair<vital::Output*, vital::Output*> distortion_spread_outputs_;
+    std::pair<vial::Output*, vial::Output*> table_spread_outputs_;
+    std::pair<vial::Output*, vial::Output*> spectral_spread_outputs_;
+    std::pair<vial::Output*, vial::Output*> distortion_spread_outputs_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SpreadVisualizer)
 };
 
 class OscillatorUnison : public SynthSection {
   public:
-    OscillatorUnison(int index, const vital::output_map& mono_modulations, const vital::output_map& poly_modulations) :
+    OscillatorUnison(int index, const vial::output_map& mono_modulations, const vial::output_map& poly_modulations) :
         SynthSection(String("OSC ") + String(index) + " UNISON"), index_(index) {
       createOffOverlay();
       voices_slider_ = nullptr;
@@ -419,7 +419,7 @@ class OscillatorUnison : public SynthSection {
         SynthSection::buttonClicked(clicked_button);
     }
 
-    void setAllValues(vital::control_map& controls) override {
+    void setAllValues(vial::control_map& controls) override {
       SynthSection::setAllValues(controls);
       checkActive();
     }
@@ -445,8 +445,8 @@ class OscillatorUnison : public SynthSection {
 };
 
 OscillatorAdvancedSection::OscillatorAdvancedSection(int index,
-                                                     const vital::output_map& mono_modulations,
-                                                     const vital::output_map& poly_modulations) :
+                                                     const vial::output_map& mono_modulations,
+                                                     const vial::output_map& poly_modulations) :
     SynthSection(String("OSC ") + String(index)) {
   oscillator_options_ = std::make_unique<OscillatorOptions>(index);
   addSubSection(oscillator_options_.get());

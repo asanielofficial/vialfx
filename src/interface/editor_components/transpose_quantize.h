@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 #include "common.h"
 #include "open_gl_image_component.h"
 #include "synth_section.h"
@@ -56,7 +56,7 @@ class TransposeQuantizeCallOut : public SynthSection {
 
   private:
     std::vector<Listener*> listeners_;
-    Rectangle<float> key_bounds_[vital::kNotesPerOctave];
+    Rectangle<float> key_bounds_[vial::kNotesPerOctave];
     std::unique_ptr<ToggleButton> global_snap_button_;
     bool* selected_;
     bool* global_snap_;
@@ -92,9 +92,9 @@ class TransposeQuantizeButton : public OpenGlImageComponent, public TransposeQua
 
   private:
     std::vector<Listener*> listeners_;
-    bool selected_[vital::kNotesPerOctave];
+    bool selected_[vial::kNotesPerOctave];
     bool global_snap_;
-    Rectangle<float> key_bounds_[vital::kNotesPerOctave];
+    Rectangle<float> key_bounds_[vial::kNotesPerOctave];
     bool hover_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TransposeQuantizeButton)

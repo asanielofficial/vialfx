@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "filter_response.h"
@@ -24,29 +24,29 @@
 #include "utils.h"
 
 namespace {
-  FilterResponse::FilterShader getShaderForModel(vital::constants::FilterModel model, int style) {
+  FilterResponse::FilterShader getShaderForModel(vial::constants::FilterModel model, int style) {
     switch (model) {
-      case vital::constants::kAnalog:
+      case vial::constants::kAnalog:
         return FilterResponse::kAnalog;
-      case vital::constants::kComb: {
-        vital::CombFilter::FeedbackStyle feedback_style = vital::CombFilter::getFeedbackStyle(style);
-        if (feedback_style == vital::CombFilter::kComb)
+      case vial::constants::kComb: {
+        vial::CombFilter::FeedbackStyle feedback_style = vial::CombFilter::getFeedbackStyle(style);
+        if (feedback_style == vial::CombFilter::kComb)
           return FilterResponse::kComb;
-        if (feedback_style == vital::CombFilter::kPositiveFlange)
+        if (feedback_style == vial::CombFilter::kPositiveFlange)
           return FilterResponse::kPositiveFlange;
         return FilterResponse::kNegativeFlange;
       }
-      case vital::constants::kDiode:
+      case vial::constants::kDiode:
         return FilterResponse::kDiode;
-      case vital::constants::kDirty:
+      case vial::constants::kDirty:
         return FilterResponse::kDirty;
-      case vital::constants::kLadder:
+      case vial::constants::kLadder:
         return FilterResponse::kLadder;
-      case vital::constants::kPhase:
+      case vial::constants::kPhase:
         return FilterResponse::kPhase;
-      case vital::constants::kFormant:
+      case vial::constants::kFormant:
         return FilterResponse::kFormant;
-      case vital::constants::kDigital:
+      case vial::constants::kDigital:
         return FilterResponse::kDigital;
       default:
         VITAL_ASSERT(false);
@@ -82,7 +82,7 @@ namespace {
     }
   }
 
-  std::pair<vital::Output*, vital::Output*> getOutputs(const vital::output_map& mono_modulations,
+  std::pair<vial::Output*, vial::Output*> getOutputs(const vial::output_map& mono_modulations,
                                                        const std::string& name) {
     return {
       mono_modulations.at(name),
@@ -90,8 +90,8 @@ namespace {
     };
   }
 
-  std::pair<vital::Output*, vital::Output*> getOutputs(const vital::output_map& mono_modulations,
-                                                       const vital::output_map& poly_modulations,
+  std::pair<vial::Output*, vial::Output*> getOutputs(const vial::output_map& mono_modulations,
+                                                       const vial::output_map& poly_modulations,
                                                        const std::string& name) {
     return {
       mono_modulations.at(name),
@@ -122,8 +122,8 @@ FilterResponse::FilterResponse() : OpenGlLineRenderer(kResolution), phaser_filte
   formant_resonance_slider_ = nullptr;
   formant_spread_slider_ = nullptr;
   last_filter_style_ = 0;
-  last_filter_model_ = static_cast<vital::constants::FilterModel>(0);
-  filter_model_ = static_cast<vital::constants::FilterModel>(0);
+  last_filter_model_ = static_cast<vial::constants::FilterModel>(0);
+  filter_model_ = static_cast<vial::constants::FilterModel>(0);
 
   line_data_ = std::make_unique<float[]>(2 * kResolution);
   line_buffer_ = 0;
@@ -146,7 +146,7 @@ FilterResponse::FilterResponse() : OpenGlLineRenderer(kResolution), phaser_filte
   phaser_filter_.setSampleRate(kDefaultVisualSampleRate);
 }
 
-FilterResponse::FilterResponse(String suffix, const vital::output_map& mono_modulations) : FilterResponse() {
+FilterResponse::FilterResponse(String suffix, const vial::output_map& mono_modulations) : FilterResponse() {
   std::string prefix = std::string("filter_") + suffix.toStdString() +"_";
 
   filter_mix_outputs_ = getOutputs(mono_modulations, prefix + "mix");
@@ -161,8 +161,8 @@ FilterResponse::FilterResponse(String suffix, const vital::output_map& mono_modu
   formant_spread_outputs_ = getOutputs(mono_modulations, prefix + "formant_spread");
 }
 
-FilterResponse::FilterResponse(int index, const vital::output_map& mono_modulations,
-                               const vital::output_map& poly_modulations) : FilterResponse() {
+FilterResponse::FilterResponse(int index, const vial::output_map& mono_modulations,
+                               const vial::output_map& poly_modulations) : FilterResponse() {
   std::string prefix = std::string("filter_") + std::to_string(index) + "_";
 
   filter_mix_outputs_ = getOutputs(mono_modulations, poly_modulations, prefix + "mix");
@@ -286,7 +286,7 @@ void FilterResponse::setFilterSettingsFromPosition(Point<int> position) {
   current_resonance_value_ = resonance_slider_->getRange().clipValue(current_resonance_value_);
   current_formant_y_value_ = formant_y_slider_->getRange().clipValue(current_formant_y_value_);
 
-  if (filter_model_ == vital::constants::kFormant) {
+  if (filter_model_ == vial::constants::kFormant) {
     formant_x_slider_->setValue(current_formant_x_value_);
     formant_x_slider_->showPopup(true);
     formant_y_slider_->setValue(current_formant_y_value_);
@@ -307,7 +307,7 @@ void FilterResponse::mouseDown(const MouseEvent& e) {
   current_formant_x_value_ = formant_x_slider_->getValue();
   current_formant_y_value_ = formant_y_slider_->getValue();
 
-  if (filter_model_ == vital::constants::kFormant) {
+  if (filter_model_ == vial::constants::kFormant) {
     formant_x_slider_->showPopup(true);
     formant_y_slider_->showPopup(false);
   }
@@ -333,7 +333,7 @@ void FilterResponse::mouseWheelMove(const MouseEvent& e, const MouseWheelDetails
   MouseWheelDetails vertical_details = wheel;
   vertical_details.deltaX = 0.0f;
 
-  if (filter_model_ == vital::constants::kFormant) {
+  if (filter_model_ == vial::constants::kFormant) {
     formant_x_slider_->mouseWheelMove(e, horizontal_details);
     formant_y_slider_->mouseWheelMove(e, vertical_details);
   }
@@ -343,8 +343,8 @@ void FilterResponse::mouseWheelMove(const MouseEvent& e, const MouseWheelDetails
   }
 }
 
-inline vital::poly_float FilterResponse::getOutputsTotal(
-    std::pair<vital::Output*, vital::Output*> outputs, vital::poly_float default_value) {
+inline vial::poly_float FilterResponse::getOutputsTotal(
+    std::pair<vial::Output*, vial::Output*> outputs, vial::poly_float default_value) {
   if (!active_ || !animate_ || !outputs.first->owner->enabled())
     return default_value;
   if (outputs.second == nullptr || num_voices_readout_ == nullptr || num_voices_readout_->value()[0] <= 0.0f)
@@ -352,32 +352,32 @@ inline vital::poly_float FilterResponse::getOutputsTotal(
   return outputs.first->trigger_value + outputs.second->trigger_value;
 }
 
-bool FilterResponse::setupFilterState(vital::constants::FilterModel model) {
-  vital::poly_float midi_cutoff = getOutputsTotal(midi_cutoff_outputs_, cutoff_slider_->getValue());
-  midi_cutoff = vital::utils::max(midi_cutoff, 0.0f);
-  vital::poly_float mix = getOutputsTotal(filter_mix_outputs_, filter_mix_slider_->getValue());
-  mix = vital::utils::clamp(mix, 0.0f, 1.0f);
-  vital::poly_float resonance_percent = getOutputsTotal(resonance_outputs_, resonance_slider_->getValue());
-  vital::poly_float pass_blend = getOutputsTotal(blend_outputs_, blend_slider_->getValue());
-  pass_blend = vital::utils::clamp(pass_blend, 0.0f, 2.0f);
-  vital::poly_float transpose = getOutputsTotal(transpose_outputs_, transpose_slider_->getValue());
-  vital::poly_float interpolate_x = getOutputsTotal(interpolate_x_outputs_, formant_x_slider_->getValue());
-  vital::poly_float interpolate_y = getOutputsTotal(interpolate_y_outputs_, formant_y_slider_->getValue());
+bool FilterResponse::setupFilterState(vial::constants::FilterModel model) {
+  vial::poly_float midi_cutoff = getOutputsTotal(midi_cutoff_outputs_, cutoff_slider_->getValue());
+  midi_cutoff = vial::utils::max(midi_cutoff, 0.0f);
+  vial::poly_float mix = getOutputsTotal(filter_mix_outputs_, filter_mix_slider_->getValue());
+  mix = vial::utils::clamp(mix, 0.0f, 1.0f);
+  vial::poly_float resonance_percent = getOutputsTotal(resonance_outputs_, resonance_slider_->getValue());
+  vial::poly_float pass_blend = getOutputsTotal(blend_outputs_, blend_slider_->getValue());
+  pass_blend = vial::utils::clamp(pass_blend, 0.0f, 2.0f);
+  vial::poly_float transpose = getOutputsTotal(transpose_outputs_, transpose_slider_->getValue());
+  vial::poly_float interpolate_x = getOutputsTotal(interpolate_x_outputs_, formant_x_slider_->getValue());
+  vial::poly_float interpolate_y = getOutputsTotal(interpolate_y_outputs_, formant_y_slider_->getValue());
 
-  if (model == vital::constants::kFormant) {
+  if (model == vial::constants::kFormant) {
     transpose = getOutputsTotal(formant_transpose_outputs_, formant_transpose_slider_->getValue());
     resonance_percent = getOutputsTotal(formant_resonance_outputs_, formant_resonance_slider_->getValue());
     pass_blend = getOutputsTotal(formant_spread_outputs_, formant_spread_slider_->getValue());
   }
 
-  vital::poly_mask equal = vital::constants::kFullMask;
-  equal = equal & vital::poly_float::equal(filter_state_.midi_cutoff, midi_cutoff);
-  equal = equal & vital::poly_float::equal(mix_, mix);
-  equal = equal & vital::poly_float::equal(filter_state_.resonance_percent, resonance_percent);
-  equal = equal & vital::poly_float::equal(filter_state_.pass_blend, pass_blend);
-  equal = equal & vital::poly_float::equal(filter_state_.transpose, transpose);
-  equal = equal & vital::poly_float::equal(filter_state_.interpolate_x, interpolate_x);
-  equal = equal & vital::poly_float::equal(filter_state_.interpolate_y, interpolate_y);
+  vial::poly_mask equal = vial::constants::kFullMask;
+  equal = equal & vial::poly_float::equal(filter_state_.midi_cutoff, midi_cutoff);
+  equal = equal & vial::poly_float::equal(mix_, mix);
+  equal = equal & vial::poly_float::equal(filter_state_.resonance_percent, resonance_percent);
+  equal = equal & vial::poly_float::equal(filter_state_.pass_blend, pass_blend);
+  equal = equal & vial::poly_float::equal(filter_state_.transpose, transpose);
+  equal = equal & vial::poly_float::equal(filter_state_.interpolate_x, interpolate_x);
+  equal = equal & vial::poly_float::equal(filter_state_.interpolate_y, interpolate_y);
 
   filter_state_.midi_cutoff = midi_cutoff;
   mix_ = mix;
@@ -395,33 +395,33 @@ bool FilterResponse::setupFilterState(vital::constants::FilterModel model) {
 }
 
 bool FilterResponse::isStereoState() {
-  vital::poly_mask equal = vital::constants::kFullMask;
-  equal = equal & vital::poly_float::equal(filter_state_.midi_cutoff,
-                                           vital::utils::swapStereo(filter_state_.midi_cutoff));
-  equal = equal & vital::poly_float::equal(mix_, vital::utils::swapStereo(mix_));
-  equal = equal & vital::poly_float::equal(filter_state_.resonance_percent,
-                                           vital::utils::swapStereo(filter_state_.resonance_percent));
-  equal = equal & vital::poly_float::equal(filter_state_.pass_blend,
-                                           vital::utils::swapStereo(filter_state_.pass_blend));
-  equal = equal & vital::poly_float::equal(filter_state_.transpose,
-                                           vital::utils::swapStereo(filter_state_.transpose));
-  equal = equal & vital::poly_float::equal(filter_state_.interpolate_x,
-                                           vital::utils::swapStereo(filter_state_.interpolate_x));
-  equal = equal & vital::poly_float::equal(filter_state_.interpolate_y,
-                                           vital::utils::swapStereo(filter_state_.interpolate_y));
+  vial::poly_mask equal = vial::constants::kFullMask;
+  equal = equal & vial::poly_float::equal(filter_state_.midi_cutoff,
+                                           vial::utils::swapStereo(filter_state_.midi_cutoff));
+  equal = equal & vial::poly_float::equal(mix_, vial::utils::swapStereo(mix_));
+  equal = equal & vial::poly_float::equal(filter_state_.resonance_percent,
+                                           vial::utils::swapStereo(filter_state_.resonance_percent));
+  equal = equal & vial::poly_float::equal(filter_state_.pass_blend,
+                                           vial::utils::swapStereo(filter_state_.pass_blend));
+  equal = equal & vial::poly_float::equal(filter_state_.transpose,
+                                           vial::utils::swapStereo(filter_state_.transpose));
+  equal = equal & vial::poly_float::equal(filter_state_.interpolate_x,
+                                           vial::utils::swapStereo(filter_state_.interpolate_x));
+  equal = equal & vial::poly_float::equal(filter_state_.interpolate_y,
+                                           vial::utils::swapStereo(filter_state_.interpolate_y));
 
   return (~equal).anyMask();
 }
 
-void FilterResponse::loadShader(FilterShader shader, vital::constants::FilterModel model, int index) {
-  if (model == vital::constants::kAnalog) {
+void FilterResponse::loadShader(FilterShader shader, vial::constants::FilterModel model, int index) {
+  if (model == vial::constants::kAnalog) {
     analog_filter_.setupFilter(filter_state_);
     shaders_[shader].shader->use();
-    float resonance = vital::utils::clamp(analog_filter_.getResonance()[index], 0.0f, 2.0f);
+    float resonance = vial::utils::clamp(analog_filter_.getResonance()[index], 0.0f, 2.0f);
     shaders_[shader].midi_cutoff->set(filter_state_.midi_cutoff[index]);
     shaders_[shader].resonance->set(resonance);
     shaders_[shader].drive->set(analog_filter_.getDrive()[index]);
-    shaders_[shader].db24->set(filter_state_.style != vital::SynthFilter::k12Db ? 1.0f : 0.0f);
+    shaders_[shader].db24->set(filter_state_.style != vial::SynthFilter::k12Db ? 1.0f : 0.0f);
 
     shaders_[shader].stages[0]->set(analog_filter_.getLowAmount()[index]);
     shaders_[shader].stages[1]->set(analog_filter_.getBandAmount()[index]);
@@ -429,10 +429,10 @@ void FilterResponse::loadShader(FilterShader shader, vital::constants::FilterMod
     shaders_[shader].stages[3]->set(analog_filter_.getLowAmount24(filter_state_.style)[index]);
     shaders_[shader].stages[4]->set(analog_filter_.getHighAmount24(filter_state_.style)[index]);
   }
-  else if (model == vital::constants::kComb) {
+  else if (model == vial::constants::kComb) {
     comb_filter_.setupFilter(filter_state_);
     shaders_[shader].shader->use();
-    float resonance = vital::utils::clamp(comb_filter_.getResonance()[index], -0.99f, 0.99f);
+    float resonance = vial::utils::clamp(comb_filter_.getResonance()[index], -0.99f, 0.99f);
     shaders_[shader].midi_cutoff->set(filter_state_.midi_cutoff[index]);
     shaders_[shader].resonance->set(resonance);
     shaders_[shader].drive->set(comb_filter_.getDrive()[index]);
@@ -442,14 +442,14 @@ void FilterResponse::loadShader(FilterShader shader, vital::constants::FilterMod
     shaders_[shader].stages[2]->set(comb_filter_.getFilterMidiCutoff()[index]);
     shaders_[shader].stages[3]->set(comb_filter_.getFilter2MidiCutoff()[index]);
   }
-  else if (model == vital::constants::kDigital) {
+  else if (model == vial::constants::kDigital) {
     digital_filter_.setupFilter(filter_state_);
     shaders_[shader].shader->use();
-    float resonance = vital::utils::clamp(digital_filter_.getResonance()[index], 0.0f, 2.0f);
+    float resonance = vial::utils::clamp(digital_filter_.getResonance()[index], 0.0f, 2.0f);
     shaders_[shader].midi_cutoff->set(digital_filter_.getMidiCutoff()[index]);
     shaders_[shader].resonance->set(resonance);
     shaders_[shader].drive->set(digital_filter_.getDrive()[index]);
-    shaders_[shader].db24->set(filter_state_.style != vital::SynthFilter::k12Db ? 1.0f : 0.0f);
+    shaders_[shader].db24->set(filter_state_.style != vial::SynthFilter::k12Db ? 1.0f : 0.0f);
 
     shaders_[shader].stages[0]->set(digital_filter_.getLowAmount()[index]);
     shaders_[shader].stages[1]->set(digital_filter_.getBandAmount()[index]);
@@ -457,7 +457,7 @@ void FilterResponse::loadShader(FilterShader shader, vital::constants::FilterMod
     shaders_[shader].stages[3]->set(digital_filter_.getLowAmount24(filter_state_.style)[index]);
     shaders_[shader].stages[4]->set(digital_filter_.getHighAmount24(filter_state_.style)[index]);
   }
-  else if (model == vital::constants::kDiode) {
+  else if (model == vial::constants::kDiode) {
     diode_filter_.setupFilter(filter_state_);
     shaders_[shader].shader->use();
     shaders_[shader].midi_cutoff->set(filter_state_.midi_cutoff[index]);
@@ -466,14 +466,14 @@ void FilterResponse::loadShader(FilterShader shader, vital::constants::FilterMod
     shaders_[shader].db24->set(diode_filter_.getHighPassAmount()[index]);
     shaders_[shader].stages[0]->set(diode_filter_.getHighPassRatio()[index]);
   }
-  else if (model == vital::constants::kDirty) {
+  else if (model == vial::constants::kDirty) {
     dirty_filter_.setupFilter(filter_state_);
     shaders_[shader].shader->use();
-    float resonance = vital::utils::clamp(dirty_filter_.getResonance()[index], 0.0f, 2.0f);
+    float resonance = vial::utils::clamp(dirty_filter_.getResonance()[index], 0.0f, 2.0f);
     shaders_[shader].midi_cutoff->set(filter_state_.midi_cutoff[index]);
     shaders_[shader].resonance->set(resonance);
     shaders_[shader].drive->set(dirty_filter_.getDrive()[index]);
-    shaders_[shader].db24->set(filter_state_.style != vital::SynthFilter::k12Db ? 1.0f : 0.0f);
+    shaders_[shader].db24->set(filter_state_.style != vial::SynthFilter::k12Db ? 1.0f : 0.0f);
 
     shaders_[shader].stages[0]->set(dirty_filter_.getLowAmount()[index]);
     shaders_[shader].stages[1]->set(dirty_filter_.getBandAmount()[index]);
@@ -481,41 +481,41 @@ void FilterResponse::loadShader(FilterShader shader, vital::constants::FilterMod
     shaders_[shader].stages[3]->set(dirty_filter_.getLowAmount24(filter_state_.style)[index]);
     shaders_[shader].stages[4]->set(dirty_filter_.getHighAmount24(filter_state_.style)[index]);
   }
-  else if (model == vital::constants::kFormant) {
+  else if (model == vial::constants::kFormant) {
     shaders_[shader].shader->use();
 
-    vital::DigitalSvf* formant0 = formant_filter_.getFormant(0);
-    vital::DigitalSvf* formant1 = formant_filter_.getFormant(1);
-    vital::DigitalSvf* formant2 = formant_filter_.getFormant(2);
-    vital::DigitalSvf* formant3 = formant_filter_.getFormant(3);
+    vial::DigitalSvf* formant0 = formant_filter_.getFormant(0);
+    vial::DigitalSvf* formant1 = formant_filter_.getFormant(1);
+    vial::DigitalSvf* formant2 = formant_filter_.getFormant(2);
+    vial::DigitalSvf* formant3 = formant_filter_.getFormant(3);
 
     formant_filter_.setupFilter(filter_state_);
     shaders_[shader].formant_cutoff->set(formant0->getMidiCutoff()[index], formant1->getMidiCutoff()[index],
                                          formant2->getMidiCutoff()[index], formant3->getMidiCutoff()[index]);
     shaders_[shader].formant_resonance->set(formant0->getResonance()[index], formant1->getResonance()[index],
                                             formant2->getResonance()[index], formant3->getResonance()[index]);
-    vital::poly_float drive0 = formant0->getDrive();
-    vital::poly_float drive1 = formant1->getDrive();
-    vital::poly_float drive2 = formant2->getDrive();
-    vital::poly_float drive3 = formant3->getDrive();
-    vital::poly_float low0 = formant0->getLowAmount() * drive0;
-    vital::poly_float low1 = formant1->getLowAmount() * drive1;
-    vital::poly_float low2 = formant2->getLowAmount() * drive2;
-    vital::poly_float low3 = formant3->getLowAmount() * drive3;
-    vital::poly_float band0 = formant0->getBandAmount() * drive0;
-    vital::poly_float band1 = formant1->getBandAmount() * drive1;
-    vital::poly_float band2 = formant2->getBandAmount() * drive2;
-    vital::poly_float band3 = formant3->getBandAmount() * drive3;
-    vital::poly_float high0 = formant0->getHighAmount() * drive0;
-    vital::poly_float high1 = formant1->getHighAmount() * drive1;
-    vital::poly_float high2 = formant2->getHighAmount() * drive2;
-    vital::poly_float high3 = formant3->getHighAmount() * drive3;
+    vial::poly_float drive0 = formant0->getDrive();
+    vial::poly_float drive1 = formant1->getDrive();
+    vial::poly_float drive2 = formant2->getDrive();
+    vial::poly_float drive3 = formant3->getDrive();
+    vial::poly_float low0 = formant0->getLowAmount() * drive0;
+    vial::poly_float low1 = formant1->getLowAmount() * drive1;
+    vial::poly_float low2 = formant2->getLowAmount() * drive2;
+    vial::poly_float low3 = formant3->getLowAmount() * drive3;
+    vial::poly_float band0 = formant0->getBandAmount() * drive0;
+    vial::poly_float band1 = formant1->getBandAmount() * drive1;
+    vial::poly_float band2 = formant2->getBandAmount() * drive2;
+    vial::poly_float band3 = formant3->getBandAmount() * drive3;
+    vial::poly_float high0 = formant0->getHighAmount() * drive0;
+    vial::poly_float high1 = formant1->getHighAmount() * drive1;
+    vial::poly_float high2 = formant2->getHighAmount() * drive2;
+    vial::poly_float high3 = formant3->getHighAmount() * drive3;
 
     shaders_[shader].formant_low->set(low0[index], low1[index], low2[index], low3[index]);
     shaders_[shader].formant_band->set(band0[index], band1[index], band2[index], band3[index]);
     shaders_[shader].formant_high->set(high0[index], high1[index], high2[index], high3[index]);
   }
-  else if (model == vital::constants::kLadder) {
+  else if (model == vial::constants::kLadder) {
     ladder_filter_.setupFilter(filter_state_);
     shaders_[shader].shader->use();
     shaders_[shader].midi_cutoff->set(filter_state_.midi_cutoff[index]);
@@ -525,12 +525,12 @@ void FilterResponse::loadShader(FilterShader shader, vital::constants::FilterMod
     for (int s = 0; s < FilterResponseShader::kMaxStages; ++s)
       shaders_[shader].stages[s]->set(ladder_filter_.getStageScale(s)[index]);
   }
-  else if (model == vital::constants::kPhase) {
+  else if (model == vial::constants::kPhase) {
     phaser_filter_.setupFilter(filter_state_);
     shaders_[shader].shader->use();
     shaders_[shader].midi_cutoff->set(filter_state_.midi_cutoff[index]);
     shaders_[shader].resonance->set(phaser_filter_.getResonance()[index]);
-    shaders_[shader].db24->set(filter_state_.style != vital::SynthFilter::k12Db ? 1.0f : 0.0f);
+    shaders_[shader].db24->set(filter_state_.style != vial::SynthFilter::k12Db ? 1.0f : 0.0f);
 
     shaders_[shader].stages[0]->set(phaser_filter_.getPeak1Amount()[index]);
     shaders_[shader].stages[1]->set(phaser_filter_.getPeak3Amount()[index]);
@@ -560,7 +560,7 @@ void FilterResponse::unbind(FilterShader shader, OpenGLContext& open_gl_context)
 }
 
 void FilterResponse::drawFilterResponse(OpenGlWrapper& open_gl) {
-  vital::constants::FilterModel model = filter_model_;
+  vial::constants::FilterModel model = filter_model_;
   bool new_response = setupFilterState(model);
   new_response = new_response || isStereoState();
 

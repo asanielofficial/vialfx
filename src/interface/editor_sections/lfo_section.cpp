@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "lfo_section.h"
@@ -27,7 +27,7 @@
 #include "text_look_and_feel.h"
 
 LfoSection::LfoSection(String name, std::string value_prepend, LineGenerator* lfo_source,
-                       const vital::output_map& mono_modulations, const vital::output_map& poly_modulations) :
+                       const vial::output_map& mono_modulations, const vial::output_map& poly_modulations) :
                        SynthSection(std::move(name)), current_preset_(0) {
   static constexpr double kTempoDragSensitivity = 0.5;
   static constexpr int kDefaultGridSizeX = 8;
@@ -53,7 +53,7 @@ LfoSection::LfoSection(String name, std::string value_prepend, LineGenerator* lf
   keytrack_transpose_->setLookAndFeel(TextLookAndFeel::instance());
   keytrack_transpose_->setSensitivity(kTransposeMouseSensitivity);
   keytrack_transpose_->setBipolar();
-  keytrack_transpose_->setShiftIndexAmount(vital::kNotesPerOctave);
+  keytrack_transpose_->setShiftIndexAmount(vial::kNotesPerOctave);
 
   keytrack_tune_ = std::make_unique<SynthSlider>(value_prepend + "_keytrack_tune");
   addSlider(keytrack_tune_.get());
@@ -302,7 +302,7 @@ void LfoSection::reset() {
   editor_->resetPositions();
 }
 
-void LfoSection::setAllValues(vital::control_map& controls) {
+void LfoSection::setAllValues(vial::control_map& controls) {
   SynthSection::setAllValues(controls);
   lfo_smooth_->setToggleState(editor_->getSmooth(), dontSendNotification);
   transpose_tune_divider_->setVisible(sync_->isKeytrack());
@@ -359,21 +359,21 @@ void LfoSection::togglePaintMode(bool enabled, bool temporary_switch) {
 }
 
 void LfoSection::importLfo() {
-  FileChooser import_box("Import LFO", LoadSave::getUserLfoDirectory(), String("*.") + vital::kLfoExtension);
+  FileChooser import_box("Import LFO", LoadSave::getUserLfoDirectory(), String("*.") + vial::kLfoExtension);
   if (!import_box.browseForFileToOpen())
     return;
 
   File choice = import_box.getResult();
-  loadFile(choice.withFileExtension(vital::kLfoExtension));
+  loadFile(choice.withFileExtension(vial::kLfoExtension));
 }
 
 void LfoSection::exportLfo() {
-  FileChooser export_box("Export LFO", LoadSave::getUserLfoDirectory(), String("*.") + vital::kLfoExtension);
+  FileChooser export_box("Export LFO", LoadSave::getUserLfoDirectory(), String("*.") + vial::kLfoExtension);
   if (!export_box.browseForFileToSave(true))
     return;
 
   File choice = export_box.getResult();
-  choice = choice.withFileExtension(vital::kLfoExtension);
+  choice = choice.withFileExtension(vial::kLfoExtension);
   if (!choice.exists())
     choice.create();
   choice.replaceWithText(editor_->getModel()->stateToJson().dump());
@@ -388,7 +388,7 @@ void LfoSection::fileLoaded() {
 }
 
 void LfoSection::prevClicked() {
-  File lfo_file = LoadSave::getShiftedFile(LoadSave::kLfoFolderName, String("*.") + vital::kLfoExtension,
+  File lfo_file = LoadSave::getShiftedFile(LoadSave::kLfoFolderName, String("*.") + vial::kLfoExtension,
                                            "", getCurrentFile(), -1);
   if (lfo_file.exists())
     loadFile(lfo_file);
@@ -397,7 +397,7 @@ void LfoSection::prevClicked() {
 }
 
 void LfoSection::nextClicked() {
-  File lfo_file = LoadSave::getShiftedFile(LoadSave::kLfoFolderName, String("*.") + vital::kLfoExtension,
+  File lfo_file = LoadSave::getShiftedFile(LoadSave::kLfoFolderName, String("*.") + vial::kLfoExtension,
                                            "", getCurrentFile(), 1);
   if (lfo_file.exists())
     loadFile(lfo_file);
@@ -414,7 +414,7 @@ void LfoSection::textMouseDown(const MouseEvent& e) {
   Rectangle<int> bounds(preset_selector_->getRight() - browser_width, -browser_height,
                         browser_width, browser_height);
   bounds = getLocalArea(this, bounds);
-  showPopupBrowser(this, bounds, LoadSave::getLfoDirectories(), String("*.") + vital::kLfoExtension,
+  showPopupBrowser(this, bounds, LoadSave::getLfoDirectories(), String("*.") + vial::kLfoExtension,
                    LoadSave::kLfoFolderName, "");
 }
 

@@ -1,27 +1,27 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 #include "open_gl_image_component.h"
 
-namespace vital {
+namespace vial {
   struct ModulationConnection;
-} // namespace vital
+} // namespace vial
 
 class SynthGuiInterface;
 
@@ -52,7 +52,7 @@ class ModulationButton : public PlainShapeComponent {
         virtual ~Listener() = default;
 
         virtual void modulationConnectionChanged() { }
-        virtual void modulationDisconnected(vital::ModulationConnection* connection, bool last) { }
+        virtual void modulationDisconnected(vial::ModulationConnection* connection, bool last) { }
         virtual void modulationSelected(ModulationButton* source) { }
         virtual void modulationLostFocus(ModulationButton* source) { }
         virtual void startModulationMap(ModulationButton* source, const MouseEvent& e) { }
@@ -98,7 +98,7 @@ class ModulationButton : public PlainShapeComponent {
     void overrideText(String text) { text_override_ = std::move(text); repaint(); }
 
   private:
-    void disconnectModulation(vital::ModulationConnection* connection);
+    void disconnectModulation(vial::ModulationConnection* connection);
 
     String text_override_;
     SynthGuiInterface* parent_;

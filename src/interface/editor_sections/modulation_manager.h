@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 
 #include "bar_renderer.h"
 #include "modulation_button.h"
@@ -172,11 +172,11 @@ class ModulationManager : public SynthSection,
 
     ModulationManager(std::map<std::string, ModulationButton*> modulation_buttons,
                       std::map<std::string, SynthSlider*> sliders,
-                      vital::output_map mono_modulations,
-                      vital::output_map poly_modulations);
+                      vial::output_map mono_modulations,
+                      vial::output_map poly_modulations);
     ~ModulationManager();
 
-    void createModulationMeter(const vital::Output* mono_total, const vital::Output* poly_total,
+    void createModulationMeter(const vial::Output* mono_total, const vial::Output* poly_total,
                                SynthSlider* slider, OpenGlMultiQuad* quads, int index);
     void createModulationSlider(std::string name, SynthSlider* slider, bool poly);
 
@@ -187,7 +187,7 @@ class ModulationManager : public SynthSection,
     void setModulationSliderValues(int index, float value);
     void setModulationSliderScale(int index);
     void setModulationValues(std::string source, std::string destination,
-                             vital::mono_float amount, bool bipolar, bool stereo, bool bypass);
+                             vial::mono_float amount, bool bipolar, bool stereo, bool bypass);
     void reset() override;
     void initAuxConnections();
 
@@ -197,7 +197,7 @@ class ModulationManager : public SynthSection,
     void modulationAmountChanged(SynthSlider* slider) override;
     void modulationRemoved(SynthSlider* slider) override;
 
-    void modulationDisconnected(vital::ModulationConnection* connection, bool last) override;
+    void modulationDisconnected(vial::ModulationConnection* connection, bool last) override;
     void modulationSelected(ModulationButton* source) override;
     void modulationClicked(ModulationButton* source) override;
     void modulationCleared() override;
@@ -245,9 +245,9 @@ class ModulationManager : public SynthSection,
     void modulationsChanged(const std::string& name) override;
     int getIndexForModulationSlider(Slider* slider);
     int getModulationIndex(std::string source, std::string destination);
-    vital::ModulationConnection* getConnectionForModulationSlider(Slider* slider);
-    vital::ModulationConnection* getConnection(int index);
-    vital::ModulationConnection* getConnection(const std::string& source, const std::string& dest);
+    vial::ModulationConnection* getConnectionForModulationSlider(Slider* slider);
+    vial::ModulationConnection* getConnection(int index);
+    vial::ModulationConnection* getConnection(const std::string& source, const std::string& dest);
     void mouseDown(SynthSlider* slider) override;
     void mouseUp(SynthSlider* slider) override;
     void doubleClick(SynthSlider* slider) override;
@@ -266,9 +266,9 @@ class ModulationManager : public SynthSection,
     void makeCurrentModulatorAmountsVisible();
     void makeModulationsVisible(SynthSlider* destination, bool visible);
     void positionModulationAmountSlidersInside(const std::string& source,
-                                               std::vector<vital::ModulationConnection*> connections);
+                                               std::vector<vial::ModulationConnection*> connections);
     void positionModulationAmountSlidersCallout(const std::string& source,
-                                                std::vector<vital::ModulationConnection*> connections);
+                                                std::vector<vial::ModulationConnection*> connections);
     void showModulationAmountCallout(const std::string& source);
     void hideModulationAmountCallout();
     void positionModulationAmountSliders(const std::string& source);
@@ -303,10 +303,10 @@ class ModulationManager : public SynthSection,
     ModulationButton* current_modulator_;
     std::map<std::string, ModulationButton*> modulation_buttons_;
     std::map<std::string, std::unique_ptr<ExpandModulationButton>> modulation_callout_buttons_;
-    std::map<std::string, const vital::StatusOutput*> modulation_source_readouts_;
-    std::map<std::string, vital::poly_float> smooth_mod_values_;
+    std::map<std::string, const vial::StatusOutput*> modulation_source_readouts_;
+    std::map<std::string, vial::poly_float> smooth_mod_values_;
     std::map<std::string, bool> active_mod_values_;
-    const vital::StatusOutput* num_voices_readout_;
+    const vial::StatusOutput* num_voices_readout_;
     long long last_milliseconds_;
     std::unique_ptr<BarRenderer> modulation_source_meters_;
 
@@ -318,9 +318,9 @@ class ModulationManager : public SynthSection,
     std::map<std::string, std::unique_ptr<ModulationMeter>> meter_lookup_;
     std::map<int, int> aux_connections_from_to_;
     std::map<int, int> aux_connections_to_from_;
-    std::unique_ptr<ModulationAmountKnob> modulation_amount_sliders_[vital::kMaxModulationConnections];
-    std::unique_ptr<ModulationAmountKnob> modulation_hover_sliders_[vital::kMaxModulationConnections];
-    std::unique_ptr<ModulationAmountKnob> selected_modulation_sliders_[vital::kMaxModulationConnections];
+    std::unique_ptr<ModulationAmountKnob> modulation_amount_sliders_[vial::kMaxModulationConnections];
+    std::unique_ptr<ModulationAmountKnob> modulation_hover_sliders_[vial::kMaxModulationConnections];
+    std::unique_ptr<ModulationAmountKnob> selected_modulation_sliders_[vial::kMaxModulationConnections];
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ModulationManager)
 };

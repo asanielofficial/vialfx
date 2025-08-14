@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "synth_section.h"
@@ -70,7 +70,7 @@ void SynthSection::paintSidewaysHeadingText(Graphics& g) {
   g.setFont(Fonts::instance()->proportional_light().withPointHeight(size_ratio_ * 14.0f));
   g.saveState();
   g.setOrigin(Point<int>(0, getHeight()));
-  g.addTransform(AffineTransform::rotation(-vital::kPi / 2.0f));
+  g.addTransform(AffineTransform::rotation(-vial::kPi / 2.0f));
   int height = getHeight();
   if (activator_)
     height = getHeight() - title_width / 2;
@@ -424,11 +424,11 @@ void SynthSection::guiChanged(SynthButton* button) {
 }
 
 void SynthSection::setSliderHasHzAlternateDisplay(SynthSlider* slider) {
-  vital::ValueDetails hz_details = *slider->getDisplayDetails();
-  hz_details.value_scale = vital::ValueDetails::kExponential;
+  vial::ValueDetails hz_details = *slider->getDisplayDetails();
+  hz_details.value_scale = vial::ValueDetails::kExponential;
   hz_details.post_offset = 0.0f;
   hz_details.display_units = " Hz";
-  hz_details.display_multiply = vital::kMidi0Frequency;
+  hz_details.display_multiply = vial::kMidi0Frequency;
   slider->setAlternateDisplay(Skin::kFrequencyDisplay, 1.0f, hz_details);
   slider->setDisplayExponentialBase(pow(2.0f, 1.0f / 12.0f));
 }
@@ -840,7 +840,7 @@ void SynthSection::animate(bool animate) {
     sub_section->animate(animate);
 }
 
-void SynthSection::setAllValues(vital::control_map& controls) {
+void SynthSection::setAllValues(vial::control_map& controls) {
   for (auto& slider : all_sliders_) {
     if (controls.count(slider.first)) {
       slider.second->setValue(controls[slider.first]->value(), NotificationType::dontSendNotification);
@@ -859,7 +859,7 @@ void SynthSection::setAllValues(vital::control_map& controls) {
     sub_section->setAllValues(controls);
 }
 
-void SynthSection::setValue(const std::string& name, vital::mono_float value, NotificationType notification) {
+void SynthSection::setValue(const std::string& name, vial::mono_float value, NotificationType notification) {
   if (all_sliders_.count(name)) {
     all_sliders_[name]->setValue(value, notification);
     if (notification == dontSendNotification)

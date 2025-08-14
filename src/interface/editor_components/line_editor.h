@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 
 #include "line_generator.h"
 #include "open_gl_image_component.h"
@@ -164,7 +164,7 @@ class LineEditor : public OpenGlLineRenderer, public TextEditor::Listener {
     int getActiveGridSection() { return active_grid_section_; }
     bool isPainting() { return paint_ != temporary_paint_toggle_; }
     bool isPaintEnabled() { return paint_; }
-    vital::poly_float adjustBoostPhase(vital::poly_float phase);
+    vial::poly_float adjustBoostPhase(vial::poly_float phase);
     virtual void enableTemporaryPaintToggle(bool toggle);
 
     bool active_;
@@ -173,8 +173,8 @@ class LineEditor : public OpenGlLineRenderer, public TextEditor::Listener {
   private:
     float adjustBoostPhase(float phase);
 
-    static std::pair<vital::Output*, vital::Output*> getOutputs(const vital::output_map& mono_modulations,
-                                                                const vital::output_map& poly_modulations,
+    static std::pair<vial::Output*, vial::Output*> getOutputs(const vial::output_map& mono_modulations,
+                                                                const vial::output_map& poly_modulations,
                                                                 String name) {
       return {
         mono_modulations.at(name.toStdString()),
@@ -216,9 +216,9 @@ class LineEditor : public OpenGlLineRenderer, public TextEditor::Listener {
     bool temporary_paint_toggle_;
     std::vector<std::pair<float, float>> paint_pattern_;
 
-    vital::poly_float last_phase_;
-    vital::poly_float last_voice_;
-    vital::poly_float last_last_voice_;
+    vial::poly_float last_phase_;
+    vial::poly_float last_voice_;
+    vial::poly_float last_last_voice_;
     float size_ratio_;
 
     OpenGlQuad drag_circle_;

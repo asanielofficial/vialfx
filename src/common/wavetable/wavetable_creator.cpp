@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "wavetable_creator.h"
@@ -81,7 +81,7 @@ float WavetableCreator::render(int position) {
 
   float max_value = 0.0f;
   float min_value = 0.0f;
-  for (int i = 0; i < vital::WaveFrame::kWaveformSize; ++i) {
+  for (int i = 0; i < vial::WaveFrame::kWaveformSize; ++i) {
     max_value = std::max(compute_frame_combine_.time_domain[i], max_value);
     min_value = std::min(compute_frame_combine_.time_domain[i], min_value);
   }
@@ -120,7 +120,7 @@ void WavetableCreator::postRender(float max_span) {
 void WavetableCreator::renderToBuffer(float* buffer, int num_frames, int frame_size) {
   int total_samples = num_frames * frame_size;
   for (int i = 0; i < num_frames; ++i) {
-    float position = (1.0f * i * vital::kNumOscillatorWaveFrames) / num_frames;
+    float position = (1.0f * i * vial::kNumOscillatorWaveFrames) / num_frames;
     compute_frame_combine_.clear();
     compute_frame_combine_.index = position;
     compute_frame_.index = position;
@@ -132,10 +132,10 @@ void WavetableCreator::renderToBuffer(float* buffer, int num_frames, int frame_s
 
     float* output_buffer = buffer + (i * frame_size);
 
-    if (frame_size != vital::WaveFrame::kWaveformSize)
+    if (frame_size != vial::WaveFrame::kWaveformSize)
       VITAL_ASSERT(false); // TODO: support different waveframe size.
     else {
-      for (int s = 0; s < vital::WaveFrame::kWaveformSize; ++s)
+      for (int s = 0; s < vial::WaveFrame::kWaveformSize; ++s)
         output_buffer[s] = compute_frame_combine_.time_domain[s];
     }
   }
@@ -174,14 +174,14 @@ void WavetableCreator::initPredefinedWaves() {
   WavetableGroup* new_group = new WavetableGroup();
   WaveSource* wave_source = new WaveSource();
 
-  int num_shapes = vital::PredefinedWaveFrames::kNumShapes;
+  int num_shapes = vial::PredefinedWaveFrames::kNumShapes;
   for (int i = 0; i < num_shapes; ++i) {
-    int position = (vital::kNumOscillatorWaveFrames * i) / num_shapes;
+    int position = (vial::kNumOscillatorWaveFrames * i) / num_shapes;
     wave_source->insertNewKeyframe(position);
     WaveSourceKeyframe* keyframe = wave_source->getKeyframe(i);
 
-    vital::PredefinedWaveFrames::Shape shape = static_cast<vital::PredefinedWaveFrames::Shape>(i);
-    keyframe->wave_frame()->copy(vital::PredefinedWaveFrames::getWaveFrame(shape));
+    vial::PredefinedWaveFrames::Shape shape = static_cast<vial::PredefinedWaveFrames::Shape>(i);
+    keyframe->wave_frame()->copy(vial::PredefinedWaveFrames::getWaveFrame(shape));
   }
   wave_source->setInterpolationStyle(WaveSource::kNone);
   full_normalize_ = false;
@@ -222,11 +222,11 @@ void WavetableCreator::initFromSplicedAudioFile(const float* audio_buffer, int n
   double window_size = file_source->getWindowSize();
   if (fade_style == FileSource::kNoInterpolate) {
     int num_cycles = std::max<int>(1, num_samples / window_size);
-    int buffer_frames = vital::kNumOscillatorWaveFrames / num_cycles;
-    file_source->insertNewKeyframe(std::max(0, vital::kNumOscillatorWaveFrames - 1 - buffer_frames));
+    int buffer_frames = vial::kNumOscillatorWaveFrames / num_cycles;
+    file_source->insertNewKeyframe(std::max(0, vial::kNumOscillatorWaveFrames - 1 - buffer_frames));
   }
   else
-    file_source->insertNewKeyframe(vital::kNumOscillatorWaveFrames - 1);
+    file_source->insertNewKeyframe(vial::kNumOscillatorWaveFrames - 1);
 
   file_source->getKeyframe(0)->setStartPosition(0);
   int last_sample_position = num_samples - window_size;
@@ -255,7 +255,7 @@ void WavetableCreator::initFromVocodedAudioFile(const float* audio_buffer, int n
   file_source->setFadeStyle(FileSource::FadeStyle::kWaveBlend);
   file_source->setPhaseStyle(FileSource::PhaseStyle::kVocode);
   file_source->insertNewKeyframe(0);
-  file_source->insertNewKeyframe(vital::kNumOscillatorWaveFrames - 1);
+  file_source->insertNewKeyframe(vial::kNumOscillatorWaveFrames - 1);
   file_source->getKeyframe(0)->setStartPosition(0);
   int samples_needed = file_source->getKeyframe(1)->getSamplesNeeded();
   file_source->getKeyframe(1)->setStartPosition(num_samples - samples_needed);
@@ -275,7 +275,7 @@ void WavetableCreator::initFromPitchedAudioFile(const float* audio_buffer, int n
   file_source->detectPitch();
   file_source->setFadeStyle(FileSource::FadeStyle::kWaveBlend);
   file_source->insertNewKeyframe(0);
-  file_source->insertNewKeyframe(vital::kNumOscillatorWaveFrames - 1);
+  file_source->insertNewKeyframe(vial::kNumOscillatorWaveFrames - 1);
   file_source->getKeyframe(0)->setStartPosition(0);
   int samples_needed = file_source->getKeyframe(1)->getSamplesNeeded();
   file_source->getKeyframe(1)->setStartPosition(num_samples - samples_needed);
@@ -434,7 +434,7 @@ json WavetableCreator::updateJson(json data) {
               y = 0.5f * (start_y + end_y);
             else {
               float t = (1.0f - end_x) / range_x;
-              y = vital::utils::interpolate(end_y, start_y, t);
+              y = vial::utils::interpolate(end_y, start_y, t);
             }
 
             line_converter.setPoint(0, { 0.0f, y * 0.5f + 0.5f });
@@ -479,7 +479,7 @@ json WavetableCreator::stateToJson() {
 
 void WavetableCreator::jsonToState(json data) {
   if (LineGenerator::isValidJson(data)) {
-    LineGenerator generator(vital::WaveFrame::kWaveformSize);
+    LineGenerator generator(vial::WaveFrame::kWaveformSize);
     generator.jsonToState(data);
     initFromLineGenerator(&generator);
     return;

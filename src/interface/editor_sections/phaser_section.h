@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 #include "synth_section.h"
 #include "open_gl_line_renderer.h"
 #include "phaser_filter.h"
@@ -32,7 +32,7 @@ class PhaserResponse : public OpenGlLineRenderer {
     static constexpr int kResolution = 256;
     static constexpr int kDefaultVisualSampleRate = 200000;
 
-    PhaserResponse(const vital::output_map& mono_modulations);
+    PhaserResponse(const vial::output_map& mono_modulations);
     virtual ~PhaserResponse();
 
     void init(OpenGlWrapper& open_gl) override;
@@ -61,7 +61,7 @@ class PhaserResponse : public OpenGlLineRenderer {
     void setActive(bool active) { active_ = active; }
     void setStyle(int style) { filter_state_.style = style; }
 
-    void setDefaultBlend(vital::poly_float blend) { blend_setting_ = blend; }
+    void setDefaultBlend(vial::poly_float blend) { blend_setting_ = blend; }
 
   private:
     struct FilterResponseShader {
@@ -77,7 +77,7 @@ class PhaserResponse : public OpenGlLineRenderer {
     };
 
     void drawFilterResponse(OpenGlWrapper& open_gl, bool animate);
-    vital::poly_float getOutputTotal(const vital::Output* output, vital::poly_float default_value);
+    vial::poly_float getOutputTotal(const vial::Output* output, vial::poly_float default_value);
 
     void setupFilterState();
     void loadShader(int index);
@@ -89,22 +89,22 @@ class PhaserResponse : public OpenGlLineRenderer {
     bool active_;
     Point<int> last_mouse_position_;
 
-    vital::PhaserFilter phaser_filter_;
+    vial::PhaserFilter phaser_filter_;
 
-    vital::SynthFilter::FilterState filter_state_;
-    vital::poly_float mix_;
+    vial::SynthFilter::FilterState filter_state_;
+    vial::poly_float mix_;
 
     SynthSlider* cutoff_slider_;
     SynthSlider* resonance_slider_;
     SynthSlider* blend_slider_;
     SynthSlider* mix_slider_;
 
-    const vital::StatusOutput* phaser_cutoff_;
-    const vital::Output* filter_mix_output_;
-    const vital::Output* resonance_output_;
-    const vital::Output* blend_output_;
+    const vial::StatusOutput* phaser_cutoff_;
+    const vial::Output* filter_mix_output_;
+    const vial::Output* resonance_output_;
+    const vial::Output* blend_output_;
 
-    vital::poly_float blend_setting_;
+    vial::poly_float blend_setting_;
 
     FilterResponseShader response_shader_;
     std::unique_ptr<float[]> line_data_;
@@ -117,7 +117,7 @@ class PhaserResponse : public OpenGlLineRenderer {
 
 class PhaserSection : public SynthSection {
   public:
-    PhaserSection(String name, const vital::output_map& mono_modulations);
+    PhaserSection(String name, const vial::output_map& mono_modulations);
     virtual ~PhaserSection();
 
     void paintBackground(Graphics& g) override;

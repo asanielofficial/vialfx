@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "flanger_section.h"
@@ -26,7 +26,7 @@
 #include "tempo_selector.h"
 #include "text_look_and_feel.h"
 
-FlangerResponse::FlangerResponse(const vital::output_map& mono_modulations) : OpenGlLineRenderer(kResolution) {
+FlangerResponse::FlangerResponse(const vial::output_map& mono_modulations) : OpenGlLineRenderer(kResolution) {
   parent_ = nullptr;
   active_ = true;
   mix_ = 1.0f;
@@ -122,7 +122,7 @@ void FlangerResponse::destroy(OpenGlWrapper& open_gl) {
     response_shader_.stages[s] = nullptr;
 }
 
-vital::poly_float FlangerResponse::getOutputTotal(vital::Output* output, vital::poly_float default_value) {
+vial::poly_float FlangerResponse::getOutputTotal(vial::Output* output, vial::poly_float default_value) {
   if (output && output->owner->enabled())
     return output->trigger_value;
   return default_value;
@@ -138,7 +138,7 @@ void FlangerResponse::setupFilterState() {
 void FlangerResponse::loadShader(int index) {
   comb_filter_.setupFilter(filter_state_);
   response_shader_.shader->use();
-  float resonance = vital::utils::clamp(comb_filter_.getResonance()[index], -0.99f, 0.99f);
+  float resonance = vial::utils::clamp(comb_filter_.getResonance()[index], -0.99f, 0.99f);
   response_shader_.midi_cutoff->set(filter_state_.midi_cutoff[index]);
   response_shader_.resonance->set(resonance);
   response_shader_.drive->set(1.0f);
@@ -178,7 +178,7 @@ void FlangerResponse::renderLineResponse(OpenGlWrapper& open_gl, int index) {
 
   void* buffer = open_gl.context.extensions.glMapBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, 0,
                                                              kResolution * sizeof(float), GL_MAP_READ_BIT);
-  vital::poly_float midi = vital::utils::frequencyToMidiNote(flanger_frequency_->value());
+  vial::poly_float midi = vial::utils::frequencyToMidiNote(flanger_frequency_->value());
   float offset = midi[index] * (getWidth() / kMaxMidi) - getWidth() * 1.5f;
   float* response_data = (float*)buffer;
   float x_adjust = getWidth() * 3.0f;
@@ -237,7 +237,7 @@ void FlangerResponse::drawFilterResponse(OpenGlWrapper& open_gl, bool animate) {
   checkGlError();
 }
 
-FlangerSection::FlangerSection(String name, const vital::output_map& mono_modulations) : SynthSection(name) {
+FlangerSection::FlangerSection(String name, const vial::output_map& mono_modulations) : SynthSection(name) {
   static const double TEMPO_DRAG_SENSITIVITY = 0.3;
 
   phase_offset_ = std::make_unique<SynthSlider>("flanger_phase_offset");

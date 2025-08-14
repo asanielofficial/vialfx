@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "macro_knob_section.h"
@@ -178,7 +178,7 @@ class SingleMacroSection : public SynthSection, public TextEditor::Listener {
 
 MacroKnobSection::MacroKnobSection(String name) : SynthSection(name) {
   setWantsKeyboardFocus(true);
-  for (int i = 0; i < vital::kNumMacros; ++i) {
+  for (int i = 0; i < vial::kNumMacros; ++i) {
     macros_[i] = std::make_unique<SingleMacroSection>(name + String(i), i);
     addSubSection(macros_[i].get());
   }
@@ -198,14 +198,14 @@ void MacroKnobSection::resized() {
   int widget_margin = getWidgetMargin();
   int width = getWidth();
   int y = 0;
-  for (int i = 0; i < vital::kNumMacros; ++i) {
+  for (int i = 0; i < vial::kNumMacros; ++i) {
     float next_y = (i + 1) * (2 * knob_section_height - widget_margin + padding);
     macros_[i]->setBounds(0, y, width, next_y - y - padding);
     y = next_y;
   }
 
-  int last_y = macros_[vital::kNumMacros - 2]->getBottom() + padding;
-  macros_[vital::kNumMacros - 1]->setBounds(0, last_y, width, getHeight() - last_y);
+  int last_y = macros_[vial::kNumMacros - 2]->getBottom() + padding;
+  macros_[vial::kNumMacros - 1]->setBounds(0, last_y, width, getHeight() - last_y);
 
   reset();
   SynthSection::resized();

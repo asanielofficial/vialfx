@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "skin.h"
@@ -640,7 +640,7 @@ class SkinColorPicker : public Component, public Button::Listener, public Slider
 
     void buttonClicked(Button* clicked_button) override {
       if (clicked_button == &load_button_) {
-        FileChooser open_box("Open Skin", File(), String("*.") + vital::kSkinExtension);
+        FileChooser open_box("Open Skin", File(), String("*.") + vial::kSkinExtension);
         if (open_box.browseForFileToOpen()) {
           if (!skin_->loadFromFile(open_box.getResult())) {
             AlertWindow::showNativeDialogBox("Error opening skin", "Skin file is corrupted and won't load.", false);
@@ -652,9 +652,9 @@ class SkinColorPicker : public Component, public Button::Listener, public Slider
         return;
       }
       if (clicked_button == &save_button_) {
-        FileChooser save_box("Save Skin", File(), String("*.") + vital::kSkinExtension);
+        FileChooser save_box("Save Skin", File(), String("*.") + vial::kSkinExtension);
         if (save_box.browseForFileToSave(true))
-          skin_->saveToFile(save_box.getResult().withFileExtension(vital::kSkinExtension));
+          skin_->saveToFile(save_box.getResult().withFileExtension(vial::kSkinExtension));
 
         return;
       }

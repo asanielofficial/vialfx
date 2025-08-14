@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "synth_preset_selector.h"
@@ -273,7 +273,7 @@ void SynthPresetSelector::savePreset() {
 void SynthPresetSelector::importPreset() {
   SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
   File active_file = parent->getSynth()->getActiveFile();
-  FileChooser open_box("Open Preset", active_file, String("*.") + vital::kPresetExtension);
+  FileChooser open_box("Open Preset", active_file, String("*.") + vial::kPresetExtension);
   if (!open_box.browseForFileToOpen())
     return;
   
@@ -298,16 +298,16 @@ void SynthPresetSelector::exportPreset() {
 
   SynthBase* synth = parent->getSynth();
   File active_file = synth->getActiveFile();
-  FileChooser save_box("Export Preset", File(), String("*.") + vital::kPresetExtension);
+  FileChooser save_box("Export Preset", File(), String("*.") + vial::kPresetExtension);
   if (!save_box.browseForFileToSave(true))
     return;
   
-  synth->saveToFile(save_box.getResult().withFileExtension(vital::kPresetExtension));
+  synth->saveToFile(save_box.getResult().withFileExtension(vial::kPresetExtension));
   parent->externalPresetLoaded(synth->getActiveFile());
 }
 
 void SynthPresetSelector::importBank() {
-  FileChooser import_box("Import Bank", File(), String("*.") + vital::kBankExtension);
+  FileChooser import_box("Import Bank", File(), String("*.") + vial::kBankExtension);
   if (import_box.browseForFileToOpen()) {
     File result = import_box.getResult();
     FileInputStream input_stream(result);
@@ -379,7 +379,7 @@ void SynthPresetSelector::openSkinDesigner() {
 }
 
 void SynthPresetSelector::loadSkin() {
-  FileChooser open_box("Open Skin", File(), String("*.") + vital::kSkinExtension);
+  FileChooser open_box("Open Skin", File(), String("*.") + vial::kSkinExtension);
   if (open_box.browseForFileToOpen()) {
     File loaded = open_box.getResult();
     loaded.copyFileTo(LoadSave::getDefaultSkin());

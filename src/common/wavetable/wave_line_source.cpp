@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "wave_line_source.h"
@@ -23,7 +23,7 @@
 #include "wavetable_component_factory.h"
 
 WaveLineSource::WaveLineSourceKeyframe::WaveLineSourceKeyframe() :
-    line_generator_(vital::WaveFrame::kWaveformSize) {
+    line_generator_(vial::WaveFrame::kWaveformSize) {
   pull_power_ = 0.0f;
 }
 
@@ -47,7 +47,7 @@ void WaveLineSource::WaveLineSourceKeyframe::interpolate(const WavetableKeyframe
   VITAL_ASSERT(from->getNumPoints() == to->getNumPoints());
 
   float relative_power = from->getPullPower() - to->getPullPower();
-  float adjusted_t = vital::futils::powerScale(t, relative_power);
+  float adjusted_t = vial::futils::powerScale(t, relative_power);
 
   const LineGenerator* from_generator = from->getLineGenerator();
   const LineGenerator* to_generator = to->getLineGenerator();
@@ -66,10 +66,10 @@ void WaveLineSource::WaveLineSourceKeyframe::interpolate(const WavetableKeyframe
   }
 }
 
-void WaveLineSource::WaveLineSourceKeyframe::render(vital::WaveFrame* wave_frame) {
+void WaveLineSource::WaveLineSourceKeyframe::render(vial::WaveFrame* wave_frame) {
   line_generator_.render();
-  memcpy(wave_frame->time_domain, line_generator_.getBuffer(), vital::WaveFrame::kWaveformSize * sizeof(float));
-  for (int i = 0; i < vital::WaveFrame::kWaveformSize; ++i)
+  memcpy(wave_frame->time_domain, line_generator_.getBuffer(), vial::WaveFrame::kWaveformSize * sizeof(float));
+  for (int i = 0; i < vial::WaveFrame::kWaveformSize; ++i)
     wave_frame->time_domain[i] = wave_frame->time_domain[i] * 2.0f - 1.0f;
   wave_frame->toFrequencyDomain();
 }
@@ -96,7 +96,7 @@ WavetableKeyframe* WaveLineSource::createKeyframe(int position) {
   return keyframe;
 }
 
-void WaveLineSource::render(vital::WaveFrame* wave_frame, float position) {
+void WaveLineSource::render(vial::WaveFrame* wave_frame, float position) {
   interpolate(&compute_frame_, position);
   compute_frame_.render(wave_frame);
 }

@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 
 #include "line_generator.h"
 #include "open_gl_image.h"
@@ -40,7 +40,7 @@ class LfoEditor : public LineEditor {
     };
 
     LfoEditor(LineGenerator* lfo_source, String prefix,
-              const vital::output_map& mono_modulations, const vital::output_map& poly_modulations);
+              const vial::output_map& mono_modulations, const vial::output_map& poly_modulations);
     virtual ~LfoEditor();
 
     void parentHierarchyChanged() override;
@@ -56,10 +56,10 @@ class LfoEditor : public LineEditor {
   private:
     SynthGuiInterface* parent_;
 
-    const vital::StatusOutput* wave_phase_;
-    const vital::StatusOutput* frequency_;
-    vital::poly_float last_phase_;
-    vital::poly_float last_voice_;
+    const vial::StatusOutput* wave_phase_;
+    const vial::StatusOutput* frequency_;
+    vial::poly_float last_phase_;
+    vial::poly_float last_voice_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LfoEditor)
 };

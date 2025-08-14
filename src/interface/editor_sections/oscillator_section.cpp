@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "oscillator_section.h"
@@ -35,7 +35,7 @@
 #include "wavetable_3d.h"
 
 namespace {
-  const std::string kSpectralMorphTypes[vital::SynthOscillator::kNumSpectralMorphTypes] = {
+  const std::string kSpectralMorphTypes[vial::SynthOscillator::kNumSpectralMorphTypes] = {
     "---",
     "VOCODE",
     "FORM SCALE",
@@ -50,7 +50,7 @@ namespace {
     "TIME SKEW",
   };
 
-  const std::string kDistortionTypes[vital::SynthOscillator::kNumDistortionTypes] = {
+  const std::string kDistortionTypes[vial::SynthOscillator::kNumDistortionTypes] = {
     "---",
     "SYNC",
     "FORMANT",
@@ -143,20 +143,20 @@ namespace {
   constexpr int kShowErrorMs = 2000;
 
   String getDistortionSuffix(int type, int index) {
-    if (type == vital::SynthOscillator::kFmOscillatorA || type == vital::SynthOscillator::kRmOscillatorA)
-      return " " + String(1 + vital::ProducersModule::getFirstModulationIndex(index));
-    if (type == vital::SynthOscillator::kFmOscillatorB || type == vital::SynthOscillator::kRmOscillatorB)
-      return " " + String(1 + vital::ProducersModule::getSecondModulationIndex(index));
+    if (type == vial::SynthOscillator::kFmOscillatorA || type == vial::SynthOscillator::kRmOscillatorA)
+      return " " + String(1 + vial::ProducersModule::getFirstModulationIndex(index));
+    if (type == vial::SynthOscillator::kFmOscillatorB || type == vial::SynthOscillator::kRmOscillatorB)
+      return " " + String(1 + vial::ProducersModule::getSecondModulationIndex(index));
 
     return "";
   }
 
   bool isSpectralMenuSeparator(int index) {
-    return index == (vital::SynthOscillator::kNoSpectralMorph + 1);
+    return index == (vial::SynthOscillator::kNoSpectralMorph + 1);
   }
 
   bool isDistortionMenuSeparator(int index) {
-    return index == (vital::SynthOscillator::kNone + 1) || index == vital::SynthOscillator::kFmOscillatorA;
+    return index == (vial::SynthOscillator::kNone + 1) || index == vial::SynthOscillator::kFmOscillatorA;
   }
 
   String getDistortionMenuString(int type, int index) {
@@ -179,27 +179,27 @@ namespace {
   }
 
   bool isBipolarDistortionType(int distortion_type) {
-    return distortion_type == vital::SynthOscillator::kNone ||
-           distortion_type == vital::SynthOscillator::kSqueeze ||
-           distortion_type == vital::SynthOscillator::kSync ||
-           distortion_type == vital::SynthOscillator::kFormant ||
-           distortion_type == vital::SynthOscillator::kBend;
+    return distortion_type == vial::SynthOscillator::kNone ||
+           distortion_type == vial::SynthOscillator::kSqueeze ||
+           distortion_type == vial::SynthOscillator::kSync ||
+           distortion_type == vial::SynthOscillator::kFormant ||
+           distortion_type == vial::SynthOscillator::kBend;
   }
 
   bool isBipolarSpectralMorphType(int morph_type) {
-    return morph_type == vital::SynthOscillator::kNoSpectralMorph ||
-           morph_type == vital::SynthOscillator::kVocode ||
-           morph_type == vital::SynthOscillator::kFormScale ||
-           morph_type == vital::SynthOscillator::kHarmonicScale ||
-           morph_type == vital::SynthOscillator::kInharmonicScale ||
-           morph_type == vital::SynthOscillator::kPhaseDisperse;
+    return morph_type == vial::SynthOscillator::kNoSpectralMorph ||
+           morph_type == vial::SynthOscillator::kVocode ||
+           morph_type == vial::SynthOscillator::kFormScale ||
+           morph_type == vial::SynthOscillator::kHarmonicScale ||
+           morph_type == vial::SynthOscillator::kInharmonicScale ||
+           morph_type == vial::SynthOscillator::kPhaseDisperse;
   }
 } // namespace
 
 class UnisonViewer : public BarRenderer {
   public:
-    UnisonViewer(int index, const vital::output_map& mono_modulations, const vital::output_map& poly_modulations) :
-        BarRenderer(vital::SynthOscillator::kMaxUnison) {
+    UnisonViewer(int index, const vial::output_map& mono_modulations, const vial::output_map& poly_modulations) :
+        BarRenderer(vial::SynthOscillator::kMaxUnison) {
       std::string prefix = std::string("osc_") + std::to_string(index + 1);
       voices_ = { mono_modulations.at(prefix + "_unison_voices"), poly_modulations.at(prefix + "_unison_voices") };
       detune_ = { mono_modulations.at(prefix + "_unison_detune"), poly_modulations.at(prefix + "_unison_detune") };
@@ -210,8 +210,8 @@ class UnisonViewer : public BarRenderer {
       detune_power_slider_ = nullptr;
     }
 
-    static inline vital::poly_float getOutputsTotal(std::pair<vital::Output*, vital::Output*> outputs,
-                                                    vital::poly_float default_value, bool animate) {
+    static inline vial::poly_float getOutputsTotal(std::pair<vial::Output*, vial::Output*> outputs,
+                                                    vial::poly_float default_value, bool animate) {
       if (!outputs.first->owner->enabled() || !animate)
         return default_value;
       return outputs.first->trigger_value + outputs.second->trigger_value;
@@ -223,7 +223,7 @@ class UnisonViewer : public BarRenderer {
 
     void render(OpenGlWrapper& open_gl, bool animate) override {
       static constexpr float kHeightRatio = 0.7f;
-      static constexpr int kMaxUnison = vital::SynthOscillator::kMaxUnison;
+      static constexpr int kMaxUnison = vial::SynthOscillator::kMaxUnison;
 
       int voices = getOutputsTotal(voices_, voices_slider_->getValue(), animate)[0];
       voices = std::min(std::max(voices, 1), kMaxUnison);
@@ -246,7 +246,7 @@ class UnisonViewer : public BarRenderer {
         for (int i = 0; i < voices; ++i) {
           float t = 2.0f * i / (voices - 1.0f) - 1.0f;
           float center_offset = fabsf(t);
-          float power_scale = vital::futils::powerScale(center_offset, detune_power);
+          float power_scale = vial::futils::powerScale(center_offset, detune_power);
           if (t < 0.0f)
             power_scale = -power_scale;
           setX(i, power_scale * percent_active * detune + offset);
@@ -259,9 +259,9 @@ class UnisonViewer : public BarRenderer {
     }
 
   private:
-    std::pair<vital::Output*, vital::Output*> voices_;
-    std::pair<vital::Output*, vital::Output*> detune_;
-    std::pair<vital::Output*, vital::Output*> detune_power_;
+    std::pair<vial::Output*, vial::Output*> voices_;
+    std::pair<vial::Output*, vial::Output*> detune_;
+    std::pair<vial::Output*, vial::Output*> detune_power_;
 
     SynthSlider* voices_slider_;
     SynthSlider* detune_slider_;
@@ -277,8 +277,8 @@ class InvisibleSlider : public SynthSlider {
 };
 
 OscillatorSection::OscillatorSection(int index,
-                                     const vital::output_map& mono_modulations,
-                                     const vital::output_map& poly_modulations) :
+                                     const vial::output_map& mono_modulations,
+                                     const vial::output_map& poly_modulations) :
     SynthSection(String("OSC ") + String(index + 1)), index_(index),
     show_ttwt_error_(false), ttwt_overlay_(Shaders::kRoundedRectangleFragment) {
   std::string number = std::to_string(index + 1);
@@ -296,7 +296,7 @@ OscillatorSection::OscillatorSection(int index,
   transpose_->setLookAndFeel(TextLookAndFeel::instance());
   transpose_->setSensitivity(kTransposeMouseSensitivity);
   transpose_->setTextEntrySizePercent(1.0f, 0.7f);
-  transpose_->setShiftIndexAmount(vital::kNotesPerOctave);
+  transpose_->setShiftIndexAmount(vial::kNotesPerOctave);
   transpose_->overrideValue(Skin::kTextComponentOffset, 0.0f);
   transpose_->setModulationBarRight(false);
 
@@ -748,7 +748,7 @@ void OscillatorSection::buttonClicked(Button* clicked_button) {
   else if (clicked_button == spectral_morph_type_selector_.get()) {
     PopupItems options;
 
-    for (int i = 0; i < vital::SynthOscillator::kNumSpectralMorphTypes; ++i) {
+    for (int i = 0; i < vial::SynthOscillator::kNumSpectralMorphTypes; ++i) {
       if (isSpectralMenuSeparator(i))
         options.addItem(-1, "");
 
@@ -761,7 +761,7 @@ void OscillatorSection::buttonClicked(Button* clicked_button) {
   else if (clicked_button == distortion_type_selector_.get()) {
     PopupItems options;
     
-    for (int i = 0; i < vital::SynthOscillator::kNumDistortionTypes; ++i) {
+    for (int i = 0; i < vial::SynthOscillator::kNumDistortionTypes; ++i) {
       if (isDistortionMenuSeparator(i))
         options.addItem(-1, "");
 
@@ -774,7 +774,7 @@ void OscillatorSection::buttonClicked(Button* clicked_button) {
   else if (clicked_button == destination_selector_.get()) {
     PopupItems options;
 
-    int num_source_destinations = vital::constants::kNumSourceDestinations;
+    int num_source_destinations = vial::constants::kNumSourceDestinations;
     for (int i = 0; i < num_source_destinations; ++i)
       options.addItem(i, strings::kDestinationMenuNames[i]);
 
@@ -790,34 +790,34 @@ void OscillatorSection::buttonClicked(Button* clicked_button) {
     wavetable_->setRenderType(static_cast<Wavetable3d::RenderType>(render_type));
   }
   else if (clicked_button == prev_destination_.get()) {
-    int new_destination = current_destination_ - 1 + vital::constants::kNumSourceDestinations;
-    setDestinationSelected(new_destination % vital::constants::kNumSourceDestinations);
+    int new_destination = current_destination_ - 1 + vial::constants::kNumSourceDestinations;
+    setDestinationSelected(new_destination % vial::constants::kNumSourceDestinations);
   }
   else if (clicked_button == next_destination_.get()) {
-    int new_destination = (current_destination_ + 1) % vital::constants::kNumSourceDestinations;
+    int new_destination = (current_destination_ + 1) % vial::constants::kNumSourceDestinations;
     setDestinationSelected(new_destination);
   }
   else if (clicked_button == prev_spectral_.get()) {
-    int new_morph_type = current_spectral_morph_type_ - 1 + vital::SynthOscillator::kNumSpectralMorphTypes;
-    setSpectralMorphSelected(new_morph_type % vital::SynthOscillator::kNumSpectralMorphTypes);
+    int new_morph_type = current_spectral_morph_type_ - 1 + vial::SynthOscillator::kNumSpectralMorphTypes;
+    setSpectralMorphSelected(new_morph_type % vial::SynthOscillator::kNumSpectralMorphTypes);
   }
   else if (clicked_button == next_spectral_.get()) {
-    int new_morph_type = (current_spectral_morph_type_ + 1) % vital::SynthOscillator::kNumSpectralMorphTypes;
+    int new_morph_type = (current_spectral_morph_type_ + 1) % vial::SynthOscillator::kNumSpectralMorphTypes;
     setSpectralMorphSelected(new_morph_type);
   }
   else if (clicked_button == prev_distortion_.get()) {
-    int new_distortion_type = current_distortion_type_ - 1 + vital::SynthOscillator::kNumDistortionTypes;
-    setDistortionSelected(new_distortion_type % vital::SynthOscillator::kNumDistortionTypes);
+    int new_distortion_type = current_distortion_type_ - 1 + vial::SynthOscillator::kNumDistortionTypes;
+    setDistortionSelected(new_distortion_type % vial::SynthOscillator::kNumDistortionTypes);
   }
   else if (clicked_button == next_distortion_.get()) {
-    int new_distortion_type = (current_distortion_type_ + 1) % vital::SynthOscillator::kNumDistortionTypes;
+    int new_distortion_type = (current_distortion_type_ + 1) % vial::SynthOscillator::kNumDistortionTypes;
     setDistortionSelected(new_distortion_type);
   }
   else
     SynthSection::buttonClicked(clicked_button);
 }
 
-void OscillatorSection::setAllValues(vital::control_map& controls) {
+void OscillatorSection::setAllValues(vial::control_map& controls) {
   SynthSection::setAllValues(controls);
   current_spectral_morph_type_ = controls[spectral_morph_control_name_]->value();
   current_distortion_type_ = controls[distortion_control_name_]->value();
@@ -826,9 +826,9 @@ void OscillatorSection::setAllValues(vital::control_map& controls) {
   setupSpectralMorph();
   setupDistortion();
   setupDestination();
-  vital::SynthOscillator::DistortionType type = (vital::SynthOscillator::DistortionType)current_distortion_type_;
+  vial::SynthOscillator::DistortionType type = (vial::SynthOscillator::DistortionType)current_distortion_type_;
 
-  setDistortionPhaseVisible(vital::SynthOscillator::usesDistortionPhase(type));
+  setDistortionPhaseVisible(vial::SynthOscillator::usesDistortionPhase(type));
 
   wavetable_->setSpectralMorphType(current_spectral_morph_type_);
   wavetable_->setDistortionType(current_distortion_type_);
@@ -877,8 +877,8 @@ void OscillatorSection::timerCallback() {
 void OscillatorSection::setActive(bool active) {
   wavetable_->setActive(active);
   SynthSection::setActive(active);
-  spectral_morph_amount_->setActive(active && current_spectral_morph_type_ != vital::SynthOscillator::kNoSpectralMorph);
-  distortion_amount_->setActive(active && current_distortion_type_ != vital::SynthOscillator::kNone);
+  spectral_morph_amount_->setActive(active && current_spectral_morph_type_ != vial::SynthOscillator::kNoSpectralMorph);
+  distortion_amount_->setActive(active && current_distortion_type_ != vial::SynthOscillator::kNone);
 }
 
 void OscillatorSection::setName(String name) {
@@ -930,8 +930,8 @@ Slider* OscillatorSection::getWaveFrameSlider() {
 void OscillatorSection::setDistortionSelected(int selection) {
   current_distortion_type_ = selection;
   wavetable_->setDistortionType(selection);
-  vital::SynthOscillator::DistortionType type = (vital::SynthOscillator::DistortionType)current_distortion_type_;
-  setDistortionPhaseVisible(vital::SynthOscillator::usesDistortionPhase(type));
+  vial::SynthOscillator::DistortionType type = (vial::SynthOscillator::DistortionType)current_distortion_type_;
+  setDistortionPhaseVisible(vial::SynthOscillator::usesDistortionPhase(type));
   notifyDistortionTypeChange();
 }
 
@@ -947,11 +947,11 @@ void OscillatorSection::setDestinationSelected(int selection) {
 }
 
 void OscillatorSection::toggleFilterInput(int filter_index, bool on) {
-  vital::constants::SourceDestination current_destination = (vital::constants::SourceDestination)current_destination_;
+  vial::constants::SourceDestination current_destination = (vial::constants::SourceDestination)current_destination_;
   if (filter_index == 0)
-    current_destination_ = vital::constants::toggleFilter1(current_destination, on);
+    current_destination_ = vial::constants::toggleFilter1(current_destination, on);
   else
-    current_destination_ = vital::constants::toggleFilter2(current_destination, on);
+    current_destination_ = vial::constants::toggleFilter2(current_destination, on);
   notifyDestinationChange();
 }
 
@@ -985,7 +985,7 @@ void OscillatorSection::languageSelectCancelled() {
 }
 
 void OscillatorSection::prevClicked() {
-  File wavetable_file = LoadSave::getShiftedFile(LoadSave::kWavetableFolderName, vital::kWavetableExtensionsList,
+  File wavetable_file = LoadSave::getShiftedFile(LoadSave::kWavetableFolderName, vial::kWavetableExtensionsList,
                                                  LoadSave::kAdditionalWavetableFoldersName, current_file_, -1);
   if (wavetable_file.exists())
     loadFile(wavetable_file);
@@ -994,7 +994,7 @@ void OscillatorSection::prevClicked() {
 }
 
 void OscillatorSection::nextClicked() {
-  File wavetable_file = LoadSave::getShiftedFile(LoadSave::kWavetableFolderName, vital::kWavetableExtensionsList,
+  File wavetable_file = LoadSave::getShiftedFile(LoadSave::kWavetableFolderName, vial::kWavetableExtensionsList,
                                                  LoadSave::kAdditionalWavetableFoldersName, current_file_, 1);
   if (wavetable_file.exists())
     loadFile(wavetable_file);
@@ -1008,7 +1008,7 @@ void OscillatorSection::textMouseDown(const MouseEvent& e) {
   Rectangle<int> bounds(unison_voices_->getX(), preset_selector_->getY(),
                         kBrowserWidth * size_ratio_, kBrowserHeight * size_ratio_);
   bounds = getLocalArea(this, bounds);
-  showPopupBrowser(this, bounds, LoadSave::getWavetableDirectories(), vital::kWavetableExtensionsList,
+  showPopupBrowser(this, bounds, LoadSave::getWavetableDirectories(), vial::kWavetableExtensionsList,
                    LoadSave::kWavetableFolderName, LoadSave::kAdditionalWavetableFoldersName);
 }
 
@@ -1020,9 +1020,9 @@ void OscillatorSection::quantizeUpdated() {
 }
 
 void OscillatorSection::resetOscillatorModulationDistortionType() {
-  if (vital::SynthOscillator::isFirstModulation(current_distortion_type_) ||
-      vital::SynthOscillator::isSecondModulation(current_distortion_type_)) {
-    current_distortion_type_ = vital::SynthOscillator::kNone;
+  if (vial::SynthOscillator::isFirstModulation(current_distortion_type_) ||
+      vial::SynthOscillator::isSecondModulation(current_distortion_type_)) {
+    current_distortion_type_ = vial::SynthOscillator::kNone;
     notifyDistortionTypeChange();
   }
 }
@@ -1086,7 +1086,7 @@ void OscillatorSection::loadFile(const File& wavetable_file) {
     return;
 
   current_file_ = wavetable_file;
-  if (wavetable_file.getFileExtension() == String(".") + vital::kWavetableExtension) {
+  if (wavetable_file.getFileExtension() == String(".") + vial::kWavetableExtension) {
     wavetable_->setLoadingWavetable(true);
     parent->loadWavetableFile(index_, wavetable_file);
     wavetable_->setLoadingWavetable(false);
@@ -1113,7 +1113,7 @@ void OscillatorSection::setupSpectralMorph() {
   spectral_morph_amount_->setBipolar(bipolar);
   spectral_morph_amount_->setDoubleClickReturnValue(true, bipolar ? 0.5f : 0.0f);
   spectral_morph_amount_->setActive(isActive() &&
-                                    current_spectral_morph_type_ != vital::SynthOscillator::kNoSpectralMorph);
+                                    current_spectral_morph_type_ != vial::SynthOscillator::kNoSpectralMorph);
   spectral_morph_amount_->redoImage();
   spectral_morph_type_text_->setText(kSpectralMorphTypes[current_spectral_morph_type_]);
 }
@@ -1122,7 +1122,7 @@ void OscillatorSection::setupDistortion() {
   bool bipolar = isBipolarDistortionType(current_distortion_type_);
   distortion_amount_->setBipolar(bipolar);
   distortion_amount_->setDoubleClickReturnValue(true, bipolar ? 0.5f : 0.0f);
-  distortion_amount_->setActive(isActive() && current_distortion_type_ != vital::SynthOscillator::kNone);
+  distortion_amount_->setActive(isActive() && current_distortion_type_ != vial::SynthOscillator::kNone);
   distortion_amount_->redoImage();
   distortion_type_text_->setText(getDistortionString(current_distortion_type_, index_));
 }

@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
@@ -54,8 +54,8 @@ class FilterResponse : public OpenGlLineRenderer {
       kNumFilterShaders
     };
 
-    FilterResponse(String suffix, const vital::output_map& mono_modulations);
-    FilterResponse(int index, const vital::output_map& mono_modulations, const vital::output_map& poly_modulations);
+    FilterResponse(String suffix, const vial::output_map& mono_modulations);
+    FilterResponse(int index, const vial::output_map& mono_modulations, const vial::output_map& poly_modulations);
     virtual ~FilterResponse();
 
     void init(OpenGlWrapper& open_gl) override;
@@ -80,7 +80,7 @@ class FilterResponse : public OpenGlLineRenderer {
     void mouseWheelMove(const MouseEvent& e, const MouseWheelDetails& wheel) override;
 
     void setActive(bool active) { active_ = active; }
-    void setModel(vital::constants::FilterModel model) { filter_model_ = model; }
+    void setModel(vial::constants::FilterModel model) { filter_model_ = model; }
     void setStyle(int style) { filter_state_.style = style; }
 
   private:
@@ -109,12 +109,12 @@ class FilterResponse : public OpenGlLineRenderer {
     void setFilterSettingsFromPosition(Point<int> position);
 
     void drawFilterResponse(OpenGlWrapper& open_gl);
-    vital::poly_float getOutputsTotal(std::pair<vital::Output*, vital::Output*> outputs,
-                                      vital::poly_float default_value);
+    vial::poly_float getOutputsTotal(std::pair<vial::Output*, vial::Output*> outputs,
+                                      vial::poly_float default_value);
 
-    bool setupFilterState(vital::constants::FilterModel model);
+    bool setupFilterState(vial::constants::FilterModel model);
     bool isStereoState();
-    void loadShader(FilterShader shader, vital::constants::FilterModel model, int index);
+    void loadShader(FilterShader shader, vial::constants::FilterModel model, int index);
     void bind(FilterShader shader, OpenGLContext& open_gl_context);
     void unbind(FilterShader shader, OpenGLContext& open_gl_context);
     void renderLineResponse(OpenGlWrapper& open_gl);
@@ -134,20 +134,20 @@ class FilterResponse : public OpenGlLineRenderer {
     Colour fill_right_color_;
     Colour fill_disabled_color_;
 
-    vital::SallenKeyFilter analog_filter_;
-    vital::CombFilter comb_filter_;
-    vital::DigitalSvf digital_filter_;
-    vital::DiodeFilter diode_filter_;
-    vital::DirtyFilter dirty_filter_;
-    vital::FormantFilter formant_filter_;
-    vital::LadderFilter ladder_filter_;
-    vital::PhaserFilter phaser_filter_;
+    vial::SallenKeyFilter analog_filter_;
+    vial::CombFilter comb_filter_;
+    vial::DigitalSvf digital_filter_;
+    vial::DiodeFilter diode_filter_;
+    vial::DirtyFilter dirty_filter_;
+    vial::FormantFilter formant_filter_;
+    vial::LadderFilter ladder_filter_;
+    vial::PhaserFilter phaser_filter_;
 
     int last_filter_style_;
-    vital::constants::FilterModel last_filter_model_;
-    vital::constants::FilterModel filter_model_;
-    vital::SynthFilter::FilterState filter_state_;
-    vital::poly_float mix_;
+    vial::constants::FilterModel last_filter_model_;
+    vial::constants::FilterModel filter_model_;
+    vial::SynthFilter::FilterState filter_state_;
+    vial::poly_float mix_;
 
     SynthSlider* cutoff_slider_;
     SynthSlider* resonance_slider_;
@@ -160,16 +160,16 @@ class FilterResponse : public OpenGlLineRenderer {
     SynthSlider* formant_resonance_slider_;
     SynthSlider* formant_spread_slider_;
 
-    std::pair<vital::Output*, vital::Output*> filter_mix_outputs_;
-    std::pair<vital::Output*, vital::Output*> midi_cutoff_outputs_;
-    std::pair<vital::Output*, vital::Output*> resonance_outputs_;
-    std::pair<vital::Output*, vital::Output*> blend_outputs_;
-    std::pair<vital::Output*, vital::Output*> transpose_outputs_;
-    std::pair<vital::Output*, vital::Output*> interpolate_x_outputs_;
-    std::pair<vital::Output*, vital::Output*> interpolate_y_outputs_;
-    std::pair<vital::Output*, vital::Output*> formant_resonance_outputs_;
-    std::pair<vital::Output*, vital::Output*> formant_spread_outputs_;
-    std::pair<vital::Output*, vital::Output*> formant_transpose_outputs_;
+    std::pair<vial::Output*, vial::Output*> filter_mix_outputs_;
+    std::pair<vial::Output*, vial::Output*> midi_cutoff_outputs_;
+    std::pair<vial::Output*, vial::Output*> resonance_outputs_;
+    std::pair<vial::Output*, vial::Output*> blend_outputs_;
+    std::pair<vial::Output*, vial::Output*> transpose_outputs_;
+    std::pair<vial::Output*, vial::Output*> interpolate_x_outputs_;
+    std::pair<vial::Output*, vial::Output*> interpolate_y_outputs_;
+    std::pair<vial::Output*, vial::Output*> formant_resonance_outputs_;
+    std::pair<vial::Output*, vial::Output*> formant_spread_outputs_;
+    std::pair<vial::Output*, vial::Output*> formant_transpose_outputs_;
 
     FilterResponseShader shaders_[kNumFilterShaders];
     std::unique_ptr<float[]> line_data_;

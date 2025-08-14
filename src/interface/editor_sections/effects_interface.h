@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 #include "default_look_and_feel.h"
 #include "drag_drop_effect_order.h"
 #include "open_gl_image.h"
@@ -65,7 +65,7 @@ class EffectsInterface : public SynthSection, public DragDropEffectOrder::Listen
         virtual void effectsMoved() = 0;
     };
 
-    EffectsInterface(const vital::output_map& mono_modulations);
+    EffectsInterface(const vial::output_map& mono_modulations);
     virtual ~EffectsInterface();
 
     void paintBackground(Graphics& g) override;
@@ -114,7 +114,7 @@ class EffectsInterface : public SynthSection, public DragDropEffectOrder::Listen
     std::unique_ptr<DragDropEffectOrder> effect_order_;
     std::unique_ptr<OpenGlScrollBar> scroll_bar_;
 
-    SynthSection* effects_list_[vital::constants::kNumEffects];
+    SynthSection* effects_list_[vial::constants::kNumEffects];
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EffectsInterface)
 };

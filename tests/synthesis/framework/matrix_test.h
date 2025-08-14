@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 
 class MatrixTest : public UnitTest {
   public:

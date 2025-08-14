@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 #include "synth_section.h"
 #include "preset_selector.h"
 
@@ -39,8 +39,8 @@ class FilterSection : public SynthSection, public PresetSelector::Listener {
         virtual void sampleInputToggled(FilterSection* section, bool on) = 0;
     };
 
-    FilterSection(String suffix, const vital::output_map& mono_modulations);
-    FilterSection(int index, const vital::output_map& mono_modulations, const vital::output_map& poly_modulations);
+    FilterSection(String suffix, const vial::output_map& mono_modulations);
+    FilterSection(int index, const vial::output_map& mono_modulations, const vial::output_map& poly_modulations);
     ~FilterSection();
 
     void setFilterResponseSliders();
@@ -51,7 +51,7 @@ class FilterSection : public SynthSection, public PresetSelector::Listener {
     void positionLeftRight();
     void resized() override;
     void buttonClicked(Button* clicked_button) override;
-    void setAllValues(vital::control_map& controls) override;
+    void setAllValues(vial::control_map& controls) override;
 
     void prevClicked() override;
     void nextClicked() override;

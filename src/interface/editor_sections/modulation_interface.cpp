@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "modulation_interface.h"
@@ -39,7 +39,7 @@ namespace {
 }
 
 ModulationInterface::ModulationInterface(SynthGuiData* synth_data) : SynthSection("modulation") {
-  for (int i = 0; i < vital::kNumEnvelopes; ++i) {
+  for (int i = 0; i < vial::kNumEnvelopes; ++i) {
     std::string string_num = std::to_string(i + 1);
     std::string prefix = "env_" + string_num;
     envelopes_[i] = std::make_unique<EnvelopeSection>("ENVELOPE " + string_num, prefix,
@@ -48,7 +48,7 @@ ModulationInterface::ModulationInterface(SynthGuiData* synth_data) : SynthSectio
     envelopes_[i]->setVisible(i == 0);
   }
 
-  envelope_tab_selector_ = std::make_unique<ModulationTabSelector>("env", vital::kNumEnvelopes);
+  envelope_tab_selector_ = std::make_unique<ModulationTabSelector>("env", vial::kNumEnvelopes);
   addSubSection(envelope_tab_selector_.get());
   envelope_tab_selector_->addListener(this);
   envelope_tab_selector_->registerModulationButtons(this);
@@ -57,7 +57,7 @@ ModulationInterface::ModulationInterface(SynthGuiData* synth_data) : SynthSectio
   envelope_tab_selector_->connectRight(true);
   envelope_tab_selector_->drawBorders(true);
 
-  for (int i = 0; i < vital::kNumLfos; ++i) {
+  for (int i = 0; i < vial::kNumLfos; ++i) {
     std::string string_num = std::to_string(i + 1);
     std::string prefix = "lfo_" + string_num;
     lfos_[i] = std::make_unique<LfoSection>("LFO " + string_num, prefix, synth_data->synth->getLfoSource(i),
@@ -66,7 +66,7 @@ ModulationInterface::ModulationInterface(SynthGuiData* synth_data) : SynthSectio
     lfos_[i]->setVisible(i == 0);
   }
 
-  lfo_tab_selector_ = std::make_unique<ModulationTabSelector>("lfo", vital::kNumLfos);
+  lfo_tab_selector_ = std::make_unique<ModulationTabSelector>("lfo", vial::kNumLfos);
   addSubSection(lfo_tab_selector_.get());
   lfo_tab_selector_->addListener(this);
   lfo_tab_selector_->registerModulationButtons(this);
@@ -75,7 +75,7 @@ ModulationInterface::ModulationInterface(SynthGuiData* synth_data) : SynthSectio
   lfo_tab_selector_->connectRight(true);
   lfo_tab_selector_->drawBorders(true);
 
-  for (int i = 0; i < vital::kNumRandomLfos; ++i) {
+  for (int i = 0; i < vial::kNumRandomLfos; ++i) {
     std::string string_num = std::to_string(i + 1);
     std::string prefix = "random_" + string_num;
     random_lfos_[i] = std::make_unique<RandomSection>("RANDOM " + string_num, prefix,
@@ -84,7 +84,7 @@ ModulationInterface::ModulationInterface(SynthGuiData* synth_data) : SynthSectio
     random_lfos_[i]->setVisible(i == 0);
   }
 
-  random_tab_selector_ = std::make_unique<ModulationTabSelector>("random", vital::kNumRandomLfos);
+  random_tab_selector_ = std::make_unique<ModulationTabSelector>("random", vial::kNumRandomLfos);
   addSubSection(random_tab_selector_.get());
   random_tab_selector_->addListener(this);
   random_tab_selector_->registerModulationButtons(this);
@@ -158,13 +158,13 @@ void ModulationInterface::resized() {
 
   envelope_tab_selector_->setBounds(0, 0, mod_width, envelope_height);
   Rectangle<int> envelope_bounds(mod_width, 0, active_width - mod_width, envelope_height);
-  for (int i = 0; i < vital::kNumEnvelopes; ++i)
+  for (int i = 0; i < vial::kNumEnvelopes; ++i)
     envelopes_[i]->setBounds(envelope_bounds);
 
   int lfo_y = envelope_bounds.getBottom() + padding;
   lfo_tab_selector_->setBounds(0, lfo_y, mod_width, lfo_height);
   Rectangle<int> lfo_bounds(mod_width, lfo_y, active_width - mod_width, lfo_height);
-  for (int i = 0; i < vital::kNumLfos; ++i)
+  for (int i = 0; i < vial::kNumLfos; ++i)
     lfos_[i]->setBounds(lfo_bounds);
 
   int keyboard_width = mod_width * 4;
@@ -174,7 +174,7 @@ void ModulationInterface::resized() {
   int random_height = getHeight() - random_y;
   random_tab_selector_->setBounds(0, random_y, mod_width, random_height);
   Rectangle<int> random_bounds(mod_width, random_y, keyboard_x - padding - mod_width, random_height);
-  for (int i = 0; i < vital::kNumRandomLfos; ++i)
+  for (int i = 0; i < vial::kNumRandomLfos; ++i)
     random_lfos_[i]->setBounds(random_bounds);
 
   int keyboard_top_height = random_height / 2;
@@ -200,15 +200,15 @@ void ModulationInterface::reset() {
   keyboard_modulations_top_->reset();
   keyboard_modulations_bottom_->reset();
 
-  for (int i = 0; i < vital::kNumEnvelopes; ++i) {
+  for (int i = 0; i < vial::kNumEnvelopes; ++i) {
     if (envelopes_[i]->isVisible())
       envelopes_[i]->reset();
   }
-  for (int i = 0; i < vital::kNumLfos; ++i) {
+  for (int i = 0; i < vial::kNumLfos; ++i) {
     if (lfos_[i]->isVisible())
       lfos_[i]->reset();
   }
-  for (int i = 0; i < vital::kNumRandomLfos; ++i) {
+  for (int i = 0; i < vial::kNumRandomLfos; ++i) {
     if (random_lfos_[i]->isVisible())
       random_lfos_[i]->reset();
   }
@@ -227,19 +227,19 @@ void ModulationInterface::modulationSelected(ModulationTabSelector* selector, in
   Graphics g(image);
 
   if (selector == envelope_tab_selector_.get()) {
-    for (int i = 0; i < vital::kNumEnvelopes; ++i)
+    for (int i = 0; i < vial::kNumEnvelopes; ++i)
       envelopes_[i]->setVisible(i == index);
     envelopes_[index]->paintOpenGlChildrenBackgrounds(g);
     envelopes_[index]->reset();
   }
   else if (selector == lfo_tab_selector_.get()) {
-    for (int i = 0; i < vital::kNumLfos; ++i)
+    for (int i = 0; i < vial::kNumLfos; ++i)
       lfos_[i]->setVisible(i == index);
     lfos_[index]->paintOpenGlChildrenBackgrounds(g);
     lfos_[index]->reset();
   }
   else if (selector == random_tab_selector_.get()) {
-    for (int i = 0; i < vital::kNumRandomLfos; ++i)
+    for (int i = 0; i < vial::kNumRandomLfos; ++i)
       random_lfos_[i]->setVisible(i == index);
     random_lfos_[index]->paintOpenGlChildrenBackgrounds(g);
     random_lfos_[index]->reset();

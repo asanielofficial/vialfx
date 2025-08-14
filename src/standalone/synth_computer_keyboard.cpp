@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "synth_computer_keyboard.h"
@@ -19,14 +19,14 @@
 #include "synth_constants.h"
 #include "sound_engine.h"
 
-SynthComputerKeyboard::SynthComputerKeyboard(vital::SoundEngine* synth,
+SynthComputerKeyboard::SynthComputerKeyboard(vial::SoundEngine* synth,
                                              MidiKeyboardState* keyboard_state) {
   synth_ = synth;
   keyboard_state_ = keyboard_state;
-  computer_keyboard_offset_ = vital::kDefaultKeyboardOffset;
-  layout_ = vital::kDefaultKeyboard;
-  up_key_ = vital::kDefaultKeyboardOctaveUp;
-  down_key_ = vital::kDefaultKeyboardOctaveDown;
+  computer_keyboard_offset_ = vial::kDefaultKeyboardOffset;
+  layout_ = vial::kDefaultKeyboard;
+  up_key_ = vial::kDefaultKeyboardOctaveUp;
+  down_key_ = vial::kDefaultKeyboardOctaveDown;
 }
 
 SynthComputerKeyboard::~SynthComputerKeyboard() {
@@ -39,8 +39,8 @@ void SynthComputerKeyboard::changeKeyboardOffset(int new_offset) {
     keys_pressed_.erase(layout_[i]);
   }
 
-  int max = (vital::kMidiSize / vital::kNotesPerOctave - 1) * vital::kNotesPerOctave;
-  computer_keyboard_offset_ = vital::utils::iclamp(new_offset, 0, max);
+  int max = (vial::kMidiSize / vial::kNotesPerOctave - 1) * vial::kNotesPerOctave;
+  computer_keyboard_offset_ = vial::utils::iclamp(new_offset, 0, max);
 }
 
 bool SynthComputerKeyboard::keyPressed(const KeyPress &key, Component *origin) {
@@ -68,7 +68,7 @@ bool SynthComputerKeyboard::keyStateChanged(bool isKeyDown, Component *origin) {
   if (KeyPress::isKeyCurrentlyDown(down_key_)) {
     if (!keys_pressed_.count(down_key_)) {
       keys_pressed_.insert(down_key_);
-      changeKeyboardOffset(computer_keyboard_offset_ - vital::kNotesPerOctave);
+      changeKeyboardOffset(computer_keyboard_offset_ - vial::kNotesPerOctave);
       consumed = true;
     }
   }
@@ -78,7 +78,7 @@ bool SynthComputerKeyboard::keyStateChanged(bool isKeyDown, Component *origin) {
   if (KeyPress::isKeyCurrentlyDown(up_key_)) {
     if (!keys_pressed_.count(up_key_)) {
       keys_pressed_.insert(up_key_);
-      changeKeyboardOffset(computer_keyboard_offset_ + vital::kNotesPerOctave);
+      changeKeyboardOffset(computer_keyboard_offset_ + vial::kNotesPerOctave);
       consumed = true;
     }
   }

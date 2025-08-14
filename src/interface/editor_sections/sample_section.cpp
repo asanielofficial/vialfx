@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "sample_section.h"
@@ -38,7 +38,7 @@ SampleSection::SampleSection(String name) : SynthSection(std::move(name)), sampl
   transpose_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   transpose_->setSensitivity(kTransposeMouseSensitivity);
   transpose_->setTextEntrySizePercent(1.0f, 0.7f);
-  transpose_->setShiftIndexAmount(vital::kNotesPerOctave);
+  transpose_->setShiftIndexAmount(vial::kNotesPerOctave);
   transpose_->overrideValue(Skin::kTextComponentOffset, 0.0f);
   transpose_->setModulationBarRight(false);
 
@@ -280,7 +280,7 @@ void SampleSection::loadFile(const File& file) {
   sample_viewer_->repaintAudio();
 }
 
-void SampleSection::setAllValues(vital::control_map& controls) {
+void SampleSection::setAllValues(vial::control_map& controls) {
   preset_selector_->setText(sample_viewer_->getName());
   transpose_quantize_button_->setValue(static_cast<int>(controls["sample_transpose_quantize"]->value()));
   SynthSection::setAllValues(controls);
@@ -292,7 +292,7 @@ void SampleSection::setAllValues(vital::control_map& controls) {
 void SampleSection::buttonClicked(Button* clicked_button) {
   if (clicked_button == destination_selector_.get()) {
     PopupItems options;
-    int num_source_destinations = vital::constants::kNumSourceDestinations;
+    int num_source_destinations = vial::constants::kNumSourceDestinations;
     for (int i = 0; i < num_source_destinations; ++i)
       options.addItem(i, strings::kDestinationMenuNames[i]);
 
@@ -300,11 +300,11 @@ void SampleSection::buttonClicked(Button* clicked_button) {
                       [=](int selection) { setDestinationSelected(selection); });
   }
   else if (clicked_button == prev_destination_.get()) {
-    int new_destination = current_destination_ - 1 + vital::constants::kNumSourceDestinations;
-    setDestinationSelected(new_destination % vital::constants::kNumSourceDestinations);
+    int new_destination = current_destination_ - 1 + vial::constants::kNumSourceDestinations;
+    setDestinationSelected(new_destination % vial::constants::kNumSourceDestinations);
   }
   else if (clicked_button == next_destination_.get()) {
-    int new_destination = (current_destination_ + 1) % vital::constants::kNumSourceDestinations;
+    int new_destination = (current_destination_ + 1) % vial::constants::kNumSourceDestinations;
     setDestinationSelected(new_destination);
   }
   else
@@ -328,15 +328,15 @@ void SampleSection::setupDestination() {
 }
 
 void SampleSection::toggleFilterInput(int filter_index, bool on) {
-  vital::constants::SourceDestination current_destination = (vital::constants::SourceDestination)current_destination_;
+  vial::constants::SourceDestination current_destination = (vial::constants::SourceDestination)current_destination_;
   if (filter_index == 0)
-    setDestinationSelected(vital::constants::toggleFilter1(current_destination, on));
+    setDestinationSelected(vial::constants::toggleFilter1(current_destination, on));
   else
-    setDestinationSelected(vital::constants::toggleFilter2(current_destination, on));
+    setDestinationSelected(vial::constants::toggleFilter2(current_destination, on));
 }
 
 void SampleSection::prevClicked() {
-  File sample_file = LoadSave::getShiftedFile(LoadSave::kSampleFolderName, vital::kSampleExtensionsList,
+  File sample_file = LoadSave::getShiftedFile(LoadSave::kSampleFolderName, vial::kSampleExtensionsList,
                                               LoadSave::kAdditionalSampleFoldersName, getCurrentFile(), -1);
   if (sample_file.exists())
     loadFile(sample_file);
@@ -345,7 +345,7 @@ void SampleSection::prevClicked() {
 }
 
 void SampleSection::nextClicked() {
-  File sample_file = LoadSave::getShiftedFile(LoadSave::kSampleFolderName, vital::kSampleExtensionsList,
+  File sample_file = LoadSave::getShiftedFile(LoadSave::kSampleFolderName, vial::kSampleExtensionsList,
                                               LoadSave::kAdditionalSampleFoldersName, getCurrentFile(), 1);
   if (sample_file.exists())
     loadFile(sample_file);
@@ -360,7 +360,7 @@ void SampleSection::textMouseDown(const MouseEvent& e) {
   Rectangle<int> bounds(preset_selector_->getRight(), preset_selector_->getY(),
                         kBrowserWidth * size_ratio_, kBrowserHeight * size_ratio_);
   bounds = getLocalArea(this, bounds);
-  showPopupBrowser(this, bounds, LoadSave::getSampleDirectories(), vital::kSampleExtensionsList,
+  showPopupBrowser(this, bounds, LoadSave::getSampleDirectories(), vial::kSampleExtensionsList,
                    LoadSave::kSampleFolderName, LoadSave::kAdditionalSampleFoldersName);
 }
 

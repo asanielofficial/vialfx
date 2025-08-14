@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 
 #include "bar_renderer.h"
 #include "common.h"
@@ -95,7 +95,7 @@ class BarEditor : public BarRenderer {
     int getHoveredIndex(Point<int> position);
 
     OpenGlQuad editing_quad_;
-    vital::utils::RandomGenerator random_generator_;
+    vial::utils::RandomGenerator random_generator_;
     std::vector<Listener*> listeners_;
     Point<int> current_mouse_position_;
     Point<int> last_edit_position_;

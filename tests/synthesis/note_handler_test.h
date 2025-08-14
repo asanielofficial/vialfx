@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 
 namespace vital {
   class SoundEngine;

@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "wave_window_editor.h"
@@ -93,9 +93,9 @@ void WaveWindowEditor::changeValues(const MouseEvent& e) {
 
   float position = (1.0f * e.getPosition().x) / getWidth();
   if (editing_ == kLeft)
-    left_position_ = vital::utils::clamp(position, 0.0f, right_position_);
+    left_position_ = vial::utils::clamp(position, 0.0f, right_position_);
   else if (editing_ == kRight)
-    right_position_ = vital::utils::clamp(position, left_position_, 1.0f);
+    right_position_ = vial::utils::clamp(position, left_position_, 1.0f);
 
   notifyWindowChanged(false);
   setPoints();
@@ -127,7 +127,7 @@ void WaveWindowEditor::setPoints() {
   float left_gl_x = left_position_ * width;
   for (int i = 0; i < kPointsPerSection; ++i) {
     float t = i / (kPointsPerSection - 1.0f);
-    float x = vital::utils::interpolate(0.0f, left_gl_x, t);
+    float x = vial::utils::interpolate(0.0f, left_gl_x, t);
     float y = WaveWindowModifier::applyWindow(window_shape_, t) * half_height;
 
     setXAt(i, x);
@@ -139,7 +139,7 @@ void WaveWindowEditor::setPoints() {
   float right_gl_x = right_position_ * width;
   for (int i = 0; i < kPointsPerSection; ++i) {
     float t = i / (kPointsPerSection - 1.0f);
-    float x = vital::utils::interpolate(right_gl_x, width, t);
+    float x = vial::utils::interpolate(right_gl_x, width, t);
     float y = WaveWindowModifier::applyWindow(window_shape_, 1.0f - t) * half_height;
 
     int index = kPointsPerSection + i;

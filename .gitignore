@@ -29,6 +29,7 @@ build
 *.vst
 *.VST3
 *.vst3
+*.au
 *.tar.gz
 Debug
 Profile
@@ -37,3 +38,9 @@ Release
 **/JuceLibraryCode
 .vscode
 VST2_SDK
+build/
+
+CMakeFiles/
+CMakeCache.txt
+*.cmake
+Makefile

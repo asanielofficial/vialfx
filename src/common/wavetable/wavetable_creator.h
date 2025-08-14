@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 #include "wave_frame.h"
 #include "wavetable_group.h"
 #include "file_source.h"
@@ -38,7 +38,7 @@ class WavetableCreator {
       kNumDragLoadStyles
     };
 
-    WavetableCreator(vital::Wavetable* wavetable) : wavetable_(wavetable),
+    WavetableCreator(vial::Wavetable* wavetable) : wavetable_(wavetable),
                                                     full_normalize_(true), remove_all_dc_(true) { }
   
     int getGroupIndex(WavetableGroup* group);
@@ -73,7 +73,7 @@ class WavetableCreator {
     json stateToJson();
     void jsonToState(json data);
 
-    vital::Wavetable* getWavetable() { return wavetable_; }
+    vial::Wavetable* getWavetable() { return wavetable_; }
 
   protected:
     void initFromSplicedAudioFile(const float* audio_buffer, int num_samples, int sample_rate,
@@ -82,12 +82,12 @@ class WavetableCreator {
     void initFromPitchedAudioFile(const float* audio_buffer, int num_samples, int sample_rate);
     void initFromLineGenerator(LineGenerator* line_generator);
 
-    vital::WaveFrame compute_frame_combine_;
-    vital::WaveFrame compute_frame_;
+    vial::WaveFrame compute_frame_combine_;
+    vial::WaveFrame compute_frame_;
     std::vector<std::unique_ptr<WavetableGroup>> groups_;
 
     std::string last_file_loaded_;
-    vital::Wavetable* wavetable_;
+    vial::Wavetable* wavetable_;
     bool full_normalize_;
     bool remove_all_dc_;
 

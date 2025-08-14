@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "reverb.h"
@@ -20,7 +20,7 @@
 #include "memory.h"
 #include "synth_constants.h"
 
-namespace vital {
+namespace vial {
   static constexpr float kMaxChorusDrift = 2500.0f;
   static constexpr float kMinDecayTime = 0.1f;
   static constexpr float kMaxDecayTime = 100.0f;
@@ -391,4 +391,4 @@ namespace vital {
         feedback_memories_[n][i] = 0.0f;
     }
   }
-} // namespace vital
+} // namespace vial

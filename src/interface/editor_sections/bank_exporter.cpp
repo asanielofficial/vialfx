@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "bank_exporter.h"
@@ -387,8 +387,8 @@ void ContentList::renderOpenGlComponents(OpenGlWrapper& open_gl, bool animate) {
   Rectangle<int> view_bounds(0, title_width, getWidth(), getHeight() - title_width);
   OpenGlComponent::setViewPort(this, view_bounds, open_gl);
 
-  float image_width = vital::utils::nextPowerOfTwo(getWidth());
-  float image_height = vital::utils::nextPowerOfTwo(row_height);
+  float image_width = vial::utils::nextPowerOfTwo(getWidth());
+  float image_height = vial::utils::nextPowerOfTwo(row_height);
   float width_ratio = image_width / getWidth();
   float height_ratio = image_height / row_height;
 
@@ -615,10 +615,10 @@ void BankExporter::exportBank() {
       bank_zip.addFile(sample, 9, sample_path + getRelativePath(sample, LoadSave::kSampleFolderName));
   }
 
-  File file = File::getCurrentWorkingDirectory().getChildFile(bank_name + "." + vital::kBankExtension);
-  FileChooser export_box("Export Bank", file, String("*.") + vital::kBankExtension);
+  File file = File::getCurrentWorkingDirectory().getChildFile(bank_name + "." + vial::kBankExtension);
+  FileChooser export_box("Export Bank", file, String("*.") + vial::kBankExtension);
   if (export_box.browseForFileToSave(true)) {
-    File destination = export_box.getResult().withFileExtension(vital::kBankExtension);
+    File destination = export_box.getResult().withFileExtension(vial::kBankExtension);
     if (destination.hasWriteAccess()) {
       FileOutputStream output_stream(destination);
       if (output_stream.openedOk())

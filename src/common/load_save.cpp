@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "load_save.h"
@@ -27,7 +27,7 @@
 #define STRINGIFY(x) QUOTE(x)
 
 namespace {
-  const std::string kLinuxUserDataDirectory = "~/.local/share/vital/";
+  const std::string kLinuxUserDataDirectory = "~/.local/share/vial/";
   const std::string kAvailablePacksFile = "available_packs.json";
   const std::string kInstalledPacksFile = "packs.json";
 
@@ -68,7 +68,7 @@ void LoadSave::convertBufferToPcm(json& data, const std::string& field) {
   std::unique_ptr<float[]> float_data = std::make_unique<float[]>(size);
   memcpy(float_data.get(), decoded.getData(), size * sizeof(float));
   std::unique_ptr<int16_t[]> pcm_data = std::make_unique<int16_t[]>(size);
-  vital::utils::floatToPcmData(pcm_data.get(), float_data.get(), size);
+  vial::utils::floatToPcmData(pcm_data.get(), float_data.get(), size);
 
   String encoded = Base64::toBase64(pcm_data.get(), sizeof(int16_t) * size);
   data[field] = encoded.toStdString();
@@ -85,7 +85,7 @@ void LoadSave::convertPcmToFloatBuffer(json& data, const std::string& field) {
   std::unique_ptr<int16_t[]> pcm_data = std::make_unique<int16_t[]>(size);
   memcpy(pcm_data.get(), decoded.getData(), size * sizeof(int16_t));
   std::unique_ptr<float[]> float_data = std::make_unique<float[]>(size);
-  vital::utils::pcmToFloatData(float_data.get(), pcm_data.get(), size);
+  vial::utils::pcmToFloatData(float_data.get(), pcm_data.get(), size);
 
   String encoded = Base64::toBase64(float_data.get(), sizeof(float) * size);
   data[field] = encoded.toStdString();
@@ -93,18 +93,18 @@ void LoadSave::convertPcmToFloatBuffer(json& data, const std::string& field) {
 
 json LoadSave::stateToJson(SynthBase* synth, const CriticalSection& critical_section) {
   json settings_data;
-  vital::control_map& controls = synth->getControls();
+  vial::control_map& controls = synth->getControls();
   for (auto& control : controls)
     settings_data[control.first] = control.second->value();
 
-  vital::Sample* sample = synth->getSample();
+  vial::Sample* sample = synth->getSample();
   if (sample)
     settings_data["sample"] = sample->stateToJson();
 
   json modulations;
-  vital::ModulationConnectionBank& modulation_bank = synth->getModulationBank();
-  for (int i = 0; i < vital::kMaxModulationConnections; ++i) {
-    vital::ModulationConnection* connection = modulation_bank.atIndex(i);
+  vial::ModulationConnectionBank& modulation_bank = synth->getModulationBank();
+  for (int i = 0; i < vial::kMaxModulationConnections; ++i) {
+    vial::ModulationConnection* connection = modulation_bank.atIndex(i);
     json modulation_data;
     modulation_data["source"] = connection->source_name;
     modulation_data["destination"] = connection->destination_name;
@@ -120,7 +120,7 @@ json LoadSave::stateToJson(SynthBase* synth, const CriticalSection& critical_sec
 
   if (synth->getWavetableCreator(0)) {
     json wavetables;
-    for (int i = 0; i < vital::kNumOscillators; ++i) {
+    for (int i = 0; i < vial::kNumOscillators; ++i) {
       WavetableCreator* wavetable_creator = synth->getWavetableCreator(i);
       wavetables.push_back(wavetable_creator->stateToJson());
     }
@@ -129,7 +129,7 @@ json LoadSave::stateToJson(SynthBase* synth, const CriticalSection& critical_sec
   }
 
   json lfos;
-  for (int i = 0; i < vital::kNumLfos; ++i) {
+  for (int i = 0; i < vial::kNumLfos; ++i) {
     LineGenerator* lfo_source = synth->getLfoSource(i);
     lfos.push_back(lfo_source->stateToJson());
   }
@@ -142,7 +142,7 @@ json LoadSave::stateToJson(SynthBase* synth, const CriticalSection& critical_sec
   data["author"] = synth->getAuthor().toStdString();
   data["comments"] = synth->getComments().toStdString();
   data["preset_style"] = synth->getStyle().toStdString();
-  for (int i = 0; i < vital::kNumMacros; ++i) {
+  for (int i = 0; i < vial::kNumMacros; ++i) {
     std::string name = synth->getMacroName(i).toStdString();
     data["macro" + std::to_string(i + 1)] = name;
   }
@@ -151,15 +151,15 @@ json LoadSave::stateToJson(SynthBase* synth, const CriticalSection& critical_sec
 }
 
 void LoadSave::loadControls(SynthBase* synth, const json& data) {
-  vital::control_map controls = synth->getControls();
+  vial::control_map controls = synth->getControls();
   for (auto& control : controls) {
     std::string name = control.first;
     if (data.count(name)) {
-      vital::mono_float value = data[name];
+      vial::mono_float value = data[name];
       control.second->set(value);
     }
     else {
-      vital::ValueDetails details = vital::Parameters::getDetails(name);
+      vial::ValueDetails details = vial::Parameters::getDetails(name);
       control.second->set(details.default_value);
     }
   }
@@ -169,12 +169,12 @@ void LoadSave::loadControls(SynthBase* synth, const json& data) {
 
 void LoadSave::loadModulations(SynthBase* synth, const json& modulations) {
   synth->clearModulations();
-  vital::ModulationConnectionBank& modulation_bank = synth->getModulationBank();
+  vial::ModulationConnectionBank& modulation_bank = synth->getModulationBank();
   int index = 0;
   for (const json& modulation : modulations) {
     std::string source = modulation["source"];
     std::string destination = modulation["destination"];
-    vital::ModulationConnection* connection = modulation_bank.atIndex(index);
+    vial::ModulationConnection* connection = modulation_bank.atIndex(index);
     index++;
 
     if (synth->getEngine()->getModulationSource(source) == nullptr ||
@@ -196,7 +196,7 @@ void LoadSave::loadModulations(SynthBase* synth, const json& modulations) {
 }
 
 void LoadSave::loadSample(SynthBase* synth, const json& json_sample) {
-  vital::Sample* sample = synth->getSample();
+  vial::Sample* sample = synth->getSample();
   if (sample)
     sample->jsonToState(json_sample);
 }
@@ -245,7 +245,7 @@ void LoadSave::loadSaveState(std::map<std::string, String>& state, json data) {
     state["style"] = style;
   }
 
-  for (int i = 0; i < vital::kNumMacros; ++i) {
+  for (int i = 0; i < vial::kNumMacros; ++i) {
     std::string key = "macro" + std::to_string(i + 1);
     if (data.count(key)) {
       std::string name = data[key];
@@ -262,7 +262,7 @@ void LoadSave::initSaveInfo(std::map<std::string, String>& save_info) {
   save_info["comments"] = "";
   save_info["style"] = "";
 
-  for (int i = 0; i < vital::kNumMacros; ++i)
+  for (int i = 0; i < vial::kNumMacros; ++i)
     save_info["macro" + std::to_string(i + 1)] = "MACRO " + std::to_string(i + 1);
 }
 
@@ -283,7 +283,7 @@ json LoadSave::updateFromOldVersion(json state) {
     settings["sub_waveform"] = sub_waveform;
 
     int sub_octave = settings["sub_octave"];
-    settings["sub_transpose"] = vital::kNotesPerOctave * sub_octave;
+    settings["sub_transpose"] = vial::kNotesPerOctave * sub_octave;
 
     int osc_1_filter_routing = settings["osc_1_filter_routing"];
     int osc_2_filter_routing = settings["osc_2_filter_routing"];
@@ -316,7 +316,7 @@ json LoadSave::updateFromOldVersion(json state) {
   if (compareVersionStrings(version, "0.2.1") < 0) {
     std::string env_start = "env_";
 
-    for (int i = 0; i < vital::kNumEnvelopes; ++i) {
+    for (int i = 0; i < vial::kNumEnvelopes; ++i) {
       std::string number = std::to_string(i + 1);
       std::string attack_string = env_start + number + "_attack";
       std::string decay_string = env_start + number + "_decay";
@@ -346,7 +346,7 @@ json LoadSave::updateFromOldVersion(json state) {
   if (compareVersionStrings(version, "0.2.5") < 0) {
     std::string env_start = "env_";
 
-    for (int i = 0; i < vital::kNumEnvelopes; ++i) {
+    for (int i = 0; i < vial::kNumEnvelopes; ++i) {
       std::string number = std::to_string(i + 1);
       std::string attack_string = env_start + number + "_attack";
       std::string decay_string = env_start + number + "_decay";
@@ -364,7 +364,7 @@ json LoadSave::updateFromOldVersion(json state) {
   if (compareVersionStrings(version, "0.2.6") < 0) {
     std::string lfo_start = "lfo_";
 
-    for (int i = 0; i < vital::kNumLfos; ++i) {
+    for (int i = 0; i < vial::kNumLfos; ++i) {
       std::string number = std::to_string(i + 1);
       std::string fade_string = lfo_start + number + "_fade_time";
       std::string delay_string = lfo_start + number + "_delay_time";
@@ -430,14 +430,14 @@ json LoadSave::updateFromOldVersion(json state) {
 
   if (compareVersionStrings(version, "0.3.4") < 0) {
     float float_order = settings["effect_chain_order"];
-    int effect_order[vital::constants::kNumEffects];
-    vital::utils::decodeFloatToOrder(effect_order, float_order, vital::constants::kNumEffects - 1);
-    for (int i = 0; i < vital::constants::kNumEffects - 1; ++i) {
-      if (effect_order[i] >= vital::constants::kFilterFx)
+    int effect_order[vial::constants::kNumEffects];
+    vial::utils::decodeFloatToOrder(effect_order, float_order, vial::constants::kNumEffects - 1);
+    for (int i = 0; i < vial::constants::kNumEffects - 1; ++i) {
+      if (effect_order[i] >= vial::constants::kFilterFx)
         effect_order[i] += 1;
     }
-    effect_order[vital::constants::kNumEffects - 1] = vital::constants::kFilterFx;
-    settings["effect_chain_order"] = vital::utils::encodeOrderToFloat(effect_order, vital::constants::kNumEffects);
+    effect_order[vial::constants::kNumEffects - 1] = vial::constants::kFilterFx;
+    settings["effect_chain_order"] = vial::utils::encodeOrderToFloat(effect_order, vial::constants::kNumEffects);
   }
 
   if (compareVersionStrings(version, "0.3.5") < 0) {
@@ -452,7 +452,7 @@ json LoadSave::updateFromOldVersion(json state) {
   if (compareVersionStrings(version, "0.3.6") < 0) {
     std::string lfo_start = "lfo_";
 
-    for (int i = 0; i < vital::kNumLfos; ++i) {
+    for (int i = 0; i < vial::kNumLfos; ++i) {
       std::string sync_type_string = lfo_start + std::to_string(i + 1) + "_sync_type";
       if (settings.count(sync_type_string)) {
         float value = settings[sync_type_string];
@@ -490,7 +490,7 @@ json LoadSave::updateFromOldVersion(json state) {
   if (compareVersionStrings(version, "0.4.3") < 0) {
     float osc_1_distortion_type = settings["osc_1_distortion_type"];
     float osc_1_distortion_amount = settings["osc_1_distortion_amount"];
-    if (osc_1_distortion_type == vital::SynthOscillator::kFormant) {
+    if (osc_1_distortion_type == vial::SynthOscillator::kFormant) {
       settings["osc_1_distortion_amount"] = 0.5f + 0.5f * osc_1_distortion_amount;
 
       int index = 1;
@@ -507,7 +507,7 @@ json LoadSave::updateFromOldVersion(json state) {
 
     float osc_2_distortion_type = settings["osc_2_distortion_type"];
     float osc_2_distortion_amount = settings["osc_2_distortion_amount"];
-    if (osc_2_distortion_type == vital::SynthOscillator::kFormant) {
+    if (osc_2_distortion_type == vial::SynthOscillator::kFormant) {
       settings["osc_2_distortion_amount"] = 0.5f + 0.5f * osc_2_distortion_amount;
 
       int index = 1;
@@ -526,7 +526,7 @@ json LoadSave::updateFromOldVersion(json state) {
   if (compareVersionStrings(version, "0.4.4") < 0) {
     float osc_1_distortion_type = settings["osc_1_distortion_type"];
     float osc_1_distortion_amount = settings["osc_1_distortion_amount"];
-    if (osc_1_distortion_type == vital::SynthOscillator::kSync) {
+    if (osc_1_distortion_type == vial::SynthOscillator::kSync) {
       settings["osc_1_distortion_amount"] = 0.5f + 0.5f * osc_1_distortion_amount;
 
       int index = 1;
@@ -543,7 +543,7 @@ json LoadSave::updateFromOldVersion(json state) {
 
     float osc_2_distortion_type = settings["osc_2_distortion_type"];
     float osc_2_distortion_amount = settings["osc_2_distortion_amount"];
-    if (osc_2_distortion_type == vital::SynthOscillator::kSync) {
+    if (osc_2_distortion_type == vial::SynthOscillator::kSync) {
       settings["osc_2_distortion_amount"] = 0.5f + 0.5f * osc_2_distortion_amount;
 
       int index = 1;
@@ -584,10 +584,10 @@ json LoadSave::updateFromOldVersion(json state) {
       settings["osc_2_distortion_type"] = osc_2_distortion_type - 1.0f;
 
     if (osc_1_distortion_type == 1.0f)
-      settings["osc_1_spectral_morph_type"] = vital::SynthOscillator::kLowPass;
+      settings["osc_1_spectral_morph_type"] = vial::SynthOscillator::kLowPass;
 
     if (osc_2_distortion_type == 1.0f)
-      settings["osc_2_spectral_morph_type"] = vital::SynthOscillator::kLowPass;
+      settings["osc_2_spectral_morph_type"] = vial::SynthOscillator::kLowPass;
 
     json new_modulations;
     for (json& modulation : modulations) {
@@ -636,7 +636,7 @@ json LoadSave::updateFromOldVersion(json state) {
           scale.setNumPoints(kRemapResolution);
           for (int i = 0; i < kRemapResolution; ++i) {
             float t = i / (kRemapResolution - 1.0f);
-            float old_value = vital::utils::interpolate(min, max, t);
+            float old_value = vial::utils::interpolate(min, max, t);
             float adjusted_old_value = std::pow(old_value, 1.0f / 2.0f);
             float y = 1.0f - (adjusted_old_value - min_target) / new_amount;
             scale.setPoint(i, std::pair<float, float>(t, y));
@@ -682,7 +682,7 @@ json LoadSave::updateFromOldVersion(json state) {
           scale.setNumPoints(kRemapResolution);
           for (int i = 0; i < kRemapResolution; ++i) {
             float t = i / (kRemapResolution - 1.0f);
-            float old_value = vital::utils::interpolate(min, max, t);
+            float old_value = vial::utils::interpolate(min, max, t);
             float adjusted_old_value = std::pow(old_value, 1.0f / 2.0f);
             float y = 1.0f - (adjusted_old_value - min_target) / new_amount;
             scale.setPoint(i, std::pair<float, float>(t, y));
@@ -759,7 +759,7 @@ json LoadSave::updateFromOldVersion(json state) {
     else
       settings["sample_destination"] = 3.0f;
 
-    vital::Wavetable wavetable(vital::kNumOscillatorWaveFrames);
+    vial::Wavetable wavetable(vial::kNumOscillatorWaveFrames);
     WavetableCreator wavetable_creator(&wavetable);
     wavetable_creator.initPredefinedWaves();
     wavetable_creator.setName("Sub");
@@ -802,7 +802,7 @@ json LoadSave::updateFromOldVersion(json state) {
     settings["delay_tempo"] = delay_tempo + 1.0f;
 
     std::string lfo_start = "lfo_";
-    for (int i = 0; i < vital::kNumLfos; ++i) {
+    for (int i = 0; i < vial::kNumLfos; ++i) {
       std::string tempo_string = lfo_start + std::to_string(i + 1) + "_tempo";
       if (settings.count(tempo_string)) {
         float tempo = settings[tempo_string];
@@ -811,7 +811,7 @@ json LoadSave::updateFromOldVersion(json state) {
     }
 
     std::string random_start = "random_";
-    for (int i = 0; i < vital::kNumRandomLfos; ++i) {
+    for (int i = 0; i < vial::kNumRandomLfos; ++i) {
       std::string tempo_string = random_start + std::to_string(i + 1) + "_tempo";
       if (settings.count(tempo_string)) {
         float tempo = settings[tempo_string];
@@ -980,7 +980,7 @@ json LoadSave::updateFromOldVersion(json state) {
   }
 
   if (compareVersionStrings(version, "0.8.1") < 0) {
-    for (int i = 0; i < vital::kNumLfos; ++i) {
+    for (int i = 0; i < vial::kNumLfos; ++i) {
       std::string name = "lfo_" + std::to_string(i) + "_smooth_mode";
       settings[name] = 0.0f;
     }
@@ -1343,7 +1343,7 @@ void LoadSave::saveWindowSize(float window_size) {
   saveJsonToConfig(data);
 }
 
-void LoadSave::saveLayoutConfig(vital::StringLayout* layout) {
+void LoadSave::saveLayoutConfig(vial::StringLayout* layout) {
   std::wstring chromatic_layout;
   wchar_t up_key;
   wchar_t down_key;
@@ -1399,7 +1399,7 @@ void LoadSave::saveMidiMapConfig(MidiManager* midi_manager) {
   saveJsonToConfig(data);
 }
 
-void LoadSave::loadConfig(MidiManager* midi_manager, vital::StringLayout* layout) {
+void LoadSave::loadConfig(MidiManager* midi_manager, vial::StringLayout* layout) {
   json data = getConfigJson();
 
   // Computer Keyboard Layout
@@ -1422,7 +1422,7 @@ void LoadSave::loadConfig(MidiManager* midi_manager, vital::StringLayout* layout
         json destinations_data = midi_map_data["destinations"];
         for (json& midi_destination : destinations_data) {
           std::string dest = midi_destination["destination"];
-          midi_learn_map[source][dest] = &vital::Parameters::getDetails(dest);
+          midi_learn_map[source][dest] = &vial::Parameters::getDetails(dest);
         }
       }
     }
@@ -1671,7 +1671,7 @@ std::wstring LoadSave::getComputerKeyboardLayout() {
       return layout["chromatic_layout"];
   }
 
-  return vital::kDefaultKeyboard;
+  return vial::kDefaultKeyboard;
 }
 
 std::string LoadSave::getPreferredTTWTLanguage() {
@@ -1694,7 +1694,7 @@ std::string LoadSave::getAuthor() {
 }
 
 std::pair<wchar_t, wchar_t> LoadSave::getComputerKeyboardOctaveControls() {
-  std::pair<wchar_t, wchar_t> octave_controls(vital::kDefaultKeyboardOctaveDown, vital::kDefaultKeyboardOctaveUp);
+  std::pair<wchar_t, wchar_t> octave_controls(vial::kDefaultKeyboardOctaveDown, vial::kDefaultKeyboardOctaveUp);
   json data = getConfigJson();
 
   if (data.count("keyboard_layout")) {
@@ -1849,19 +1849,19 @@ void LoadSave::getAllFilesOfTypeInDirectories(Array<File>& files, const String& 
 }
 
 void LoadSave::getAllPresets(Array<File>& presets) {
-  getAllFilesOfTypeInDirectories(presets, String("*.") + vital::kPresetExtension, getPresetDirectories());
+  getAllFilesOfTypeInDirectories(presets, String("*.") + vial::kPresetExtension, getPresetDirectories());
 }
 
 void LoadSave::getAllWavetables(Array<File>& wavetables) {
-  getAllFilesOfTypeInDirectories(wavetables, vital::kWavetableExtensionsList, getWavetableDirectories());
+  getAllFilesOfTypeInDirectories(wavetables, vial::kWavetableExtensionsList, getWavetableDirectories());
 }
 
 void LoadSave::getAllSkins(Array<File>& skins) {
-  getAllFilesOfTypeInDirectories(skins, String("*.") + vital::kSkinExtension, getSkinDirectories());
+  getAllFilesOfTypeInDirectories(skins, String("*.") + vial::kSkinExtension, getSkinDirectories());
 }
 
 void LoadSave::getAllLfos(Array<File>& lfos) {
-  getAllFilesOfTypeInDirectories(lfos, String("*.") + vital::kLfoExtension, getLfoDirectories());
+  getAllFilesOfTypeInDirectories(lfos, String("*.") + vial::kLfoExtension, getLfoDirectories());
 }
 
 void LoadSave::getAllSamples(Array<File>& samples) {
@@ -1873,7 +1873,7 @@ void LoadSave::getAllUserPresets(Array<File>& presets) {
     getDataDirectory().getChildFile(kPresetFolderName),
     getUserPresetDirectory()
   };
-  getAllFilesOfTypeInDirectories(presets, String("*.") + vital::kPresetExtension, directories);
+  getAllFilesOfTypeInDirectories(presets, String("*.") + vial::kPresetExtension, directories);
 }
 
 void LoadSave::getAllUserWavetables(Array<File>& wavetables) {
@@ -1881,7 +1881,7 @@ void LoadSave::getAllUserWavetables(Array<File>& wavetables) {
     getDataDirectory().getChildFile(kWavetableFolderName),
     getUserWavetableDirectory()
   }; 
-  getAllFilesOfTypeInDirectories(wavetables, vital::kWavetableExtensionsList, directories);
+  getAllFilesOfTypeInDirectories(wavetables, vial::kWavetableExtensionsList, directories);
 }
 
 void LoadSave::getAllUserLfos(Array<File>& lfos) {
@@ -1889,7 +1889,7 @@ void LoadSave::getAllUserLfos(Array<File>& lfos) {
     getDataDirectory().getChildFile(kLfoFolderName),
     getUserLfoDirectory()
   };
-  getAllFilesOfTypeInDirectories(lfos, String("*.") + vital::kLfoExtension, directories);
+  getAllFilesOfTypeInDirectories(lfos, String("*.") + vial::kLfoExtension, directories);
 }
 
 void LoadSave::getAllUserSamples(Array<File>& samples) {

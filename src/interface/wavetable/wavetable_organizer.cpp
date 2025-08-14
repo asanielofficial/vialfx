@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "wavetable_organizer.h"
@@ -416,7 +416,7 @@ void WavetableOrganizer::mouseDrag(const MouseEvent& e) {
 
       DraggableFrame* frame = frame_lookup_[keyframe].get();
       int frame_position = keyframe->position() + delta_frame_position;
-      int show_frame_position = vital::utils::iclamp(frame_position, 0, max_frames_ - 1);
+      int show_frame_position = vial::utils::iclamp(frame_position, 0, max_frames_ - 1);
       int x = show_frame_position * frame_width_;
 
       keyframe->setPosition(show_frame_position);
@@ -463,13 +463,13 @@ void WavetableOrganizer::mouseUp(const MouseEvent& e) {
     currently_dragged_ = nullptr;
 
 
-    int start_position = vital::WaveFrame::kWaveformSize - 1;
+    int start_position = vial::WaveFrame::kWaveformSize - 1;
     int end_position = 0;
     for (WavetableKeyframe* keyframe : currently_selected_) {
       if (!keyframe->owner()->hasKeyframes())
         continue;
 
-      keyframe->setPosition(vital::utils::iclamp(keyframe->position(), 0, max_frames_ - 1));
+      keyframe->setPosition(vial::utils::iclamp(keyframe->position(), 0, max_frames_ - 1));
       keyframe->owner()->reposition(keyframe);
       start_position = std::min(start_position, keyframe->position());
       end_position = std::max(end_position, keyframe->position());

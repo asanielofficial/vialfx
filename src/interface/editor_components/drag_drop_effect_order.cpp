@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "drag_drop_effect_order.h"
@@ -147,7 +147,7 @@ DragDropEffectOrder::DragDropEffectOrder(String name) : SynthSection(name) {
   last_dragged_index_ = 0;
   mouse_down_y_ = 0;
   dragged_starting_y_ = 0;
-  for (int i = 0; i < vital::constants::kNumEffects; ++i) {
+  for (int i = 0; i < vial::constants::kNumEffects; ++i) {
     effect_order_[i] = i;
     effect_list_.push_back(std::make_unique<DraggableEffect>(strings::kEffectOrder[i], i));
     addSubSection(effect_list_[i].get());
@@ -161,7 +161,7 @@ DragDropEffectOrder::~DragDropEffectOrder() { }
 void DragDropEffectOrder::resized() {
   float padding = size_ratio_ * kEffectPadding;
 
-  for (int i = 0; i < vital::constants::kNumEffects; ++i) {
+  for (int i = 0; i < vial::constants::kNumEffects; ++i) {
     Component* effect = getEffect(i);
     int from_y = getEffectY(i);
     int to_y = getEffectY(i + 1);
@@ -211,7 +211,7 @@ void DragDropEffectOrder::mouseDrag(const MouseEvent& e) {
     return;
 
   int delta_y = e.y - mouse_down_y_;
-  int clamped_y = vital::utils::iclamp(dragged_starting_y_ + delta_y, 0,
+  int clamped_y = vial::utils::iclamp(dragged_starting_y_ + delta_y, 0,
                                        getHeight() - currently_dragged_->getHeight());
   currently_dragged_->setTopLeftPosition(currently_dragged_->getX(), clamped_y);
 
@@ -242,12 +242,12 @@ void DragDropEffectOrder::effectEnabledChanged(DraggableEffect* effect, bool ena
     listener->effectEnabledChanged(effect->order(), enabled);
 }
 
-void DragDropEffectOrder::setAllValues(vital::control_map& controls) {
+void DragDropEffectOrder::setAllValues(vial::control_map& controls) {
   SynthSection::setAllValues(controls);
   float order = controls[getName().toStdString()]->value();
-  vital::utils::decodeFloatToOrder(effect_order_, order, vital::constants::kNumEffects);
+  vial::utils::decodeFloatToOrder(effect_order_, order, vial::constants::kNumEffects);
 
-  for (int i = 0; i < vital::constants::kNumEffects; ++i)
+  for (int i = 0; i < vial::constants::kNumEffects; ++i)
     setStationaryEffectPosition(i);
 
   for (Listener* listener : listeners_)
@@ -269,7 +269,7 @@ void DragDropEffectOrder::moveEffect(int start_index, int end_index) {
 
   effect_order_[end_index] = moving;
 
-  float order = vital::utils::encodeOrderToFloat(effect_order_, vital::constants::kNumEffects);
+  float order = vial::utils::encodeOrderToFloat(effect_order_, vial::constants::kNumEffects);
   SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
   if (parent)
     parent->getSynth()->valueChangedInternal(getName().toStdString(), order);
@@ -287,7 +287,7 @@ void DragDropEffectOrder::setStationaryEffectPosition(int index) {
 }
 
 int DragDropEffectOrder::getEffectIndex(int index) const {
-  int i = vital::utils::iclamp(index, 0, vital::constants::kNumEffects - 1);
+  int i = vial::utils::iclamp(index, 0, vial::constants::kNumEffects - 1);
   return effect_order_[i];
 }
 
@@ -301,11 +301,11 @@ bool DragDropEffectOrder::effectEnabled(int index) const {
 
 int DragDropEffectOrder::getEffectIndexFromY(float y) const {
   float padding = size_ratio_ * kEffectPadding;
-  int index = vital::constants::kNumEffects * (y + padding / 2.0f) / (getHeight() + padding);
-  return vital::utils::iclamp(index, 0, vital::constants::kNumEffects - 1);
+  int index = vial::constants::kNumEffects * (y + padding / 2.0f) / (getHeight() + padding);
+  return vial::utils::iclamp(index, 0, vial::constants::kNumEffects - 1);
 }
 
 int DragDropEffectOrder::getEffectY(int index) const {
   int padding = size_ratio_ * kEffectPadding;
-  return std::round((1.0f * index * (getHeight() + padding)) / vital::constants::kNumEffects);
+  return std::round((1.0f * index * (getHeight() + padding)) / vial::constants::kNumEffects);
 }

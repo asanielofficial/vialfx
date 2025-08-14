@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "iir_halfband_decimator.h"
 
-namespace vital {
+namespace vial {
   poly_float IirHalfbandDecimator::kTaps9[kNumTaps9] = {
     { 0.167135116548925f, 0.0413554705262319f },
     { 0.742130012538075f, 0.3878932830211427f },
@@ -69,4 +69,4 @@ namespace vital {
       out_memory_[i] = 0.0f;
     }
   }
-} // namespace vital
+} // namespace vial

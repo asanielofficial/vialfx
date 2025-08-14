@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "delay_section.h"
@@ -28,7 +28,7 @@
 #include "futils.h"
 
 namespace {
-  vital::poly_float getValue(const vital::Output* output, Slider* slider) {
+  vial::poly_float getValue(const vial::Output* output, Slider* slider) {
     if (slider && !output->owner->enabled())
       return slider->getValue();
     return output->trigger_value;
@@ -37,7 +37,7 @@ namespace {
 
 class DelayViewer : public BarRenderer {
   public:
-    DelayViewer(int num_bars, const vital::output_map& mono_modulations) : BarRenderer(num_bars, true),
+    DelayViewer(int num_bars, const vial::output_map& mono_modulations) : BarRenderer(num_bars, true),
         active_(true), feedback_slider_(nullptr), mix_slider_(nullptr),
         tempo_slider_(nullptr), frequency_slider_(nullptr), sync_slider_(nullptr),
       aux_tempo_slider_(nullptr), aux_frequency_slider_(nullptr), aux_sync_slider_(nullptr), style_slider_(nullptr) {
@@ -58,12 +58,12 @@ class DelayViewer : public BarRenderer {
       return std::max(-1.0f, std::min(1.0f, getValue(feedback_, feedback_slider_)[index]));
     }
 
-    vital::poly_float getMix() {
+    vial::poly_float getMix() {
       return getValue(mix_, mix_slider_);
     }
 
     float getRawFrequency(int index) {
-      if (index && style_slider_->getValue() != vital::StereoDelay::kMono)
+      if (index && style_slider_->getValue() != vial::StereoDelay::kMono)
         return getValue(aux_frequency_, aux_frequency_slider_)[0];
       return getValue(frequency_, frequency_slider_)[index];
     }
@@ -73,27 +73,27 @@ class DelayViewer : public BarRenderer {
       static constexpr float kTripletMultiplier = 2.0f / 3.0f;
 
       Slider* sync_slider = aux_sync_slider_;
-      if (index == 0 || style_slider_->getValue() == vital::StereoDelay::kMono)
+      if (index == 0 || style_slider_->getValue() == vial::StereoDelay::kMono)
         sync_slider = sync_slider_;
 
-      if (sync_slider->getValue() == vital::TempoChooser::kDottedMode)
+      if (sync_slider->getValue() == vial::TempoChooser::kDottedMode)
         return kDottedMultiplier;
-      if (sync_slider->getValue() == vital::TempoChooser::kTripletMode)
+      if (sync_slider->getValue() == vial::TempoChooser::kTripletMode)
         return kTripletMultiplier;
       return 1.0f;
     }
 
     float getTempoFrequency(int index) {
       static constexpr float kDefaultPowerOffset = -6.0f;
-      if (index && style_slider_->getValue() != vital::StereoDelay::kMono)
+      if (index && style_slider_->getValue() != vial::StereoDelay::kMono)
         return std::round(getValue(aux_tempo_, aux_tempo_slider_)[0]) + kDefaultPowerOffset;
       return std::round(getValue(tempo_, tempo_slider_)[index]) + kDefaultPowerOffset;
     }
 
     float getFrequency(int index) {
-      bool frequency_mode = sync_slider_->getValue() == vital::TempoChooser::kFrequencyMode;
-      bool aux_frequency_mode = aux_sync_slider_->getValue() == vital::TempoChooser::kFrequencyMode;
-      bool mono = style_slider_->getValue() == vital::StereoDelay::kMono;
+      bool frequency_mode = sync_slider_->getValue() == vial::TempoChooser::kFrequencyMode;
+      bool aux_frequency_mode = aux_sync_slider_->getValue() == vial::TempoChooser::kFrequencyMode;
+      bool mono = style_slider_->getValue() == vial::StereoDelay::kMono;
       if ((index == 0 && frequency_mode) || (index == 1 && aux_frequency_mode && !mono) ||
           (index == 1 && frequency_mode && mono)) {
         return getRawFrequency(index);
@@ -106,21 +106,21 @@ class DelayViewer : public BarRenderer {
       static constexpr float kMaxSeconds = 4.0f;
 
       float feedback = std::abs(getFeedback(index));
-      vital::poly_float mix_value = vital::utils::clamp(getMix(), 0.0f, 1.0f);
-      float wet = vital::futils::equalPowerFade(mix_value)[index];
-      float dry = vital::futils::equalPowerFade(-mix_value + 1.0f)[index];
+      vial::poly_float mix_value = vial::utils::clamp(getMix(), 0.0f, 1.0f);
+      float wet = vial::futils::equalPowerFade(mix_value)[index];
+      float dry = vial::futils::equalPowerFade(-mix_value + 1.0f)[index];
       float increment = 2.0f * powf(2.0f, -getFrequency(index)) * getMultiplier(index) / kMaxSeconds;
       float other_increment = 2.0f * powf(2.0f, -getFrequency(1 - index)) * getMultiplier(1 - index) / kMaxSeconds;
       float even_increment = increment;
       float odd_increment = increment;
       float x = -1.0f;
-      if (style_slider_->getValue() == vital::StereoDelay::kPingPong) {
+      if (style_slider_->getValue() == vial::StereoDelay::kPingPong) {
         if (index)
           x -= other_increment;
         even_increment = increment + other_increment;
         odd_increment = even_increment;
       }
-      else if (style_slider_->getValue() == vital::StereoDelay::kMidPingPong) {
+      else if (style_slider_->getValue() == vial::StereoDelay::kMidPingPong) {
         if (index == 0) {
           odd_increment = other_increment + increment;
           even_increment = other_increment;
@@ -198,13 +198,13 @@ class DelayViewer : public BarRenderer {
     bool active_;
     Point<int> last_mouse_position_;
 
-    vital::Output* feedback_;
-    vital::Output* mix_;
-    vital::Output* tempo_;
-    vital::Output* frequency_;
+    vial::Output* feedback_;
+    vial::Output* mix_;
+    vial::Output* tempo_;
+    vial::Output* frequency_;
 
-    vital::Output* aux_tempo_;
-    vital::Output* aux_frequency_;
+    vial::Output* aux_tempo_;
+    vial::Output* aux_frequency_;
 
     Slider* feedback_slider_;
     Slider* mix_slider_;
@@ -219,7 +219,7 @@ class DelayViewer : public BarRenderer {
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DelayViewer)
 };
 
-DelaySection::DelaySection(const String& name, const vital::output_map& mono_modulations) : SynthSection(name) {
+DelaySection::DelaySection(const String& name, const vial::output_map& mono_modulations) : SynthSection(name) {
   static const double TEMPO_DRAG_SENSITIVITY = 0.3;
   static constexpr int kViewerResolution = 64;
   
@@ -372,7 +372,7 @@ void DelaySection::resizeTempoControls() {
   int text_component_height = style_->getHeight();
   int text_control_x = style_->getX();
 
-  if (style_->getValue() == vital::StereoDelay::kMono) {
+  if (style_->getValue() == vial::StereoDelay::kMono) {
     placeTempoControls(text_control_x, widget_margin, text_component_width,
                        text_component_height, frequency_.get(), sync_.get());
     tempo_->setBounds(frequency_->getBounds());

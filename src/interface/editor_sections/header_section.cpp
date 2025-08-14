@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "header_section.h"
@@ -276,7 +276,7 @@ void HeaderSection::reset() {
     synth_preset_selector_->resetText();
 }
 
-void HeaderSection::setAllValues(vital::control_map& controls) {
+void HeaderSection::setAllValues(vial::control_map& controls) {
   SynthSection::setAllValues(controls);
   bool view_spectrogram = view_spectrogram_->getToggleState();
   oscilloscope_->setVisible(!view_spectrogram);
@@ -342,11 +342,11 @@ void HeaderSection::setTemporaryTab(String name) {
   repaintBackground();
 }
 
-void HeaderSection::setOscilloscopeMemory(const vital::poly_float* memory) {
+void HeaderSection::setOscilloscopeMemory(const vial::poly_float* memory) {
   oscilloscope_->setOscilloscopeMemory(memory);
 }
 
-void HeaderSection::setAudioMemory(const vital::StereoMemory* memory) {
+void HeaderSection::setAudioMemory(const vial::StereoMemory* memory) {
   spectrogram_->setAudioMemory(memory);
 }
 

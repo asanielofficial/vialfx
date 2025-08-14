@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "peak_meter_viewer.h"
@@ -93,10 +93,10 @@ void PeakMeterViewer::updateVertices() {
   if (val > 1.0f)
     clamped_ = 1.0f;
 
-  float db = vital::utils::magnitudeToDb(val);
+  float db = vial::utils::magnitudeToDb(val);
   float t = std::max((db - kMinDb) / (kMaxDb - kMinDb), 0.0f);
   t *= t;
-  float position = vital::utils::interpolate(-1.0f, 1.0f, t);
+  float position = vial::utils::interpolate(-1.0f, 1.0f, t);
   position_vertices_[0] = -1.0f;
   position_vertices_[2] = -1.0f;
   position_vertices_[4] = position;
@@ -111,10 +111,10 @@ void PeakMeterViewer::updateVerticesMemory() {
   if (val > 1.0f)
     clamped_ = 1.0f;
 
-  float db = vital::utils::magnitudeToDb(val);
+  float db = vial::utils::magnitudeToDb(val);
   float t = std::max((db - kMinDb) / (kMaxDb - kMinDb), 0.0f);
   t *= t;
-  float position = vital::utils::interpolate(-1.0f, 1.0f, t);
+  float position = vial::utils::interpolate(-1.0f, 1.0f, t);
   float width = 2.0f / getWidth();
   position_vertices_[0] = position - width;
   position_vertices_[2] = position - width;
@@ -152,7 +152,7 @@ void PeakMeterViewer::render(OpenGlWrapper& open_gl, bool animate) {
   updateVerticesMemory();
   draw(open_gl);
 
-  clamped_ = vital::utils::max(clamped_ - kClampDecay, 0.0f);
+  clamped_ = vial::utils::max(clamped_ - kClampDecay, 0.0f);
 
   float rounding = std::min(getHeight() / 3.0f, findValue(Skin::kWidgetRoundedCorner) * 0.5f);
   renderCorners(open_gl, animate, findColour(Skin::kBackground, true), rounding);

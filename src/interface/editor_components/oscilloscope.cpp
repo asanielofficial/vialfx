@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "oscilloscope.h"
@@ -36,13 +36,13 @@ void Oscilloscope::drawWaveform(OpenGlWrapper& open_gl, int index) {
   if (memory_) {
     for (int i = 0; i < kResolution; ++i) {
       float t = i / (kResolution - 1.0f);
-      float memory_spot = (1.0f * i * vital::kOscilloscopeMemoryResolution) / kResolution;
+      float memory_spot = (1.0f * i * vial::kOscilloscopeMemoryResolution) / kResolution;
       int memory_index = memory_spot;
       float remainder = memory_spot - memory_index;
       float from = memory_[memory_index][index];
       float to = memory_[memory_index + 1][index];
       setXAt(i, t * width);
-      setYAt(i, (1.0f - vital::utils::interpolate(from, to, remainder)) * y_adjust);
+      setYAt(i, (1.0f - vial::utils::interpolate(from, to, remainder)) * y_adjust);
     }
   }
   OpenGlLineRenderer::render(open_gl, true);
@@ -90,7 +90,7 @@ Spectrogram::Spectrogram() : OpenGlLineRenderer(kResolution), transform_buffer_(
 Spectrogram::~Spectrogram() = default;
 
 void Spectrogram::applyWindow() {
-  static constexpr double kRadianIncrement = vital::kPi / (kAudioSize - 1.0);
+  static constexpr double kRadianIncrement = vial::kPi / (kAudioSize - 1.0);
 
   double real = -1.0f;
   double imag = 0.0f;
@@ -138,7 +138,7 @@ void Spectrogram::updateAmplitudes(int index, int offset) {
     float bin_t = last_bin - bin_index;
     float prev_amplitude = std::abs(frequency_data[bin_index]);
     float next_amplitude = std::abs(frequency_data[bin_index + 1]);
-    float amplitude = vital::utils::interpolate(prev_amplitude, next_amplitude, bin_t);
+    float amplitude = vial::utils::interpolate(prev_amplitude, next_amplitude, bin_t);
     if (bin - last_bin > 1.0f) {
       for (int j = last_bin + 1; j < bin; ++j)
         amplitude = std::max(amplitude, std::abs(frequency_data[j]));
@@ -146,10 +146,10 @@ void Spectrogram::updateAmplitudes(int index, int offset) {
     last_bin = bin;
 
     amplitude = std::max(kMinAmp, 2.0f * amplitude / kAudioSize);
-    float db = vital::utils::magnitudeToDb(std::max(amplitude, amps[i]) / kStartScaleAmp);
+    float db = vial::utils::magnitudeToDb(std::max(amplitude, amps[i]) / kStartScaleAmp);
     db += octave * kDbSlopePerOctave;
     float decay = std::max(kMinDecay, std::min(1.0f, kDecayMult * db));
-    amps[i] = std::max(kMinAmp, vital::utils::interpolate(amps[i], amplitude, decay));
+    amps[i] = std::max(kMinAmp, vial::utils::interpolate(amps[i], amplitude, decay));
   }
 }
 
@@ -166,7 +166,7 @@ void Spectrogram::drawWaveform(OpenGlWrapper& open_gl, int index) {
 
   for (int i = 0; i < kResolution; ++i) {
     float t = i / (kResolution - 1.0f);
-    float db = vital::utils::magnitudeToDb(amps[i]);
+    float db = vial::utils::magnitudeToDb(amps[i]);
     db += t * num_octaves * kDbSlopePerOctave;
     float y = (db - min_db_) * range_mult;
     setXAt(i, t * width);

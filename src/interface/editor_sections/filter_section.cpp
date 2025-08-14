@@ -1,17 +1,17 @@
  /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "filter_section.h"
@@ -32,23 +32,23 @@ namespace {
   constexpr int kBlendLabelWidth = 30;
 
   int getNumStyles(int int_model) {
-    vital::constants::FilterModel model = static_cast<vital::constants::FilterModel>(int_model);
+    vial::constants::FilterModel model = static_cast<vial::constants::FilterModel>(int_model);
     switch (model) {
-      case vital::constants::kAnalog:
+      case vial::constants::kAnalog:
         return 5;
-      case vital::constants::kDirty:
+      case vial::constants::kDirty:
         return 5;
-      case vital::constants::kLadder:
+      case vial::constants::kLadder:
         return 5;
-      case vital::constants::kDigital:
+      case vial::constants::kDigital:
         return 5;
-      case vital::constants::kDiode:
+      case vial::constants::kDiode:
         return 2;
-      case vital::constants::kFormant:
+      case vial::constants::kFormant:
         return 2;
-      case vital::constants::kComb:
+      case vial::constants::kComb:
         return 6;
-      case vital::constants::kPhase:
+      case vial::constants::kPhase:
         return 2;
       default:
         return 0;
@@ -56,25 +56,25 @@ namespace {
   }
 
   std::string getStyleName(int int_model, int style) {
-    vital::constants::FilterModel model = static_cast<vital::constants::FilterModel>(int_model);
+    vial::constants::FilterModel model = static_cast<vial::constants::FilterModel>(int_model);
     switch (model) {
-      case vital::constants::kAnalog:
-      case vital::constants::kDirty:
-      case vital::constants::kLadder:
-      case vital::constants::kDigital:
+      case vial::constants::kAnalog:
+      case vial::constants::kDirty:
+      case vial::constants::kLadder:
+      case vial::constants::kDigital:
         return strings::kFilterStyleNames[style];
-      case vital::constants::kDiode:
+      case vial::constants::kDiode:
         return strings::kDiodeStyleNames[style];
-      case vital::constants::kFormant:
-        if (style == vital::FormantFilter::kVocalTract)
+      case vial::constants::kFormant:
+        if (style == vial::FormantFilter::kVocalTract)
           return "The Mouth";
-        else if (style == vital::FormantFilter::kAIUO)
+        else if (style == vial::FormantFilter::kAIUO)
           return "AIUO";
         else
           return "AOIE";
-      case vital::constants::kComb:
+      case vial::constants::kComb:
         return strings::kCombStyleNames[style];
-      case vital::constants::kPhase:
+      case vial::constants::kPhase:
         if (style)
           return "Negative";
         else
@@ -188,7 +188,7 @@ FilterSection::FilterSection(String name, String suffix) :
   blend_transpose_->setVisible(false);
 }
 
-FilterSection::FilterSection(String suffix, const vital::output_map& mono_modulations) :
+FilterSection::FilterSection(String suffix, const vial::output_map& mono_modulations) :
     FilterSection("FILTER", suffix) {
   filter_response_ = std::make_unique<FilterResponse>(suffix, mono_modulations);
   addOpenGlComponent(filter_response_.get());
@@ -197,8 +197,8 @@ FilterSection::FilterSection(String suffix, const vital::output_map& mono_modula
   setSkinOverride(Skin::kFxFilter);
 }
 
-FilterSection::FilterSection(int index, const vital::output_map& mono_modulations,
-                             const vital::output_map& poly_modulations) :
+FilterSection::FilterSection(int index, const vial::output_map& mono_modulations,
+                             const vial::output_map& poly_modulations) :
     FilterSection("FILTER " + String(index), String(index)) {
   setSidewaysHeading(false);
 
@@ -445,12 +445,12 @@ void FilterSection::buttonClicked(Button* clicked_button) {
     SynthSection::buttonClicked(clicked_button);
 }
 
-void FilterSection::setAllValues(vital::control_map& controls) {
+void FilterSection::setAllValues(vial::control_map& controls) {
   current_model_ = std::round(controls[model_name_]->value());
   current_style_ = std::round(controls[style_name_]->value());
   setFilterText();
 
-  vital::constants::FilterModel model = static_cast<vital::constants::FilterModel>(current_model_);
+  vial::constants::FilterModel model = static_cast<vial::constants::FilterModel>(current_model_);
   filter_response_->setModel(model);
   filter_response_->setStyle(current_style_);
   showModelKnobs();
@@ -460,7 +460,7 @@ void FilterSection::setAllValues(vital::control_map& controls) {
 void FilterSection::prevClicked() {
   current_style_--;
   if (current_style_ < 0) {
-    current_model_ = (current_model_ + vital::constants::kNumFilterModels - 1) % vital::constants::kNumFilterModels;
+    current_model_ = (current_model_ + vial::constants::kNumFilterModels - 1) % vial::constants::kNumFilterModels;
     current_style_ = getNumStyles(current_model_) - 1;
   }
   showModelKnobs();
@@ -471,7 +471,7 @@ void FilterSection::nextClicked() {
   current_style_++;
   if (current_style_ >= getNumStyles(current_model_)) {
     current_style_ = 0;
-    current_model_ = (current_model_ + 1) % vital::constants::kNumFilterModels;
+    current_model_ = (current_model_ + 1) % vial::constants::kNumFilterModels;
   }
   showModelKnobs();
   notifyFilterChange();
@@ -481,7 +481,7 @@ void FilterSection::textMouseDown(const MouseEvent& e) {
   PopupItems options;
   
   int index = 1;
-  for (int i = 0; i < vital::constants::kNumFilterModels; ++i) {
+  for (int i = 0; i < vial::constants::kNumFilterModels; ++i) {
     PopupItems sub_options(strings::kFilterModelNames[i]);
     sub_options.selected = i == current_model_;
 
@@ -501,7 +501,7 @@ void FilterSection::textMouseDown(const MouseEvent& e) {
 
 void FilterSection::setFilterSelected(int menu_id) {
   int current_id = 1;
-  for (int i = 0; i < vital::constants::kNumFilterModels; ++i) {
+  for (int i = 0; i < vial::constants::kNumFilterModels; ++i) {
     int num_styles = getNumStyles(i);
     if (menu_id - current_id < num_styles) {
       current_model_ = i;
@@ -529,12 +529,12 @@ void FilterSection::setSampleInput(bool input) {
 }
 
 void FilterSection::showModelKnobs() {
-  vital::constants::FilterModel model = static_cast<vital::constants::FilterModel>(current_model_);
+  vial::constants::FilterModel model = static_cast<vial::constants::FilterModel>(current_model_);
   filter_response_->setModel(model);
 
-  bool formant = model == vital::constants::kFormant;
-  bool vocal_tract = formant && current_style_ == vital::FormantFilter::kVocalTract;
-  bool comb = model == vital::constants::kComb;
+  bool formant = model == vial::constants::kFormant;
+  bool vocal_tract = formant && current_style_ == vial::FormantFilter::kVocalTract;
+  bool comb = model == vial::constants::kComb;
   formant_x_->setVisible(formant);
   formant_y_->setVisible(formant);
   formant_transpose_->setVisible(formant && !vocal_tract);
@@ -556,13 +556,13 @@ void FilterSection::setFilterText() {
 }
 
 void FilterSection::setLabelText() {
-  if (current_model_ == vital::constants::kFormant) {
+  if (current_model_ == vial::constants::kFormant) {
     filter_label_1_->setText("PEAK");
     filter_label_2_->setText("SPREAD");
   }
   else {
     filter_label_2_->setText("KEY TRK");
-    if (current_model_ == vital::constants::kComb)
+    if (current_model_ == vial::constants::kComb)
       filter_label_1_->setText("CUT");
     else
       filter_label_1_->setText("DRIVE");
@@ -571,7 +571,7 @@ void FilterSection::setLabelText() {
 
 void FilterSection::notifyFilterChange() {
   filter_response_->setStyle(current_style_);
-  filter_response_->setModel(static_cast<vital::constants::FilterModel>(current_model_));
+  filter_response_->setModel(static_cast<vial::constants::FilterModel>(current_model_));
   setFilterText();
   setLabelText();
 
@@ -589,28 +589,28 @@ void FilterSection::setActive(bool active) {
 }
 
 Path FilterSection::getLeftMorphPath() {
-  if (current_model_ == vital::constants::kPhase)
+  if (current_model_ == vial::constants::kPhase)
     return Paths::phaser1();
-  if (current_model_ == vital::constants::kFormant)
+  if (current_model_ == vial::constants::kFormant)
     return Paths::leftArrow();
-  if (current_style_ == vital::SynthFilter::kDualNotchBand || current_style_ == vital::SynthFilter::kBandPeakNotch)
+  if (current_style_ == vial::SynthFilter::kDualNotchBand || current_style_ == vial::SynthFilter::kBandPeakNotch)
     return Paths::bandPass();
-  if (current_model_ == vital::constants::kComb && current_style_)
+  if (current_model_ == vial::constants::kComb && current_style_)
     return Paths::narrowBand();
 
   return Paths::lowPass();
 }
 
 Path FilterSection::getRightMorphPath() {
-  if (current_model_ == vital::constants::kPhase)
+  if (current_model_ == vial::constants::kPhase)
     return Paths::phaser3();
-  if (current_model_ == vital::constants::kFormant)
+  if (current_model_ == vial::constants::kFormant)
     return Paths::rightArrow();
-  if (current_style_ == vital::SynthFilter::kDualNotchBand || current_style_ == vital::SynthFilter::kBandPeakNotch)
+  if (current_style_ == vial::SynthFilter::kDualNotchBand || current_style_ == vial::SynthFilter::kBandPeakNotch)
     return Paths::notch();
-  if (current_model_ == vital::constants::kComb && current_style_)
+  if (current_model_ == vial::constants::kComb && current_style_)
     return Paths::wideBand();
-  if (current_model_ == vital::constants::kDiode)
+  if (current_model_ == vial::constants::kDiode)
     return Paths::bandPass();
   return Paths::highPass();
 }

@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "synth_parameters.h"
@@ -30,7 +30,7 @@
 
 #include <cfloat>
 
-namespace vital {
+namespace vial {
 
   bool compareValueDetails(const ValueDetails* a, const ValueDetails* b) {
     if (a->version_added != b->version_added)
@@ -298,7 +298,7 @@ namespace vital {
       ValueDetails::kLinear, false, "%", "Compressor Attack", nullptr },
     { "compressor_release", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Compressor Release", nullptr },
-    { "compressor_enabled_bands", 0x000000, 0.0, vital::MultibandCompressor::kNumBandOptions - 1, 0.0, 0.0, 1.0,
+    { "compressor_enabled_bands", 0x000000, 0.0, vial::MultibandCompressor::kNumBandOptions - 1, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Compressor Enabled Bands", strings::kCompressorBandNames },
     { "compressor_mix", 0x000602, 0.0, 1.0, 1.0, 0.0, 1.0,
       ValueDetails::kLinear, false, "", "Compressor Mix", nullptr },
@@ -330,7 +330,7 @@ namespace vital {
       ValueDetails::kLinear, false, " dB", "EQ High Gain", nullptr },
     { "eq_high_resonance", 0x000000, 0.0, 1.0, 0.3163, 0.0, 100.0,
       ValueDetails::kQuadratic, false, "", "EQ High Resonance", nullptr },
-    { "effect_chain_order", 0x000000, 0.0, vital::utils::factorial(vital::kNumEffects) - 1, 0.0, 0.0, 1.0,
+    { "effect_chain_order", 0x000000, 0.0, vial::utils::factorial(vial::kNumEffects) - 1, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Effect Chain Order", nullptr },
     { "voice_priority", 0x000000, 0.0, VoiceHandler::kNumVoicePriorities - 1, VoiceHandler::kRoundRobin, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Voice Priority", strings::kVoicePriorityNames },
@@ -618,4 +618,4 @@ namespace vital {
 
   ValueDetailsLookup Parameters::lookup_;
 
-} // namespace vital
+} // namespace vial

@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 #include "synth_section.h"
 #include "synth_constants.h"
 #include "synth_button.h"
@@ -82,7 +82,7 @@ class DragDropEffectOrder : public SynthSection, public DraggableEffect::Listene
     void mouseExit(const MouseEvent& e) override;
 
     void effectEnabledChanged(DraggableEffect* effect, bool enabled) override;
-    void setAllValues(vital::control_map& controls) override;
+    void setAllValues(vial::control_map& controls) override;
 
     void moveEffect(int start_index, int end_index);
     void setStationaryEffectPosition(int index);
@@ -104,7 +104,7 @@ class DragDropEffectOrder : public SynthSection, public DraggableEffect::Listene
     int mouse_down_y_;
     int dragged_starting_y_;
     std::vector<std::unique_ptr<DraggableEffect>> effect_list_;
-    int effect_order_[vital::constants::kNumEffects];
+    int effect_order_[vial::constants::kNumEffects];
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DragDropEffectOrder)
 };

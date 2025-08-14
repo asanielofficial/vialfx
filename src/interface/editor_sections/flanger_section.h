@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 #include "synth_section.h"
 #include "open_gl_line_renderer.h"
 #include "comb_filter.h"
@@ -33,7 +33,7 @@ class FlangerResponse : public OpenGlLineRenderer {
     static constexpr int kDefaultVisualSampleRate = 200000;
     static constexpr int kCombAlternatePeriod = 2;
 
-    FlangerResponse(const vital::output_map& mono_modulations);
+    FlangerResponse(const vial::output_map& mono_modulations);
     virtual ~FlangerResponse();
 
     void init(OpenGlWrapper& open_gl) override;
@@ -74,7 +74,7 @@ class FlangerResponse : public OpenGlLineRenderer {
     };
 
     void drawFilterResponse(OpenGlWrapper& open_gl, bool animate);
-    vital::poly_float getOutputTotal(vital::Output* output, vital::poly_float default_value);
+    vial::poly_float getOutputTotal(vial::Output* output, vial::poly_float default_value);
 
     void setupFilterState();
     void loadShader(int index);
@@ -86,17 +86,17 @@ class FlangerResponse : public OpenGlLineRenderer {
     bool active_;
     Point<int> last_mouse_position_;
 
-    vital::CombFilter comb_filter_;
-    vital::SynthFilter::FilterState filter_state_;
-    vital::poly_float mix_;
+    vial::CombFilter comb_filter_;
+    vial::SynthFilter::FilterState filter_state_;
+    vial::poly_float mix_;
 
     SynthSlider* center_slider_;
     SynthSlider* feedback_slider_;
     SynthSlider* mix_slider_;
 
-    const vital::StatusOutput* flanger_frequency_;
-    vital::Output* feedback_output_;
-    vital::Output* mix_output_;
+    const vial::StatusOutput* flanger_frequency_;
+    vial::Output* feedback_output_;
+    vial::Output* mix_output_;
 
     FilterResponseShader response_shader_;
     std::unique_ptr<float[]> line_data_;
@@ -109,7 +109,7 @@ class FlangerResponse : public OpenGlLineRenderer {
 
 class FlangerSection : public SynthSection {
   public:
-    FlangerSection(String name, const vital::output_map& mono_modulations);
+    FlangerSection(String name, const vial::output_map& mono_modulations);
     virtual ~FlangerSection();
 
     void paintBackground(Graphics& g) override;

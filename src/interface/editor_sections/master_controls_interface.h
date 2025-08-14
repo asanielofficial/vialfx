@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 #include "memory.h"
 #include "oscillator_advanced_section.h"
 #include "synth_constants.h"
@@ -64,8 +64,8 @@ class TuningSelector : public TextSelector {
 
 class MasterControlsInterface  : public SynthSection {
   public:
-    MasterControlsInterface(const vital::output_map& mono_modulations,
-                            const vital::output_map& poly_modulations, bool synth);
+    MasterControlsInterface(const vial::output_map& mono_modulations,
+                            const vial::output_map& poly_modulations, bool synth);
     virtual ~MasterControlsInterface();
 
     void paintBackground(Graphics& g) override;
@@ -73,11 +73,11 @@ class MasterControlsInterface  : public SynthSection {
 
     void setOscillatorBounds(int index, Rectangle<int> bounds) { oscillator_advanceds_[index]->setBounds(bounds); }
     void passOscillatorSection(int index, const OscillatorSection* oscillator);
-    void setOscilloscopeMemory(const vital::poly_float* memory);
-    void setAudioMemory(const vital::StereoMemory* memory);
+    void setOscilloscopeMemory(const vial::poly_float* memory);
+    void setAudioMemory(const vial::StereoMemory* memory);
 
   private:
-    std::unique_ptr<OscillatorAdvancedSection> oscillator_advanceds_[vital::kNumOscillators];
+    std::unique_ptr<OscillatorAdvancedSection> oscillator_advanceds_[vial::kNumOscillators];
     std::unique_ptr<DisplaySettings> display_settings_;
     std::unique_ptr<OversampleSettings> oversample_settings_;
     std::unique_ptr<VoiceSettings> voice_settings_;

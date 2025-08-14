@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "tuning.h"
@@ -55,7 +55,7 @@ namespace {
   }
 
   float readCentsToTranspose(const String& cents) {
-    return cents.getFloatValue() / vital::kCentsPerNote;
+    return cents.getFloatValue() / vial::kCentsPerNote;
   }
 
   float readRatioToTranspose(const String& ratio) {
@@ -66,7 +66,7 @@ namespace {
     if (tokens.size() == 2)
       value /= tokens[1].getIntValue();
 
-    return vital::utils::ratioToMidiTranspose(value);
+    return vial::utils::ratioToMidiTranspose(value);
   }
 
   String readTunSection(const String& line) {
@@ -84,7 +84,7 @@ namespace {
     if (tokens.size() <= 1 || tokens[0].toLowerCase() != "note")
       return -1;
     int index = tokens[1].getIntValue();
-    if (index < 0 || index >= vital::kMidiSize)
+    if (index < 0 || index >= vial::kMidiSize)
       return -1;
     return index;
   }
@@ -139,7 +139,7 @@ int Tuning::noteToMidiKey(const String& note_text) {
   if (negative)
     octave = -octave;
   octave = octave - kOctaveStart;
-  return vital::kNotesPerOctave * octave + offset;
+  return vial::kNotesPerOctave * octave + offset;
 }
 
 Tuning Tuning::getTuningForFile(File file) {
@@ -260,9 +260,9 @@ void Tuning::loadTunFile(File tun_file) {
   tun_file.readLines(lines);
 
   int last_read_note = 0;
-  float base_frequency = vital::kMidi0Frequency;
+  float base_frequency = vial::kMidi0Frequency;
   std::vector<float> scale;
-  for (int i = 0; i < vital::kMidiSize; ++i)
+  for (int i = 0; i < vial::kMidiSize; ++i)
     scale.push_back(i);
 
   for (const String& line : lines) {
@@ -286,7 +286,7 @@ void Tuning::loadTunFile(File tun_file) {
         int index = getNoteAssignmentIndex(trimmed_line);
         last_read_note = std::max(last_read_note, index);
         if (index >= 0)
-          scale[index] = getAssignmentValue(trimmed_line) / vital::kCentsPerNote;
+          scale[index] = getAssignmentValue(trimmed_line) / vial::kCentsPerNote;
       }
     }
   }
@@ -352,7 +352,7 @@ void Tuning::setDefaultTuning() {
     tuning_[i] = i - kTuningCenter;
 
   scale_.clear();
-  for (int i = 0; i <= vital::kNotesPerOctave; ++i)
+  for (int i = 0; i <= vial::kNotesPerOctave; ++i)
     scale_.push_back(i);
 
   keyboard_mapping_.clear();
@@ -362,7 +362,7 @@ void Tuning::setDefaultTuning() {
   mapping_name_ = "";
 }
 
-vital::mono_float Tuning::convertMidiNote(int note) const {
+vial::mono_float Tuning::convertMidiNote(int note) const {
   int scale_offset = note - scale_start_midi_note_;
   return tuning_[kTuningCenter + scale_offset] + scale_start_midi_note_ + reference_midi_note_;
 }
@@ -372,11 +372,11 @@ void Tuning::setReferenceFrequency(float frequency) {
 }
 
 void Tuning::setReferenceNoteFrequency(int midi_note, float frequency) {
-  reference_midi_note_ = vital::utils::frequencyToMidiNote(frequency) - midi_note;
+  reference_midi_note_ = vial::utils::frequencyToMidiNote(frequency) - midi_note;
 }
 
 void Tuning::setReferenceRatio(float ratio) {
-  reference_midi_note_ = vital::utils::ratioToMidiTranspose(ratio);
+  reference_midi_note_ = vial::utils::ratioToMidiTranspose(ratio);
 }
 
 json Tuning::stateToJson() const {

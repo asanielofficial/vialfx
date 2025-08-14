@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "pitch_detector.h"
@@ -49,14 +49,14 @@ float PitchDetector::getPeriodError(float period) {
       float first_t = first_position - first_index;
       float first_from = signal_data_[first_index];
       float first_to = signal_data_[first_index + 1];
-      float first_value = vital::utils::interpolate(first_from, first_to, first_t);
+      float first_value = vial::utils::interpolate(first_from, first_to, first_t);
       total_from += first_value;
 
       int second_index = second_position;
       float second_t = second_position - second_index;
       float second_from = signal_data_[second_index];
       float second_to = signal_data_[second_index + 1];
-      float second_value = vital::utils::interpolate(second_from, second_to, second_t);
+      float second_value = vial::utils::interpolate(second_from, second_to, second_t);
       total_to += second_value;
 
       float delta = first_value - second_value;

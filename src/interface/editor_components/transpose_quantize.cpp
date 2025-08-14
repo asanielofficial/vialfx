@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "transpose_quantize.h"
@@ -83,7 +83,7 @@ void TransposeQuantizeCallOut::paint(Graphics& g) {
   float rounding = findValue(Skin::kLabelBackgroundRounding);
   g.fillRoundedRectangle(global_snap_button_->getBounds().toFloat(), rounding);
 
-  for (int i = 0; i < vital::kNotesPerOctave; ++i) {
+  for (int i = 0; i < vial::kNotesPerOctave; ++i) {
     if (selected_[i]) {
       if (*global_snap_)
         g.setColour(parent_->findColour(Skin::kUiActionButton, true));
@@ -177,7 +177,7 @@ int TransposeQuantizeCallOut::getHoverIndex(const MouseEvent& e) {
   float key_radius2 = key_radius * key_radius;
   Point<float> position = e.position;
 
-  for (int i = 0; i < vital::kNotesPerOctave; ++i) {
+  for (int i = 0; i < vial::kNotesPerOctave; ++i) {
     if (position.getDistanceSquaredFrom(key_bounds_[i].getCentre()) <= key_radius2)
       return i;
   }
@@ -187,12 +187,12 @@ int TransposeQuantizeCallOut::getHoverIndex(const MouseEvent& e) {
 
 TransposeQuantizeButton::TransposeQuantizeButton() : OpenGlImageComponent("Transpose Quantize"),
                                                      global_snap_(false), hover_(false) {
-  for (int i = 0; i < vital::kNotesPerOctave; ++i)
+  for (int i = 0; i < vial::kNotesPerOctave; ++i)
     selected_[i] = false;
 }
 
 void TransposeQuantizeButton::paint(Graphics& g) {
-  for (int i = 0; i < vital::kNotesPerOctave; ++i) {
+  for (int i = 0; i < vial::kNotesPerOctave; ++i) {
     if (selected_[i]) {
       if (global_snap_)
         g.setColour(findColour(Skin::kUiActionButton, true));
@@ -207,7 +207,7 @@ void TransposeQuantizeButton::paint(Graphics& g) {
 
   if (hover_) {
     g.setColour(findColour(Skin::kLightenScreen, true));
-    for (int i = 0; i < vital::kNotesPerOctave; ++i)
+    for (int i = 0; i < vial::kNotesPerOctave; ++i)
       g.fillEllipse(key_bounds_[i]);
   }
 }
@@ -253,9 +253,9 @@ void TransposeQuantizeButton::mouseExit(const MouseEvent& e) {
 int TransposeQuantizeButton::getValue() {
   int value = 0;
   if (global_snap_)
-    value = 1 << vital::kNotesPerOctave;
+    value = 1 << vial::kNotesPerOctave;
 
-  for (int i = 0; i < vital::kNotesPerOctave; ++i) {
+  for (int i = 0; i < vial::kNotesPerOctave; ++i) {
     if (selected_[i])
       value += 1 << i;
   }
@@ -263,10 +263,10 @@ int TransposeQuantizeButton::getValue() {
 }
 
 void TransposeQuantizeButton::setValue(int value) {
-  for (int i = 0; i < vital::kNotesPerOctave; ++i)
+  for (int i = 0; i < vial::kNotesPerOctave; ++i)
     selected_[i] = (value >> i) & 1;
 
-  global_snap_ = value >> vital::kNotesPerOctave;
+  global_snap_ = value >> vial::kNotesPerOctave;
   redrawImage(true);
 }
 

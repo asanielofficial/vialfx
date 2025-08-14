@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "master_controls_interface.h"
@@ -251,7 +251,7 @@ class VoiceSettings : public SynthSection {
       SynthSection::buttonClicked(clicked_button);
     }
     
-    void setAllValues(vital::control_map& controls) override {
+    void setAllValues(vial::control_map& controls) override {
       SynthSection::setAllValues(controls);
       setMpeEnabled(mpe_enabled_->getToggleState());
     }
@@ -310,7 +310,7 @@ class OversampleSettings : public SynthSection {
       addOpenGlComponent(oversampling_8x_->getGlComponent());
     }
 
-    void setAllValues(vital::control_map& controls) override {
+    void setAllValues(vial::control_map& controls) override {
       SynthSection::setAllValues(controls);
       setSelectedOversamplingButton(controls["oversampling"]->value());
     }
@@ -495,7 +495,7 @@ class DisplaySettings : public SynthSection {
           loadSkin(skin);
         }
         else if (skin_->getValue() == skins_.size() + 1) {
-          FileChooser open_box("Open Skin", File(), String("*.") + vital::kSkinExtension);
+          FileChooser open_box("Open Skin", File(), String("*.") + vial::kSkinExtension);
           if (open_box.browseForFileToOpen()) {
             File skin_file = open_box.getResult();
             skin_file.copyFileTo(LoadSave::getDefaultSkin());
@@ -561,11 +561,11 @@ class OutputDisplays : public SynthSection {
       spectrogram_->setBounds(x, spectrogram_y, width, spectrogram_height);
     }
 
-    void setOscilloscopeMemory(const vital::poly_float* memory) {
+    void setOscilloscopeMemory(const vial::poly_float* memory) {
       oscilloscope_->setOscilloscopeMemory(memory);
     }
 
-    void setAudioMemory(const vital::StereoMemory* memory) {
+    void setAudioMemory(const vial::StereoMemory* memory) {
       spectrogram_->setAudioMemory(memory);
     }
 
@@ -577,11 +577,11 @@ class OutputDisplays : public SynthSection {
 };
 
 MasterControlsInterface::MasterControlsInterface(
-    const vital::output_map& mono_modulations,
-    const vital::output_map& poly_modulations, bool synth) : SynthSection("master_controls") {
+    const vial::output_map& mono_modulations,
+    const vial::output_map& poly_modulations, bool synth) : SynthSection("master_controls") {
 
   if (synth) {
-    for (int i = 0; i < vital::kNumOscillators; ++i) {
+    for (int i = 0; i < vial::kNumOscillators; ++i) {
       oscillator_advanceds_[i] = std::make_unique<OscillatorAdvancedSection>(i + 1, mono_modulations,
                                                                              poly_modulations);
       addSubSection(oscillator_advanceds_[i].get());
@@ -615,8 +615,8 @@ void MasterControlsInterface::resized() {
   int large_padding = findValue(Skin::kLargePadding);
   int padding = findValue(Skin::kPadding);
   int settings_top = padding;
-  if (oscillator_advanceds_[vital::kNumOscillators - 1])
-    settings_top = oscillator_advanceds_[vital::kNumOscillators - 1]->getBottom() + large_padding;
+  if (oscillator_advanceds_[vial::kNumOscillators - 1])
+    settings_top = oscillator_advanceds_[vial::kNumOscillators - 1]->getBottom() + large_padding;
 
   int settings_height = getHeight() - settings_top;
   int panel_width = getWidth() * 0.22f;
@@ -638,10 +638,10 @@ void MasterControlsInterface::passOscillatorSection(int index, const OscillatorS
   oscillator_advanceds_[index]->passOscillatorSection(oscillator);
 }
 
-void MasterControlsInterface::setOscilloscopeMemory(const vital::poly_float* memory) {
+void MasterControlsInterface::setOscilloscopeMemory(const vial::poly_float* memory) {
   output_displays_->setOscilloscopeMemory(memory);
 }
 
-void MasterControlsInterface::setAudioMemory(const vital::StereoMemory* memory) {
+void MasterControlsInterface::setAudioMemory(const vial::StereoMemory* memory) {
   output_displays_->setAudioMemory(memory);
 }
