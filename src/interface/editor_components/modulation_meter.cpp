@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "modulation_meter.h"
@@ -23,7 +23,7 @@
 #include "synth_slider.h"
 #include "text_look_and_feel.h"
 
-ModulationMeter::ModulationMeter(const vital::Output* mono_total, const vital::Output* poly_total,
+ModulationMeter::ModulationMeter(const vial::Output* mono_total, const vial::Output* poly_total,
                                  const SynthSlider* slider, OpenGlMultiQuad* quads, int index) :
         mono_total_(mono_total), poly_total_(poly_total), destination_(slider),
         quads_(quads), index_(index), current_value_(0.0), mod_percent_(0.0) {
@@ -42,7 +42,7 @@ ModulationMeter::~ModulationMeter() { }
 void ModulationMeter::resized() {
   SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
   if (parent) {
-    std::vector<vital::ModulationConnection*> connections;
+    std::vector<vial::ModulationConnection*> connections;
     connections = parent->getSynth()->getSourceConnections(getName().toStdString());
     setModulated(!connections.empty());
   }
@@ -155,24 +155,24 @@ void ModulationMeter::updateDrawing(bool use_poly) {
   }
 
   float range = destination_->getMaximum() - destination_->getMinimum();
-  vital::poly_float value = (current_value_ - destination_->getMinimum()) * (1.0f / range);
-  mod_percent_ = vital::utils::clamp(value, 0.0f, 1.0f);
+  vial::poly_float value = (current_value_ - destination_->getMinimum()) * (1.0f / range);
+  mod_percent_ = vial::utils::clamp(value, 0.0f, 1.0f);
   float knob_percent = (destination_->getValue() - destination_->getMinimum()) / range;
 
-  vital::poly_float min_percent = vital::utils::min(mod_percent_, knob_percent);
-  vital::poly_float max_percent = vital::utils::max(mod_percent_, knob_percent);
+  vial::poly_float min_percent = vial::utils::min(mod_percent_, knob_percent);
+  vial::poly_float max_percent = vial::utils::max(mod_percent_, knob_percent);
 
   quads_->setQuad(index_, left_, bottom_, right_ - left_, top_ - bottom_);
 
   if (rotary_) {
     if (&destination_->getLookAndFeel() == TextLookAndFeel::instance()) {
-      min_percent = vital::utils::interpolate(-vital::kPi, 0.0f, min_percent);
-      max_percent = vital::utils::interpolate(-vital::kPi, 0.0f, max_percent);
+      min_percent = vial::utils::interpolate(-vial::kPi, 0.0f, min_percent);
+      max_percent = vial::utils::interpolate(-vial::kPi, 0.0f, max_percent);
     }
     else {
       float angle = SynthSlider::kRotaryAngle;
-      min_percent = vital::utils::interpolate(-angle, angle, min_percent);
-      max_percent = vital::utils::interpolate(-angle, angle, max_percent);
+      min_percent = vial::utils::interpolate(-angle, angle, min_percent);
+      max_percent = vial::utils::interpolate(-angle, angle, max_percent);
     }
   }
 
@@ -195,13 +195,13 @@ void ModulationMeter::setModulationAmountQuad(OpenGlQuad& quad, float amount, bo
 
   if (rotary_) {
     if (&destination_->getLookAndFeel() == TextLookAndFeel::instance()) {
-      min_percent = vital::utils::interpolate(-vital::kPi, 0.0f, min_percent);
-      max_percent = vital::utils::interpolate(-vital::kPi, 0.0f, max_percent);
+      min_percent = vial::utils::interpolate(-vial::kPi, 0.0f, min_percent);
+      max_percent = vial::utils::interpolate(-vial::kPi, 0.0f, max_percent);
     }
     else {
       float angle = SynthSlider::kRotaryAngle;
-      min_percent = vital::utils::interpolate(-angle, angle, min_percent);
-      max_percent = vital::utils::interpolate(-angle, angle, max_percent);
+      min_percent = vial::utils::interpolate(-angle, angle, min_percent);
+      max_percent = vial::utils::interpolate(-angle, angle, max_percent);
       min_percent = std::max(-angle, min_percent);
       max_percent = std::min(angle, max_percent);
     }

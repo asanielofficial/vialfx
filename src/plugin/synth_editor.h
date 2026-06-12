@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 #include "border_bounds_constrainer.h"
 #include "synth_plugin.h"
 #include "full_interface.h"

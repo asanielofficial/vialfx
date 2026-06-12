@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "reorderable_effect_chain.h"
@@ -27,7 +27,7 @@
 #include "reverb_module.h"
 #include "synth_strings.h"
 
-namespace vital {
+namespace vial {
 
   class FilterFxModule : public SynthModule {
     public:
@@ -64,7 +64,7 @@ namespace vital {
   };
 
   ReorderableEffectChain::ReorderableEffectChain(const Output* beats_per_second, const Output* keytrack) :
-      vital::SynthModule(kNumInputs, 1), equalizer_memory_(nullptr),
+      vial::SynthModule(kNumInputs, 1), equalizer_memory_(nullptr),
       beats_per_second_(beats_per_second), keytrack_(keytrack), last_order_(0.0f) {
     for (int i = 0; i < constants::kNumEffects; ++i) {
       SynthModule* effect_module = createEffectModule(i);
@@ -147,4 +147,4 @@ namespace vital {
     for (int i = 0; i < constants::kNumEffects; ++i)
       effects_[i]->correctToTime(seconds);
   }
-} // namespace vital
+} // namespace vial

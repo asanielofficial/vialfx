@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "phaser_section.h"
@@ -26,7 +26,7 @@
 #include "tempo_selector.h"
 #include "text_look_and_feel.h"
 
-PhaserResponse::PhaserResponse(const vital::output_map& mono_modulations) :
+PhaserResponse::PhaserResponse(const vial::output_map& mono_modulations) :
     OpenGlLineRenderer(kResolution), phaser_filter_(false) {
   parent_ = nullptr;
   active_ = true;
@@ -129,7 +129,7 @@ void PhaserResponse::destroy(OpenGlWrapper& open_gl) {
     response_shader_.stages[s] = nullptr;
 }
 
-vital::poly_float PhaserResponse::getOutputTotal(const vital::Output* output, vital::poly_float default_value) {
+vial::poly_float PhaserResponse::getOutputTotal(const vial::Output* output, vial::poly_float default_value) {
   if (output && output->owner->enabled())
     return output->trigger_value;
   return default_value;
@@ -147,7 +147,7 @@ void PhaserResponse::loadShader(int index) {
   response_shader_.shader->use();
   response_shader_.midi_cutoff->set(filter_state_.midi_cutoff[index]);
   response_shader_.resonance->set(phaser_filter_.getResonance()[index]);
-  response_shader_.db24->set(filter_state_.style != vital::SynthFilter::k12Db ? 1.0f : 0.0f);
+  response_shader_.db24->set(filter_state_.style != vial::SynthFilter::k12Db ? 1.0f : 0.0f);
 
   response_shader_.stages[0]->set(phaser_filter_.getPeak1Amount()[index]);
   response_shader_.stages[1]->set(phaser_filter_.getPeak3Amount()[index]);
@@ -164,22 +164,22 @@ void PhaserResponse::bind(OpenGLContext& open_gl_context) {
                                                    GL_FALSE, 2 * sizeof(float), nullptr);
   open_gl_context.extensions.glEnableVertexAttribArray(position->attributeID);
 
-  open_gl_context.extensions.glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, response_buffer_);
+  glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, response_buffer_);
 }
 
 void PhaserResponse::unbind(OpenGLContext& open_gl_context) {
   OpenGLShaderProgram::Attribute* position = response_shader_.position.get();
   open_gl_context.extensions.glDisableVertexAttribArray(position->attributeID);
   open_gl_context.extensions.glBindBuffer(GL_ARRAY_BUFFER, 0);
-  open_gl_context.extensions.glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0);
+  glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0);
 }
 
 void PhaserResponse::renderLineResponse(OpenGlWrapper& open_gl) {
-  open_gl.context.extensions.glBeginTransformFeedback(GL_POINTS);
+  glBeginTransformFeedback(GL_POINTS);
   glDrawArrays(GL_POINTS, 0, kResolution);
-  open_gl.context.extensions.glEndTransformFeedback();
+  glEndTransformFeedback();
 
-  void* buffer = open_gl.context.extensions.glMapBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, 0,
+  void* buffer = glMapBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, 0,
                                                              kResolution * sizeof(float), GL_MAP_READ_BIT);
 
   float* response_data = (float*)buffer;
@@ -190,7 +190,7 @@ void PhaserResponse::renderLineResponse(OpenGlWrapper& open_gl) {
     setYAt(i, y_adjust * (1.0 - response_data[i]));
   }
 
-  open_gl.context.extensions.glUnmapBuffer(GL_TRANSFORM_FEEDBACK_BUFFER);
+  glUnmapBuffer(GL_TRANSFORM_FEEDBACK_BUFFER);
 }
 
 void PhaserResponse::drawFilterResponse(OpenGlWrapper& open_gl, bool animate) {
@@ -239,7 +239,7 @@ void PhaserResponse::drawFilterResponse(OpenGlWrapper& open_gl, bool animate) {
   checkGlError();
 }
 
-PhaserSection::PhaserSection(String name, const vital::output_map& mono_modulations) : SynthSection(name) {
+PhaserSection::PhaserSection(String name, const vial::output_map& mono_modulations) : SynthSection(name) {
   static const double TEMPO_DRAG_SENSITIVITY = 0.3;
 
   phase_offset_ = std::make_unique<SynthSlider>("phaser_phase_offset");

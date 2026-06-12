@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 #include "sound_engine.h"
 #include "synth_base.h"
 

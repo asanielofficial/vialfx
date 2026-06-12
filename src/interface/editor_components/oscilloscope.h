@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 #include "memory.h"
 #include "fourier_transform.h"
 #include "open_gl_line_renderer.h"
@@ -30,10 +30,10 @@ class Oscilloscope : public OpenGlLineRenderer {
 
     void drawWaveform(OpenGlWrapper& open_gl, int index);
     void render(OpenGlWrapper& open_gl, bool animate) override;
-    void setOscilloscopeMemory(const vital::poly_float* memory) { memory_ = memory; }
+    void setOscilloscopeMemory(const vial::poly_float* memory) { memory_ = memory; }
 
   private:
-    const vital::poly_float* memory_;
+    const vial::poly_float* memory_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Oscilloscope)
 };
@@ -55,7 +55,7 @@ class Spectrogram : public OpenGlLineRenderer {
 
     void drawWaveform(OpenGlWrapper& open_gl, int index);
     void render(OpenGlWrapper& open_gl, bool animate) override;
-    void setAudioMemory(const vital::StereoMemory* memory) { memory_ = memory; }
+    void setAudioMemory(const vial::StereoMemory* memory) { memory_ = memory; }
     void paintBackground(Graphics& g) override;
     void setOversampleAmount(int oversample) { oversample_amount_ = oversample; }
     void setMinFrequency(float frequency) { min_frequency_ = frequency; }
@@ -79,8 +79,8 @@ class Spectrogram : public OpenGlLineRenderer {
     float transform_buffer_[2 * kAudioSize];
     float left_amps_[kAudioSize];
     float right_amps_[kAudioSize];
-    const vital::StereoMemory* memory_;
-    vital::FourierTransform transform_;
+    const vial::StereoMemory* memory_;
+    vial::FourierTransform transform_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Spectrogram)
 };

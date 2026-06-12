@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "open_gl_line_renderer.h"
@@ -191,13 +191,13 @@ void OpenGlLineRenderer::boostRange(float* boosts, float start, float end, int b
   boosts[end_index + buffer_vertices] = std::max(end_value, progress * progress);
 }
 
-void OpenGlLineRenderer::boostRange(vital::poly_float start, vital::poly_float end,
-                                    int buffer_vertices, vital::poly_float min) {
+void OpenGlLineRenderer::boostRange(vial::poly_float start, vial::poly_float end,
+                                    int buffer_vertices, vial::poly_float min) {
   boostLeftRange(start[0], end[0], buffer_vertices, min[0]);
   boostRightRange(start[1], end[1], buffer_vertices, min[1]);
 }
 
-void OpenGlLineRenderer::decayBoosts(vital::poly_float mult) {
+void OpenGlLineRenderer::decayBoosts(vial::poly_float mult) {
   bool any_boost = false;
   for (int i = 0; i < num_points_; ++i) {
     boost_left_[i] *= mult[0];

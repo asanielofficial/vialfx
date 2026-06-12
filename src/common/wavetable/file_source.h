@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 #include "pitch_detector.h"
 #include "wavetable_component.h"
 #include "wave_frame.h"
@@ -63,11 +63,11 @@ class FileSource : public WavetableComponent {
 
         float getNormalizationScale();
 
-        void render(vital::WaveFrame* wave_frame) override;
-        void renderWaveBlend(vital::WaveFrame* wave_frame);
-        void renderNoInterpolate(vital::WaveFrame* wave_frame);
-        void renderTimeInterpolate(vital::WaveFrame* wave_frame);
-        void renderFreqInterpolate(vital::WaveFrame* wave_frame);
+        void render(vial::WaveFrame* wave_frame) override;
+        void renderWaveBlend(vial::WaveFrame* wave_frame);
+        void renderNoInterpolate(vial::WaveFrame* wave_frame);
+        void renderTimeInterpolate(vial::WaveFrame* wave_frame);
+        void renderFreqInterpolate(vial::WaveFrame* wave_frame);
         json stateToJson() override;
         void jsonToState(json data) override;
 
@@ -123,7 +123,7 @@ class FileSource : public WavetableComponent {
     virtual ~FileSource() { }
 
     WavetableKeyframe* createKeyframe(int position) override;
-    void render(vital::WaveFrame* wave_frame, float position) override;
+    void render(vial::WaveFrame* wave_frame, float position) override;
     WavetableComponentFactory::ComponentType getType() override;
     json stateToJson() override;
     void jsonToState(json data) override;
@@ -142,7 +142,7 @@ class FileSource : public WavetableComponent {
     double getWindowSize() { return window_size_; }
   
     void loadBuffer(const float* buffer, int size, int sample_rate);
-    void detectPitch(int max_period = vital::WaveFrame::kWaveformSize);
+    void detectPitch(int max_period = vial::WaveFrame::kWaveformSize);
     void detectWaveEditTable();
 
     force_inline const float* getDataBuffer() {
@@ -158,7 +158,7 @@ class FileSource : public WavetableComponent {
     WaveSourceKeyframe interpolate_to_frame_;
 
     SampleBuffer sample_buffer_;
-    float overridden_phase_[vital::WaveFrame::kWaveformSize];
+    float overridden_phase_[vial::WaveFrame::kWaveformSize];
     FadeStyle fade_style_;
     PhaseStyle phase_style_;
     bool normalize_gain_;
@@ -166,7 +166,7 @@ class FileSource : public WavetableComponent {
     double window_size_;
 
     int random_seed_;
-    vital::utils::RandomGenerator random_generator_;
+    vial::utils::RandomGenerator random_generator_;
     PitchDetector pitch_detector_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FileSource)

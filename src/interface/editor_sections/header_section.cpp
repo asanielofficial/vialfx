@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "header_section.h"
@@ -23,101 +23,6 @@
 #include "tab_selector.h"
 #include "volume_section.h"
 
-class LogoButton : public Button {
-  public:
-    LogoButton(const String& name) : Button(name) {
-      image_component_.setComponent(this);
-    }
-
-    void setPaths(const Path& letter, const Path& ring) {
-      letter_ = letter;
-      ring_ = ring;
-    }
-
-    void resized() override {
-      const DropShadow shadow(Colours::white, 5, Point<int>(0, 0));
-
-      if (shadow_.getWidth() == getWidth() && shadow_.getHeight() == getHeight())
-        return;
-
-      Rectangle<float> bounds = getLocalBounds().toFloat();
-      letter_.applyTransform(letter_.getTransformToScaleToFit(bounds, true));
-      ring_.applyTransform(ring_.getTransformToScaleToFit(bounds, true));
-
-      shadow_ = Image(Image::SingleChannel, getWidth(), getHeight(), true);
-
-      Graphics shadow_g(shadow_);
-      shadow.drawForPath(shadow_g, letter_);
-      shadow.drawForPath(shadow_g, ring_);
-
-      redoImage();
-    }
-
-    void paintButton(Graphics& g, bool hover, bool down) override {
-      Rectangle<float> bounds = getLocalBounds().toFloat();
-      letter_.applyTransform(letter_.getTransformToScaleToFit(bounds, true));
-      ring_.applyTransform(ring_.getTransformToScaleToFit(bounds, true));
-
-      g.setColour(findColour(Skin::kShadow, true));
-      g.drawImageAt(shadow_, 0, 0, true);
-
-      ColourGradient letter_gradient(letter_top_color_, 0.0f, 0.0f, letter_bottom_color_, 0.0f, getHeight(), false);
-      ColourGradient ring_gradient(ring_top_color_, 0.0f, 0.0f, ring_bottom_color_, 0.0f, getHeight(), false);
-      g.setGradientFill(letter_gradient);
-      g.fillPath(letter_);
-
-      g.setGradientFill(ring_gradient);
-      g.fillPath(ring_);
-
-      if (hover) {
-        g.setColour(findColour(Skin::kLightenScreen, true));
-        g.fillEllipse(getLocalBounds().toFloat());
-      }
-      else if (down) {
-        g.setColour(findColour(Skin::kOverlayScreen, true));
-        g.fillEllipse(getLocalBounds().toFloat());
-      }
-    }
-
-    void setLetterColors(Colour top, Colour bottom) {
-      letter_top_color_ = top;
-      letter_bottom_color_ = bottom;
-      redoImage();
-    }
-
-    void setRingColors(Colour top, Colour bottom) {
-      ring_top_color_ = top;
-      ring_bottom_color_ = bottom;
-      redoImage();
-    }
-
-    void mouseEnter(const MouseEvent& e) override {
-      Button::mouseEnter(e);
-      image_component_.setColor(Colour(0xffdddddd));
-    }
-
-    void mouseExit(const MouseEvent& e) override {
-      Button::mouseExit(e);
-      image_component_.setColor(Colours::white);
-    }
-
-    OpenGlImageComponent* getImageComponent() { return &image_component_; }
-    void redoImage() { image_component_.redrawImage(true); }
-
-  private:
-    OpenGlImageComponent image_component_;
-
-    Path letter_;
-    Path ring_;
-
-    Image shadow_;
-
-    Colour letter_top_color_;
-    Colour letter_bottom_color_;
-
-    Colour ring_top_color_;
-    Colour ring_bottom_color_;
-};
 
 LogoSection::LogoSection() : SynthSection("logo_section") {
 #if !defined(NO_TEXT_ENTRY)
@@ -276,7 +181,7 @@ void HeaderSection::reset() {
     synth_preset_selector_->resetText();
 }
 
-void HeaderSection::setAllValues(vital::control_map& controls) {
+void HeaderSection::setAllValues(vial::control_map& controls) {
   SynthSection::setAllValues(controls);
   bool view_spectrogram = view_spectrogram_->getToggleState();
   oscilloscope_->setVisible(!view_spectrogram);
@@ -342,11 +247,11 @@ void HeaderSection::setTemporaryTab(String name) {
   repaintBackground();
 }
 
-void HeaderSection::setOscilloscopeMemory(const vital::poly_float* memory) {
+void HeaderSection::setOscilloscopeMemory(const vial::poly_float* memory) {
   oscilloscope_->setOscilloscopeMemory(memory);
 }
 
-void HeaderSection::setAudioMemory(const vital::StereoMemory* memory) {
+void HeaderSection::setAudioMemory(const vial::StereoMemory* memory) {
   spectrogram_->setAudioMemory(memory);
 }
 

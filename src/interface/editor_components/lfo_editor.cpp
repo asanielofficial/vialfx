@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "lfo_editor.h"
@@ -24,8 +24,8 @@
 #include "utils.h"
 
 LfoEditor::LfoEditor(LineGenerator* lfo_source, String prefix,
-                     const vital::output_map& mono_modulations,
-                     const vital::output_map& poly_modulations) : LineEditor(lfo_source) {
+                     const vial::output_map& mono_modulations,
+                     const vial::output_map& poly_modulations) : LineEditor(lfo_source) {
   parent_ = nullptr;
   wave_phase_ = nullptr;
   frequency_ = nullptr;
@@ -150,30 +150,30 @@ void LfoEditor::render(OpenGlWrapper& open_gl, bool animate) {
   setGlPositions();
   renderGrid(open_gl, animate);
 
-  vital::poly_float encoded_phase = wave_phase_->value();
-  vital::poly_mask inactive_mask = 0;
+  vial::poly_float encoded_phase = wave_phase_->value();
+  vial::poly_mask inactive_mask = 0;
   if (wave_phase_->isClearValue(encoded_phase)) {
     encoded_phase = 0.0f;
-    inactive_mask = vital::constants::kFullMask;
+    inactive_mask = vial::constants::kFullMask;
   }
 
-  vital::poly_float frequency = frequency_->value();
+  vial::poly_float frequency = frequency_->value();
   if (frequency_->isClearValue(frequency))
     frequency = 0.0f;
 
-  std::pair<vital::poly_float, vital::poly_float> decoded = vital::utils::decodePhaseAndVoice(encoded_phase);
-  vital::poly_float phase = decoded.first;
-  vital::poly_float voice = decoded.second;
+  std::pair<vial::poly_float, vial::poly_float> decoded = vial::utils::decodePhaseAndVoice(encoded_phase);
+  vial::poly_float phase = decoded.first;
+  vial::poly_float voice = decoded.second;
 
-  vital::poly_float phase_delta = vital::poly_float::abs(phase - last_phase_);
-  vital::poly_float decay = vital::poly_float(1.0f) - phase_delta * kSpeedDecayMult;
-  decay = vital::utils::clamp(decay, kBoostDecay, 1.0f);
-  decay = vital::utils::maskLoad(decay, kBoostDecay, inactive_mask);
+  vial::poly_float phase_delta = vial::poly_float::abs(phase - last_phase_);
+  vial::poly_float decay = vial::poly_float(1.0f) - phase_delta * kSpeedDecayMult;
+  decay = vial::utils::clamp(decay, kBoostDecay, 1.0f);
+  decay = vial::utils::maskLoad(decay, kBoostDecay, inactive_mask);
   decayBoosts(decay);
 
-  vital::poly_mask switch_mask = vital::poly_float::notEqual(voice, last_voice_) | inactive_mask;
-  vital::poly_float phase_reset = vital::utils::max(0.0f, phase - frequency * kBackupTime);
-  last_phase_ = vital::utils::maskLoad(last_phase_, phase_reset, switch_mask);
+  vial::poly_mask switch_mask = vial::poly_float::notEqual(voice, last_voice_) | inactive_mask;
+  vial::poly_float phase_reset = vial::utils::max(0.0f, phase - frequency * kBackupTime);
+  last_phase_ = vial::utils::maskLoad(last_phase_, phase_reset, switch_mask);
 
   bool animating = animate;
   if (parent_)

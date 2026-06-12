@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 #include "skin.h"
 #include "open_gl_image.h"
 #include "open_gl_line_renderer.h"
@@ -45,7 +45,7 @@ class EnvelopeEditor : public OpenGlLineRenderer, public SynthSlider::SliderList
     static constexpr int kTotalPoints = kNumSections * kNumPointsPerSection + 1;
 
     EnvelopeEditor(const String& prefix,
-                   const vital::output_map& mono_modulations, const vital::output_map& poly_modulations);
+                   const vial::output_map& mono_modulations, const vial::output_map& poly_modulations);
     ~EnvelopeEditor();
 
     void paintBackground(Graphics& g) override;
@@ -109,8 +109,8 @@ class EnvelopeEditor : public OpenGlLineRenderer, public SynthSlider::SliderList
     void setColors();
     void zoom(float amount);
 
-    static std::pair<vital::Output*, vital::Output*> getOutputs(const vital::output_map& mono_modulations,
-                                                                const vital::output_map& poly_modulations,
+    static std::pair<vial::Output*, vial::Output*> getOutputs(const vial::output_map& mono_modulations,
+                                                                const vial::output_map& poly_modulations,
                                                                 const String& name) {
       return {
         mono_modulations.at(name.toStdString()),
@@ -118,8 +118,8 @@ class EnvelopeEditor : public OpenGlLineRenderer, public SynthSlider::SliderList
       };
     }
   
-    vital::poly_float getOutputsTotal(std::pair<vital::Output*, vital::Output*> outputs,
-                                      vital::poly_float default_value);
+    vial::poly_float getOutputsTotal(std::pair<vial::Output*, vial::Output*> outputs,
+                                      vial::poly_float default_value);
     void drawPosition(OpenGlWrapper& open_gl, int index);
     std::pair<float, float> getPosition(int index);
 
@@ -149,7 +149,7 @@ class EnvelopeEditor : public OpenGlLineRenderer, public SynthSlider::SliderList
     float getReleaseX(int index);
 
     float getBackupPhase(float phase, int index);
-    vital::poly_float getBackupPhase(vital::poly_float phase);
+    vial::poly_float getBackupPhase(vial::poly_float phase);
     float getEnvelopeValue(float t, float power, float start, float end);
     float getSliderAttackValue(float t);
     float getSliderDecayValue(float t);
@@ -186,8 +186,8 @@ class EnvelopeEditor : public OpenGlLineRenderer, public SynthSlider::SliderList
     float size_ratio_;
     float window_time_;
 
-    vital::poly_float current_position_alpha_;
-    vital::poly_float last_phase_;
+    vial::poly_float current_position_alpha_;
+    vial::poly_float last_phase_;
 
     Colour line_left_color_;
     Colour line_right_color_;
@@ -207,7 +207,7 @@ class EnvelopeEditor : public OpenGlLineRenderer, public SynthSlider::SliderList
     OpenGlMultiQuad power_circles_;
     std::unique_ptr<PlainTextComponent> times_[kMaxTimesShown];
 
-    const vital::StatusOutput* envelope_phase_;
+    const vial::StatusOutput* envelope_phase_;
 
     SynthSlider* delay_slider_;
     SynthSlider* attack_slider_;
@@ -219,12 +219,12 @@ class EnvelopeEditor : public OpenGlLineRenderer, public SynthSlider::SliderList
     SynthSlider* release_slider_;
     SynthSlider* release_power_slider_;
 
-    std::pair<vital::Output*, vital::Output*> delay_outputs_;
-    std::pair<vital::Output*, vital::Output*> attack_outputs_;
-    std::pair<vital::Output*, vital::Output*> hold_outputs_;
-    std::pair<vital::Output*, vital::Output*> decay_outputs_;
-    std::pair<vital::Output*, vital::Output*> sustain_outputs_;
-    std::pair<vital::Output*, vital::Output*> release_outputs_;
+    std::pair<vial::Output*, vial::Output*> delay_outputs_;
+    std::pair<vial::Output*, vial::Output*> attack_outputs_;
+    std::pair<vial::Output*, vial::Output*> hold_outputs_;
+    std::pair<vial::Output*, vial::Output*> decay_outputs_;
+    std::pair<vial::Output*, vial::Output*> sustain_outputs_;
+    std::pair<vial::Output*, vial::Output*> release_outputs_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EnvelopeEditor)
 };

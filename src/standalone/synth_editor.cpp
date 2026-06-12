@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "synth_editor.h"
@@ -30,12 +30,12 @@ SynthEditor::SynthEditor(bool use_gui) : SynthGuiInterface(this, use_gui) {
   computer_keyboard_ = std::make_unique<SynthComputerKeyboard>(engine_.get(), keyboard_state_.get());
   current_time_ = 0.0;
 
-  setAudioChannels(0, vital::kNumChannels);
+  setAudioChannels(0, vial::kNumChannels);
 
   AudioDeviceManager::AudioDeviceSetup setup;
   deviceManager.getAudioDeviceSetup(setup);
-  setup.sampleRate = vital::kDefaultSampleRate;
-  deviceManager.initialise(0, vital::kNumChannels, nullptr, true, "", &setup);
+  setup.sampleRate = vial::kDefaultSampleRate;
+  deviceManager.initialise(0, vial::kNumChannels, nullptr, true, "", &setup);
 
   if (deviceManager.getCurrentAudioDevice() == nullptr) {
     const OwnedArray<AudioIODeviceType>& device_types = deviceManager.getAvailableDeviceTypes();
@@ -65,10 +65,10 @@ SynthEditor::SynthEditor(bool use_gui) : SynthGuiInterface(this, use_gui) {
     total_bounds.removeFromBottom(kHeightBuffer);
 
     float window_size = LoadSave::loadWindowSize();
-    window_size = std::min(window_size, total_bounds.getWidth() / (1.0f * vital::kDefaultWindowWidth));
-    window_size = std::min(window_size, total_bounds.getHeight() / (1.0f * vital::kDefaultWindowHeight));
-    int width = std::round(window_size * vital::kDefaultWindowWidth);
-    int height = std::round(window_size * vital::kDefaultWindowHeight);
+    window_size = std::min(window_size, total_bounds.getWidth() / (1.0f * vial::kDefaultWindowWidth));
+    window_size = std::min(window_size, total_bounds.getHeight() / (1.0f * vial::kDefaultWindowHeight));
+    int width = std::round(window_size * vial::kDefaultWindowWidth);
+    int height = std::round(window_size * vial::kDefaultWindowHeight);
     setSize(width, height);
 
     setWantsKeyboardFocus(true);
@@ -94,7 +94,7 @@ void SynthEditor::getNextAudioBlock(const AudioSourceChannelInfo& buffer) {
   ScopedLock lock(getCriticalSection());
 
   int num_samples = buffer.buffer->getNumSamples();
-  int synth_samples = std::min(num_samples, vital::kMaxBufferSize);
+  int synth_samples = std::min(num_samples, vial::kMaxBufferSize);
 
   processModulationChanges();
   MidiBuffer midi_messages;
@@ -107,7 +107,7 @@ void SynthEditor::getNextAudioBlock(const AudioSourceChannelInfo& buffer) {
     engine_->correctToTime(current_time_);
 
     processMidi(midi_messages, b, b + current_samples);
-    processAudio(buffer.buffer, vital::kNumChannels, current_samples, b);
+    processAudio(buffer.buffer, vial::kNumChannels, current_samples, b);
     current_time_ += current_samples * sample_time;
   }
 }

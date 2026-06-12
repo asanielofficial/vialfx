@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 #include "json/json.h"
 #include "synth_constants.h"
 
@@ -24,9 +24,9 @@ using json = nlohmann::json;
 
 class WavetableComponent;
 
-namespace vital {
+namespace vial {
   class WaveFrame;
-} // namespace vital
+} // namespace vial
 
 class WavetableKeyframe {
   public:
@@ -40,7 +40,7 @@ class WavetableKeyframe {
     int index();
     int position() const { return position_; }
     void setPosition(int position) { 
-      VITAL_ASSERT(position >= 0 && position < vital::kNumOscillatorWaveFrames);
+      VITAL_ASSERT(position >= 0 && position < vial::kNumOscillatorWaveFrames);
       position_ = position;
     }
 
@@ -52,7 +52,7 @@ class WavetableKeyframe {
                                    const WavetableKeyframe* to_keyframe,
                                    const WavetableKeyframe* next_keyframe, float t) { }
 
-    virtual void render(vital::WaveFrame* wave_frame) = 0;
+    virtual void render(vial::WaveFrame* wave_frame) = 0;
     virtual json stateToJson();
     virtual void jsonToState(json data);
 

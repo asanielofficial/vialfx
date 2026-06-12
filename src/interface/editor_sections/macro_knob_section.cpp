@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "macro_knob_section.h"
@@ -21,26 +21,7 @@
 #include "synth_slider.h"
 #include "synth_gui_interface.h"
 
-class MacroLabel : public OpenGlImageComponent {
-  public:
-    MacroLabel(String name, String text) : OpenGlImageComponent(name), text_(std::move(text)), text_size_(1.0f) {
-      setInterceptsMouseClicks(false, false);
-    }
 
-    void setText(String text) { text_ = text; redrawImage(true); }
-    void setTextSize(float size) { text_size_ = size; redrawImage(true); }
-    String getText() { return text_; }
-
-    void paint(Graphics& g) override {
-      g.setColour(findColour(Skin::kBodyText, true));
-      g.setFont(Fonts::instance()->proportional_regular().withPointHeight(text_size_));
-      g.drawText(text_, 0, 0, getWidth(), getHeight(), Justification::centred, false);
-    }
-
-  private:
-    String text_;
-    float text_size_;
-};
 
 class SingleMacroSection : public SynthSection, public TextEditor::Listener {
   public:
@@ -57,8 +38,7 @@ class SingleMacroSection : public SynthSection, public TextEditor::Listener {
       addModulationButton(macro_source_.get());
       macro_source_->overrideText("");
 
-      macro_label_ = std::make_unique<MacroLabel>("Macro Label " + number, "MACRO " + number);
-      addOpenGlComponent(macro_label_.get());
+      macro_text_ = "MACRO " + number;
 
       edit_label_ = std::make_unique<OpenGlShapeButton>("Edit " + number);
       addAndMakeVisible(edit_label_.get());
@@ -91,8 +71,7 @@ class SingleMacroSection : public SynthSection, public TextEditor::Listener {
       macro_source_->setBounds(0, knob_height, width, button_height);
       macro_source_->setFontSize(0);
 
-      macro_label_->setBounds(getLabelBackgroundBounds(macro_knob_.get()));
-      macro_label_->setTextSize(findValue(Skin::kLabelHeight));
+      text_size_ = findValue(Skin::kLabelHeight) * 1.15f;
     }
 
     void paintBackground(Graphics& g) override {
@@ -101,6 +80,9 @@ class SingleMacroSection : public SynthSection, public TextEditor::Listener {
       setLabelFont(g);
 
       drawLabelBackgroundForComponent(g, macro_knob_.get());
+      g.setColour(findColour(Skin::kBodyText, true));
+      g.setFont(Fonts::instance()->proportional_regular().withPointHeight(text_size_));
+      g.drawText(macro_text_, getLabelBackgroundBounds(macro_knob_.get()), Justification::centred, false);
       paintKnobShadows(g);
       paintChildrenBackgrounds(g);
       paintBorder(g);
@@ -124,10 +106,10 @@ class SingleMacroSection : public SynthSection, public TextEditor::Listener {
           return;
         }
 
-        Rectangle<int> bounds = macro_label_->getBounds();
+        Rectangle<int> bounds = getLabelBackgroundBounds(macro_knob_.get());
         float text_height = findValue(Skin::kLabelHeight);
         macro_label_editor_->setFont(Fonts::instance()->proportional_regular().withPointHeight(text_height));
-        macro_label_editor_->setText(macro_label_->getText());
+        macro_label_editor_->setText(macro_text_);
         macro_label_editor_->setBounds(bounds.translated(0, -1));
         macro_label_editor_->setVisible(true);
         macro_label_editor_->grabKeyboardFocus();
@@ -140,7 +122,8 @@ class SingleMacroSection : public SynthSection, public TextEditor::Listener {
       if (text.isEmpty())
         return;
 
-      macro_label_->setText(text);
+      macro_text_ = text;
+      repaintBackground();
 
       SynthGuiInterface* synth_gui_interface = findParentComponentOfClass<SynthGuiInterface>();
       if (synth_gui_interface)
@@ -164,21 +147,23 @@ class SingleMacroSection : public SynthSection, public TextEditor::Listener {
       if (synth_gui_interface == nullptr)
         return;
 
-      macro_label_->setText(synth_gui_interface->getSynth()->getMacroName(index_));
+      macro_text_ = synth_gui_interface->getSynth()->getMacroName(index_);
+      repaintBackground();
     }
 
   private:
     int index_;
     std::unique_ptr<SynthSlider> macro_knob_;
     std::unique_ptr<ModulationButton> macro_source_;
-    std::unique_ptr<MacroLabel> macro_label_;
+    String macro_text_;
+    float text_size_;
     std::unique_ptr<OpenGlTextEditor> macro_label_editor_;
     std::unique_ptr<OpenGlShapeButton> edit_label_;
 };
 
 MacroKnobSection::MacroKnobSection(String name) : SynthSection(name) {
   setWantsKeyboardFocus(true);
-  for (int i = 0; i < vital::kNumMacros; ++i) {
+  for (int i = 0; i < vial::kNumMacros; ++i) {
     macros_[i] = std::make_unique<SingleMacroSection>(name + String(i), i);
     addSubSection(macros_[i].get());
   }
@@ -198,14 +183,14 @@ void MacroKnobSection::resized() {
   int widget_margin = getWidgetMargin();
   int width = getWidth();
   int y = 0;
-  for (int i = 0; i < vital::kNumMacros; ++i) {
+  for (int i = 0; i < vial::kNumMacros; ++i) {
     float next_y = (i + 1) * (2 * knob_section_height - widget_margin + padding);
     macros_[i]->setBounds(0, y, width, next_y - y - padding);
     y = next_y;
   }
 
-  int last_y = macros_[vital::kNumMacros - 2]->getBottom() + padding;
-  macros_[vital::kNumMacros - 1]->setBounds(0, last_y, width, getHeight() - last_y);
+  int last_y = macros_[vial::kNumMacros - 2]->getBottom() + padding;
+  macros_[vial::kNumMacros - 1]->setBounds(0, last_y, width, getHeight() - last_y);
 
   reset();
   SynthSection::resized();

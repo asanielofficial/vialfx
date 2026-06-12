@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "preset_browser.h"
@@ -357,7 +357,7 @@ void PresetList::finishRename() {
 void PresetList::reloadPresets() {
   presets_.clear();
   if (current_folder_.exists() && current_folder_.isDirectory())
-    current_folder_.findChildFiles(presets_, File::findFiles, true, "*." + vital::kPresetExtension);
+    current_folder_.findChildFiles(presets_, File::findFiles, true, "*." + vial::kPresetExtension);
   else
     LoadSave::getAllPresets(presets_);
   sort();
@@ -544,8 +544,8 @@ void PresetList::renderOpenGlComponents(OpenGlWrapper& open_gl, bool animate) {
   Rectangle<int> view_bounds(0, title_width, getWidth(), getHeight() - title_width);
   OpenGlComponent::setViewPort(this, view_bounds, open_gl);
 
-  float image_width = vital::utils::nextPowerOfTwo(getWidth());
-  float image_height = vital::utils::nextPowerOfTwo(row_height);
+  float image_width = vial::utils::nextPowerOfTwo(getWidth());
+  float image_height = vial::utils::nextPowerOfTwo(row_height);
   float width_ratio = image_width / getWidth();
   float height_ratio = image_height / row_height;
 
@@ -934,7 +934,7 @@ void PresetBrowser::jumpToPreset(int indices) {
   File parent = external_preset_.getParentDirectory();
   if (parent.exists()) {
     Array<File> presets;
-    parent.findChildFiles(presets, File::findFiles, false, String("*.") + vital::kPresetExtension);
+    parent.findChildFiles(presets, File::findFiles, false, String("*.") + vial::kPresetExtension);
     presets.sort(kFileSorter);
     int index = presets.indexOf(external_preset_);
     index = (index + indices + presets.size()) % presets.size();

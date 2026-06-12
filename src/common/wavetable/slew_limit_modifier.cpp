@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "slew_limit_modifier.h"
@@ -39,14 +39,14 @@ void SlewLimitModifier::SlewLimitModifierKeyframe::interpolate(const WavetableKe
   slew_up_run_rise_ = linearTween(from->slew_up_run_rise_, to->slew_up_run_rise_, t);
 }
 
-void SlewLimitModifier::SlewLimitModifierKeyframe::render(vital::WaveFrame* wave_frame) {
-  float min_slew_limit = 1.0f / vital::WaveFrame::kWaveformSize;
-  float max_up_delta = (2.0f / vital::WaveFrame::kWaveformSize) / std::max(slew_up_run_rise_, min_slew_limit);
-  float max_down_delta = (2.0f / vital::WaveFrame::kWaveformSize) / std::max(slew_down_run_rise_, min_slew_limit);
+void SlewLimitModifier::SlewLimitModifierKeyframe::render(vial::WaveFrame* wave_frame) {
+  float min_slew_limit = 1.0f / vial::WaveFrame::kWaveformSize;
+  float max_up_delta = (2.0f / vial::WaveFrame::kWaveformSize) / std::max(slew_up_run_rise_, min_slew_limit);
+  float max_down_delta = (2.0f / vial::WaveFrame::kWaveformSize) / std::max(slew_down_run_rise_, min_slew_limit);
 
   float current_value = wave_frame->time_domain[0];
-  for (int i = 1; i < 2 * vital::WaveFrame::kWaveformSize; ++i) {
-    int index = i % vital::WaveFrame::kWaveformSize;
+  for (int i = 1; i < 2 * vial::WaveFrame::kWaveformSize; ++i) {
+    int index = i % vial::WaveFrame::kWaveformSize;
     float target_value = wave_frame->time_domain[index];
     float delta = target_value - current_value;
 
@@ -79,7 +79,7 @@ WavetableKeyframe* SlewLimitModifier::createKeyframe(int position) {
   return keyframe;
 }
 
-void SlewLimitModifier::render(vital::WaveFrame* wave_frame, float position) {
+void SlewLimitModifier::render(vial::WaveFrame* wave_frame, float position) {
   interpolate(&compute_frame_, position);
   compute_frame_.render(wave_frame);
 }

@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "equalizer_response.h"
@@ -85,7 +85,7 @@ EqualizerResponse::EqualizerResponse() : OpenGlLineRenderer(kResolution),
 
 EqualizerResponse::~EqualizerResponse() = default;
 
-void EqualizerResponse::initEq(const vital::output_map& mono_modulations) {
+void EqualizerResponse::initEq(const vial::output_map& mono_modulations) {
   low_cutoff_output_ = mono_modulations.at("eq_low_cutoff");
   low_resonance_output_ = mono_modulations.at("eq_low_resonance");
   low_gain_output_ = mono_modulations.at("eq_low_gain");
@@ -97,7 +97,7 @@ void EqualizerResponse::initEq(const vital::output_map& mono_modulations) {
   high_gain_output_ = mono_modulations.at("eq_high_gain");
 }
 
-void EqualizerResponse::initReverb(const vital::output_map& mono_modulations) {
+void EqualizerResponse::initReverb(const vial::output_map& mono_modulations) {
   low_cutoff_output_ = mono_modulations.at("reverb_low_shelf_cutoff");
   low_gain_output_ = mono_modulations.at("reverb_low_shelf_gain");
   high_cutoff_output_ = mono_modulations.at("reverb_high_shelf_cutoff");
@@ -162,7 +162,7 @@ void EqualizerResponse::drawResponse(OpenGlWrapper& open_gl, int index) {
   open_gl.context.extensions.glVertexAttribPointer(position_attribute_->attributeID, 1, GL_FLOAT, GL_FALSE,
                                                   sizeof(float), nullptr);
   open_gl.context.extensions.glEnableVertexAttribArray(position_attribute_->attributeID);
-  open_gl.context.extensions.glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, response_buffer_);
+  glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, response_buffer_);
 
   midi_cutoff_uniform_->set(low_filter_.getMidiCutoff()[index],
                             band_filter_.getMidiCutoff()[index],
@@ -181,12 +181,12 @@ void EqualizerResponse::drawResponse(OpenGlWrapper& open_gl, int index) {
                             band_filter_.getHighAmount()[index],
                             high_filter_.getHighAmount()[index]);
 
-  open_gl.context.extensions.glBeginTransformFeedback(GL_POINTS);
+  glBeginTransformFeedback(GL_POINTS);
   glDrawArrays(GL_POINTS, 0, kResolution);
-  open_gl.context.extensions.glEndTransformFeedback();
+  glEndTransformFeedback();
 
-  void* buffer = open_gl.context.extensions.glMapBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, 0,
-                                                             kResolution * sizeof(float), GL_MAP_READ_BIT);
+  void* buffer = glMapBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, 0,
+                                  kResolution * sizeof(float), GL_MAP_READ_BIT);
 
   float* response_data = (float*)buffer;
   float width = getWidth();
@@ -197,7 +197,7 @@ void EqualizerResponse::drawResponse(OpenGlWrapper& open_gl, int index) {
     setYAt(i, (max_db_ - response_data[i]) * y_mult);
   }
 
-  open_gl.context.extensions.glUnmapBuffer(GL_TRANSFORM_FEEDBACK_BUFFER);
+  glUnmapBuffer(GL_TRANSFORM_FEEDBACK_BUFFER);
 
   OpenGlLineRenderer::render(open_gl, animate_);
 }
@@ -211,7 +211,7 @@ void EqualizerResponse::render(OpenGlWrapper& open_gl, bool animate) {
 
   open_gl.context.extensions.glDisableVertexAttribArray(position_attribute_->attributeID);
   open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, 0);
-  open_gl.context.extensions.glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0);
+  glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0);
 
   checkGlError();
 
@@ -308,8 +308,8 @@ void EqualizerResponse::paintBackground(Graphics& g) {
   if (!draw_frequency_lines_)
     return;
 
-  float min_frequency = vital::utils::midiNoteToFrequency(low_cutoff_->getMinimum());
-  float max_frequency = vital::utils::midiNoteToFrequency(low_cutoff_->getMaximum());
+  float min_frequency = vial::utils::midiNoteToFrequency(low_cutoff_->getMinimum());
+  float max_frequency = vial::utils::midiNoteToFrequency(low_cutoff_->getMaximum());
 
   int height = getHeight();
   float max_octave = log2f(max_frequency / min_frequency);
@@ -452,11 +452,11 @@ void EqualizerResponse::computeFilterCoefficients() {
   low_filter_state_.resonance_percent = getOutputTotal(low_resonance_output_, low_resonance_);
   low_filter_state_.gain = getOutputTotal(low_gain_output_, low_gain_);
   if (high_pass_) {
-    low_filter_state_.style = vital::DigitalSvf::k12Db;
+    low_filter_state_.style = vial::DigitalSvf::k12Db;
     low_filter_state_.pass_blend = 2.0f;
   }
   else {
-    low_filter_state_.style = vital::DigitalSvf::kShelving;
+    low_filter_state_.style = vial::DigitalSvf::kShelving;
     low_filter_state_.pass_blend = 0.0f;
   }
   low_filter_.setupFilter(low_filter_state_);
@@ -466,20 +466,20 @@ void EqualizerResponse::computeFilterCoefficients() {
   band_filter_state_.gain = getOutputTotal(band_gain_output_, band_gain_);
   band_filter_state_.pass_blend = 1.0f;
   if (notch_)
-    band_filter_state_.style = vital::DigitalSvf::kNotchPassSwap;
+    band_filter_state_.style = vial::DigitalSvf::kNotchPassSwap;
   else
-    band_filter_state_.style = vital::DigitalSvf::kShelving;
+    band_filter_state_.style = vial::DigitalSvf::kShelving;
   band_filter_.setupFilter(band_filter_state_);
   
   high_filter_state_.midi_cutoff = getOutputTotal(high_cutoff_output_, high_cutoff_);
   high_filter_state_.resonance_percent = getOutputTotal(high_resonance_output_, high_resonance_);
   high_filter_state_.gain = getOutputTotal(high_gain_output_, high_gain_);
   if (low_pass_) {
-    high_filter_state_.style = vital::DigitalSvf::k12Db;
+    high_filter_state_.style = vial::DigitalSvf::k12Db;
     high_filter_state_.pass_blend = 0.0f;
   }
   else {
-    high_filter_state_.style = vital::DigitalSvf::kShelving;
+    high_filter_state_.style = vial::DigitalSvf::kShelving;
     high_filter_state_.pass_blend = 2.0f;
   }
 
@@ -488,7 +488,7 @@ void EqualizerResponse::computeFilterCoefficients() {
 
 void EqualizerResponse::moveFilterSettings(Point<float> position) {
   if (current_cutoff_) {
-    float ratio = vital::utils::clamp(position.x / getWidth(), 0.0f, 1.0f);
+    float ratio = vial::utils::clamp(position.x / getWidth(), 0.0f, 1.0f);
     float min = current_cutoff_->getMinimum();
     float max = current_cutoff_->getMaximum();
     float new_cutoff = ratio * (max - min) + min;
@@ -497,7 +497,7 @@ void EqualizerResponse::moveFilterSettings(Point<float> position) {
   }
   if (current_gain_) {
     float local_position = position.y - 0.5f * db_buffer_ratio_ * getHeight();
-    float ratio = vital::utils::clamp(local_position / ((1.0f - db_buffer_ratio_) * getHeight()), 0.0f, 1.0f);
+    float ratio = vial::utils::clamp(local_position / ((1.0f - db_buffer_ratio_) * getHeight()), 0.0f, 1.0f);
     float min = current_gain_->getMinimum();
     float max = current_gain_->getMaximum();
     float new_db = ratio * (min - max) + max;
@@ -572,7 +572,7 @@ void EqualizerResponse::setLowPass(bool low_pass) {
   repaint();
 }
 
-vital::poly_float EqualizerResponse::getOutputTotal(vital::Output* output, Slider* slider) {
+vial::poly_float EqualizerResponse::getOutputTotal(vial::Output* output, Slider* slider) {
   if (output == nullptr || slider == nullptr)
     return 0.0f;
   if (!active_ || !animate_ || !output->owner->enabled())

@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "sample_section.h"
@@ -38,7 +38,7 @@ SampleSection::SampleSection(String name) : SynthSection(std::move(name)), sampl
   transpose_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   transpose_->setSensitivity(kTransposeMouseSensitivity);
   transpose_->setTextEntrySizePercent(1.0f, 0.7f);
-  transpose_->setShiftIndexAmount(vital::kNotesPerOctave);
+  transpose_->setShiftIndexAmount(vial::kNotesPerOctave);
   transpose_->overrideValue(Skin::kTextComponentOffset, 0.0f);
   transpose_->setModulationBarRight(false);
 
@@ -75,8 +75,6 @@ SampleSection::SampleSection(String name) : SynthSection(std::move(name)), sampl
 
   current_destination_ = 0;
   destination_control_name_ = "sample_destination";
-  destination_text_ = std::make_unique<PlainTextComponent>("Destination Text", "---");
-  addOpenGlComponent(destination_text_.get());
 
   addAndMakeVisible(destination_selector_.get());
   destination_selector_->addListener(this);
@@ -174,6 +172,8 @@ void SampleSection::paintBackground(Graphics& g) {
   g.setColour(findColour(Skin::kTextComponentBackground, true));
 
   g.fillRoundedRectangle(destination_selector_->getBounds().toFloat(), label_rounding);
+  setLabelFont(g);
+  drawLabel(g, TRANS(strings::kDestinationNames[current_destination_]), destination_selector_->getBounds(), true);
 
   int buttons_x = section2_x + section_width;
   g.fillRoundedRectangle(buttons_x, widget_margin, component_width, getHeight() - 2 * widget_margin, label_rounding);
@@ -199,7 +199,6 @@ void SampleSection::resized() {
   preset_selector_->setColour(Skin::kIconButtonOffHover, findColour(Skin::kUiButtonHover, true));
   preset_selector_->setColour(Skin::kIconButtonOffPressed, findColour(Skin::kUiButtonPressed, true));
 
-  destination_text_->setColor(findColour(Skin::kBodyText, true));
 
   int title_width = getTitleWidth();
   int widget_margin = findValue(Skin::kWidgetMargin);
@@ -217,8 +216,6 @@ void SampleSection::resized() {
   int destination_x = pitch_x + widget_margin;
   int destination_y = getHeight() - label_height - widget_margin;
   destination_selector_->setBounds(destination_x, destination_y, pitch_width - 2 * widget_margin, label_height);
-  destination_text_->setBounds(destination_selector_->getBounds());
-  destination_text_->setTextSize(findValue(Skin::kLabelHeight));
 
   prev_destination_->setBounds(destination_x, destination_y, label_height, label_height);
   next_destination_->setBounds(destination_selector_->getRight() - label_height, destination_y,
@@ -233,8 +230,6 @@ void SampleSection::resized() {
   sample_viewer_->setBounds(sample_x, title_width - widget_margin, sample_width, getHeight() - title_width);
   preset_selector_->setBounds(sample_x, widget_margin, sample_width, title_width - 2 * widget_margin);
 
-  destination_text_->setBounds(destination_selector_->getBounds());
-  destination_text_->setTextSize(findValue(Skin::kLabelHeight));
 
   int buttons_x = section2_x + level_pan_width;
   int buttons_width = getWidth() - buttons_x - widget_margin;
@@ -280,7 +275,7 @@ void SampleSection::loadFile(const File& file) {
   sample_viewer_->repaintAudio();
 }
 
-void SampleSection::setAllValues(vital::control_map& controls) {
+void SampleSection::setAllValues(vial::control_map& controls) {
   preset_selector_->setText(sample_viewer_->getName());
   transpose_quantize_button_->setValue(static_cast<int>(controls["sample_transpose_quantize"]->value()));
   SynthSection::setAllValues(controls);
@@ -292,7 +287,7 @@ void SampleSection::setAllValues(vital::control_map& controls) {
 void SampleSection::buttonClicked(Button* clicked_button) {
   if (clicked_button == destination_selector_.get()) {
     PopupItems options;
-    int num_source_destinations = vital::constants::kNumSourceDestinations;
+    int num_source_destinations = vial::constants::kNumSourceDestinations;
     for (int i = 0; i < num_source_destinations; ++i)
       options.addItem(i, strings::kDestinationMenuNames[i]);
 
@@ -300,11 +295,11 @@ void SampleSection::buttonClicked(Button* clicked_button) {
                       [=](int selection) { setDestinationSelected(selection); });
   }
   else if (clicked_button == prev_destination_.get()) {
-    int new_destination = current_destination_ - 1 + vital::constants::kNumSourceDestinations;
-    setDestinationSelected(new_destination % vital::constants::kNumSourceDestinations);
+    int new_destination = current_destination_ - 1 + vial::constants::kNumSourceDestinations;
+    setDestinationSelected(new_destination % vial::constants::kNumSourceDestinations);
   }
   else if (clicked_button == next_destination_.get()) {
-    int new_destination = (current_destination_ + 1) % vital::constants::kNumSourceDestinations;
+    int new_destination = (current_destination_ + 1) % vial::constants::kNumSourceDestinations;
     setDestinationSelected(new_destination);
   }
   else
@@ -324,19 +319,19 @@ void SampleSection::setupDestination() {
   for (Listener* listener : listeners_)
     listener->sampleDestinationChanged(this, current_destination_);
 
-  destination_text_->setText(strings::kDestinationNames[current_destination_]);
+  repaintBackground();
 }
 
 void SampleSection::toggleFilterInput(int filter_index, bool on) {
-  vital::constants::SourceDestination current_destination = (vital::constants::SourceDestination)current_destination_;
+  vial::constants::SourceDestination current_destination = (vial::constants::SourceDestination)current_destination_;
   if (filter_index == 0)
-    setDestinationSelected(vital::constants::toggleFilter1(current_destination, on));
+    setDestinationSelected(vial::constants::toggleFilter1(current_destination, on));
   else
-    setDestinationSelected(vital::constants::toggleFilter2(current_destination, on));
+    setDestinationSelected(vial::constants::toggleFilter2(current_destination, on));
 }
 
 void SampleSection::prevClicked() {
-  File sample_file = LoadSave::getShiftedFile(LoadSave::kSampleFolderName, vital::kSampleExtensionsList,
+  File sample_file = LoadSave::getShiftedFile(LoadSave::kSampleFolderName, vial::kSampleExtensionsList,
                                               LoadSave::kAdditionalSampleFoldersName, getCurrentFile(), -1);
   if (sample_file.exists())
     loadFile(sample_file);
@@ -345,7 +340,7 @@ void SampleSection::prevClicked() {
 }
 
 void SampleSection::nextClicked() {
-  File sample_file = LoadSave::getShiftedFile(LoadSave::kSampleFolderName, vital::kSampleExtensionsList,
+  File sample_file = LoadSave::getShiftedFile(LoadSave::kSampleFolderName, vial::kSampleExtensionsList,
                                               LoadSave::kAdditionalSampleFoldersName, getCurrentFile(), 1);
   if (sample_file.exists())
     loadFile(sample_file);
@@ -360,7 +355,7 @@ void SampleSection::textMouseDown(const MouseEvent& e) {
   Rectangle<int> bounds(preset_selector_->getRight(), preset_selector_->getY(),
                         kBrowserWidth * size_ratio_, kBrowserHeight * size_ratio_);
   bounds = getLocalArea(this, bounds);
-  showPopupBrowser(this, bounds, LoadSave::getSampleDirectories(), vital::kSampleExtensionsList,
+  showPopupBrowser(this, bounds, LoadSave::getSampleDirectories(), vial::kSampleExtensionsList,
                    LoadSave::kSampleFolderName, LoadSave::kAdditionalSampleFoldersName);
 }
 

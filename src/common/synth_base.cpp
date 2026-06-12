@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "synth_base.h"
@@ -31,13 +31,13 @@ SynthBase::SynthBase() : expired_(false) {
   self_reference_ = std::make_shared<SynthBase*>();
   *self_reference_ = this;
 
-  engine_ = std::make_unique<vital::SoundEngine>();
+  engine_ = std::make_unique<vial::SoundEngine>();
   engine_->setTuning(&tuning_);
 
-  mod_connections_.reserve(vital::kMaxModulationConnections);
+  mod_connections_.reserve(vial::kMaxModulationConnections);
 
-  for (int i = 0; i < vital::kNumOscillators; ++i) {
-    vital::Wavetable* wavetable = engine_->getWavetable(i);
+  for (int i = 0; i < vial::kNumOscillators; ++i) {
+    vial::Wavetable* wavetable = engine_->getWavetable(i);
     if (wavetable) {
       wavetable_creators_[i] = std::make_unique<WavetableCreator>(wavetable);
       wavetable_creators_[i]->init();
@@ -49,10 +49,10 @@ SynthBase::SynthBase() : expired_(false) {
 
   last_played_note_ = 0.0f;
   last_num_pressed_ = 0;
-  audio_memory_ = std::make_unique<vital::StereoMemory>(vital::kAudioMemorySamples);
-  memset(oscilloscope_memory_, 0, 2 * vital::kOscilloscopeMemoryResolution * sizeof(vital::poly_float));
-  memset(oscilloscope_memory_write_, 0, 2 * vital::kOscilloscopeMemoryResolution * sizeof(vital::poly_float));
-  memory_reset_period_ = vital::kOscilloscopeMemoryResolution;
+  audio_memory_ = std::make_unique<vial::StereoMemory>(vial::kAudioMemorySamples);
+  memset(oscilloscope_memory_, 0, 2 * vial::kOscilloscopeMemoryResolution * sizeof(vial::poly_float));
+  memset(oscilloscope_memory_write_, 0, 2 * vial::kOscilloscopeMemoryResolution * sizeof(vial::poly_float));
+  memory_reset_period_ = vial::kOscilloscopeMemoryResolution;
   memory_input_offset_ = 0;
   memory_index_ = 0;
 
@@ -63,37 +63,37 @@ SynthBase::SynthBase() : expired_(false) {
 
 SynthBase::~SynthBase() { }
 
-void SynthBase::valueChanged(const std::string& name, vital::mono_float value) {
+void SynthBase::valueChanged(const std::string& name, vial::mono_float value) {
   controls_[name]->set(value);
 }
 
-void SynthBase::valueChangedInternal(const std::string& name, vital::mono_float value) {
+void SynthBase::valueChangedInternal(const std::string& name, vial::mono_float value) {
   valueChanged(name, value);
   setValueNotifyHost(name, value);
 }
 
-void SynthBase::valueChangedThroughMidi(const std::string& name, vital::mono_float value) {
+void SynthBase::valueChangedThroughMidi(const std::string& name, vial::mono_float value) {
   controls_[name]->set(value);
   ValueChangedCallback* callback = new ValueChangedCallback(self_reference_, name, value);
   setValueNotifyHost(name, value);
   callback->post();
 }
 
-void SynthBase::pitchWheelMidiChanged(vital::mono_float value) {
+void SynthBase::pitchWheelMidiChanged(vial::mono_float value) {
   ValueChangedCallback* callback = new ValueChangedCallback(self_reference_, "pitch_wheel", value);
   callback->post();
 }
 
-void SynthBase::modWheelMidiChanged(vital::mono_float value) {
+void SynthBase::modWheelMidiChanged(vial::mono_float value) {
   ValueChangedCallback* callback = new ValueChangedCallback(self_reference_, "mod_wheel", value);
   callback->post();
 }
 
-void SynthBase::pitchWheelGuiChanged(vital::mono_float value) {
-  engine_->setZonedPitchWheel(value, 0, vital::kNumMidiChannels - 1);
+void SynthBase::pitchWheelGuiChanged(vial::mono_float value) {
+  engine_->setZonedPitchWheel(value, 0, vial::kNumMidiChannels - 1);
 }
 
-void SynthBase::modWheelGuiChanged(vital::mono_float value) {
+void SynthBase::modWheelGuiChanged(vial::mono_float value) {
   engine_->setModWheelAllChannels(value);
 }
 
@@ -105,19 +105,19 @@ void SynthBase::presetChangedThroughMidi(File preset) {
   }
 }
 
-void SynthBase::valueChangedExternal(const std::string& name, vital::mono_float value) {
+void SynthBase::valueChangedExternal(const std::string& name, vial::mono_float value) {
   valueChanged(name, value);
   if (name == "mod_wheel")
     engine_->setModWheelAllChannels(value);
   else if (name == "pitch_wheel")
-    engine_->setZonedPitchWheel(value, 0, vital::kNumMidiChannels - 1);
+    engine_->setZonedPitchWheel(value, 0, vial::kNumMidiChannels - 1);
 
   ValueChangedCallback* callback = new ValueChangedCallback(self_reference_, name, value);
   callback->post();
 }
 
-vital::ModulationConnection* SynthBase::getConnection(const std::string& source, const std::string& destination) {
-  for (vital::ModulationConnection* connection : mod_connections_) {
+vial::ModulationConnection* SynthBase::getConnection(const std::string& source, const std::string& destination) {
+  for (vial::ModulationConnection* connection : mod_connections_) {
     if (connection->source_name == source && connection->destination_name == destination)
       return connection;
   }
@@ -125,17 +125,17 @@ vital::ModulationConnection* SynthBase::getConnection(const std::string& source,
 }
 
 int SynthBase::getConnectionIndex(const std::string& source, const std::string& destination) {
-  vital::ModulationConnectionBank& modulation_bank = getModulationBank();
-  for (int i = 0; i < vital::kMaxModulationConnections; ++i) {
-    vital::ModulationConnection* connection = modulation_bank.atIndex(i);
+  vial::ModulationConnectionBank& modulation_bank = getModulationBank();
+  for (int i = 0; i < vial::kMaxModulationConnections; ++i) {
+    vial::ModulationConnection* connection = modulation_bank.atIndex(i);
     if (connection->source_name == source && connection->destination_name == destination)
       return i;
   }
   return -1;
 }
 
-vital::modulation_change SynthBase::createModulationChange(vital::ModulationConnection* connection) {
-  vital::modulation_change change;
+vial::modulation_change SynthBase::createModulationChange(vial::ModulationConnection* connection) {
+  vial::modulation_change change;
   change.source = engine_->getModulationSource(connection->source_name);
   change.mono_destination = engine_->getMonoModulationDestination(connection->destination_name);
   change.mono_modulation_switch = engine_->getMonoModulationSwitch(connection->destination_name);
@@ -143,14 +143,14 @@ vital::modulation_change SynthBase::createModulationChange(vital::ModulationConn
   VITAL_ASSERT(change.mono_destination != nullptr);
   VITAL_ASSERT(change.mono_modulation_switch != nullptr);
 
-  change.destination_scale = vital::Parameters::getParameterRange(connection->destination_name);
+  change.destination_scale = vial::Parameters::getParameterRange(connection->destination_name);
   change.poly_modulation_switch = engine_->getPolyModulationSwitch(connection->destination_name);
   change.poly_destination = engine_->getPolyModulationDestination(connection->destination_name);
   change.modulation_processor = connection->modulation_processor.get();
 
   int num_audio_rate = 0;
-  vital::ModulationConnectionBank& modulation_bank = getModulationBank();
-  for (int i = 0; i < vital::kMaxModulationConnections; ++i) {
+  vial::ModulationConnectionBank& modulation_bank = getModulationBank();
+  for (int i = 0; i < vial::kMaxModulationConnections; ++i) {
     if (modulation_bank.atIndex(i)->source_name == connection->source_name &&
         modulation_bank.atIndex(i)->destination_name != connection->destination_name &&
         !modulation_bank.atIndex(i)->modulation_processor->isControlRate()) {
@@ -161,12 +161,12 @@ vital::modulation_change SynthBase::createModulationChange(vital::ModulationConn
   return change;
 }
 
-bool SynthBase::isInvalidConnection(const vital::modulation_change& change) {
+bool SynthBase::isInvalidConnection(const vial::modulation_change& change) {
   return change.poly_destination && change.poly_destination->router() == change.modulation_processor;
 }
 
-void SynthBase::connectModulation(vital::ModulationConnection* connection) {
-  vital::modulation_change change = createModulationChange(connection);
+void SynthBase::connectModulation(vial::ModulationConnection* connection) {
+  vial::modulation_change change = createModulationChange(connection);
   if (isInvalidConnection(change)) {
     connection->destination_name = "";
     connection->source_name = "";
@@ -179,7 +179,7 @@ void SynthBase::connectModulation(vital::ModulationConnection* connection) {
 }
 
 bool SynthBase::connectModulation(const std::string& source, const std::string& destination) {
-  vital::ModulationConnection* connection = getConnection(source, destination);
+  vial::ModulationConnection* connection = getConnection(source, destination);
   bool create = connection == nullptr;
   if (create)
     connection = getModulationBank().createConnection(source, destination);
@@ -190,11 +190,11 @@ bool SynthBase::connectModulation(const std::string& source, const std::string& 
   return create;
 }
 
-void SynthBase::disconnectModulation(vital::ModulationConnection* connection) {
+void SynthBase::disconnectModulation(vial::ModulationConnection* connection) {
   if (mod_connections_.count(connection) == 0)
     return;
 
-  vital::modulation_change change = createModulationChange(connection);
+  vial::modulation_change change = createModulationChange(connection);
   connection->source_name = "";
   connection->destination_name = "";
 
@@ -204,7 +204,7 @@ void SynthBase::disconnectModulation(vital::ModulationConnection* connection) {
 }
 
 void SynthBase::disconnectModulation(const std::string& source, const std::string& destination) {
-  vital::ModulationConnection* connection = getConnection(source, destination);
+  vial::ModulationConnection* connection = getConnection(source, destination);
   if (connection)
     disconnectModulation(connection);
 }
@@ -213,9 +213,9 @@ void SynthBase::clearModulations() {
   clearModulationQueue();
   
   while (mod_connections_.size()) {
-    vital::ModulationConnection* connection = *mod_connections_.begin();
+    vial::ModulationConnection* connection = *mod_connections_.begin();
     mod_connections_.remove(connection);
-    vital::modulation_change change = createModulationChange(connection);
+    vial::modulation_change change = createModulationChange(connection);
     change.disconnecting = true;
     engine_->disconnectModulation(change);
     connection->source_name = "";
@@ -242,16 +242,16 @@ bool SynthBase::isModSourceEnabled(const std::string& source) {
 
 int SynthBase::getNumModulations(const std::string& destination) {
   int connections = 0;
-  for (vital::ModulationConnection* connection : mod_connections_) {
+  for (vial::ModulationConnection* connection : mod_connections_) {
     if (connection->destination_name == destination)
       connections++;
   }
   return connections;
 }
 
-std::vector<vital::ModulationConnection*> SynthBase::getSourceConnections(const std::string& source) {
-  std::vector<vital::ModulationConnection*> connections;
-  for (vital::ModulationConnection* connection : mod_connections_) {
+std::vector<vial::ModulationConnection*> SynthBase::getSourceConnections(const std::string& source) {
+  std::vector<vial::ModulationConnection*> connections;
+  for (vial::ModulationConnection* connection : mod_connections_) {
     if (connection->source_name == source)
       connections.push_back(connection);
   }
@@ -259,27 +259,27 @@ std::vector<vital::ModulationConnection*> SynthBase::getSourceConnections(const 
 }
 
 bool SynthBase::isSourceConnected(const std::string& source) {
-  for (vital::ModulationConnection* connection : mod_connections_) {
+  for (vial::ModulationConnection* connection : mod_connections_) {
     if (connection->source_name == source)
       return true;
   }
   return false;
 }
 
-std::vector<vital::ModulationConnection*> SynthBase::getDestinationConnections(const std::string& destination) {
-  std::vector<vital::ModulationConnection*> connections;
-  for (vital::ModulationConnection* connection : mod_connections_) {
+std::vector<vial::ModulationConnection*> SynthBase::getDestinationConnections(const std::string& destination) {
+  std::vector<vial::ModulationConnection*> connections;
+  for (vial::ModulationConnection* connection : mod_connections_) {
     if (connection->destination_name == destination)
       connections.push_back(connection);
   }
   return connections;
 }
 
-const vital::StatusOutput* SynthBase::getStatusOutput(const std::string& name) {
+const vial::StatusOutput* SynthBase::getStatusOutput(const std::string& name) {
   return engine_->getStatusOutput(name);
 }
 
-vital::Wavetable* SynthBase::getWavetable(int index) {
+vial::Wavetable* SynthBase::getWavetable(int index) {
   return engine_->getWavetable(index);
 }
 
@@ -287,7 +287,7 @@ WavetableCreator* SynthBase::getWavetableCreator(int index) {
   return wavetable_creators_[index].get();
 }
 
-vital::Sample* SynthBase::getSample() {
+vial::Sample* SynthBase::getSample() {
   return engine_->getSample();
 }
 
@@ -306,18 +306,18 @@ int SynthBase::getSampleRate() {
 void SynthBase::initEngine() {
   clearModulations();
   if (getWavetableCreator(0)) {
-    for (int i = 0; i < vital::kNumOscillators; ++i)
+    for (int i = 0; i < vial::kNumOscillators; ++i)
       getWavetableCreator(i)->init();
 
     engine_->getSample()->init();
   }
 
-  for (int i = 0; i < vital::kNumLfos; ++i)
+  for (int i = 0; i < vial::kNumLfos; ++i)
     getLfoSource(i)->initTriangle();
 
-  vital::control_map controls = engine_->getControls();
+  vial::control_map controls = engine_->getControls();
   for (auto& control : controls) {
-    vital::ValueDetails details = vital::Parameters::getDetails(control.first);
+    vial::ValueDetails details = vial::Parameters::getDetails(control.first);
     control.second->set(details.default_value);
   }
   checkOversampling();
@@ -421,7 +421,7 @@ void SynthBase::renderAudioToFile(File file, float seconds, float bpm, std::vect
   std::unique_ptr<float[]> left_buffer = std::make_unique<float[]>(kBufferSize);
   std::unique_ptr<float[]> right_buffer = std::make_unique<float[]>(kBufferSize);
   float* buffers[2] = { left_buffer.get(), right_buffer.get() };
-  const vital::mono_float* engine_output = (const vital::mono_float*)engine_->output(0)->buffer;
+  const vial::mono_float* engine_output = (const vial::mono_float*)engine_->output(0)->buffer;
 
 #if JUCE_MODULE_AVAILABLE_juce_graphics
   int current_image_index = -1;
@@ -429,7 +429,7 @@ void SynthBase::renderAudioToFile(File file, float seconds, float bpm, std::vect
   File images_folder = File::getCurrentWorkingDirectory().getChildFile("images");
   if (!images_folder.exists() && render_images)
     images_folder.createDirectory();
-  const vital::poly_float* memory = getOscilloscopeMemory();
+  const vial::poly_float* memory = getOscilloscopeMemory();
 #endif
 
   for (int samples = 0; samples < total_samples; samples += kBufferSize) {
@@ -444,10 +444,10 @@ void SynthBase::renderAudioToFile(File file, float seconds, float bpm, std::vect
     }
 
     for (int i = 0; i < kBufferSize; ++i) {
-      vital::mono_float t = (total_samples - samples) / (1.0f * kFadeSamples);
-      t = vital::utils::min(t, 1.0f);
-      left_buffer[i] = t * engine_output[vital::poly_float::kSize * i];
-      right_buffer[i] = t * engine_output[vital::poly_float::kSize * i + 1];
+      vial::mono_float t = (total_samples - samples) / (1.0f * kFadeSamples);
+      t = vial::utils::min(t, 1.0f);
+      left_buffer[i] = t * engine_output[vial::poly_float::kSize * i];
+      right_buffer[i] = t * engine_output[vial::poly_float::kSize * i + 1];
     }
 
     writer->writeFromFloatArrays(buffers, 2, kBufferSize);
@@ -473,12 +473,12 @@ void SynthBase::renderAudioToFile(File file, float seconds, float bpm, std::vect
 
       for (int i = 0; i < kOscilloscopeResolution; ++i) {
         float t = i / (kOscilloscopeResolution - 1.0f);
-        float memory_spot = (1.0f * i * vital::kOscilloscopeMemoryResolution) / kOscilloscopeResolution;
+        float memory_spot = (1.0f * i * vial::kOscilloscopeMemoryResolution) / kOscilloscopeResolution;
         int memory_index = memory_spot;
         float remainder = memory_spot - memory_index;
-        vital::poly_float from = memory[memory_index];
-        vital::poly_float to = memory[memory_index + 1];
-        vital::poly_float y = -vital::utils::interpolate(from, to, remainder) * kImageHeight / 2.0f + kImageHeight / 2;
+        vial::poly_float from = memory[memory_index];
+        vial::poly_float to = memory[memory_index + 1];
+        vial::poly_float y = -vial::utils::interpolate(from, to, remainder) * kImageHeight / 2.0f + kImageHeight / 2;
         left_path.lineTo(t * kImageWidth, y[0]);
         right_path.lineTo(t * kImageWidth, y[1]);
       }
@@ -522,7 +522,7 @@ void SynthBase::renderAudioForResynthesis(float* data, int samples, int note) {
   }
 
   engine_->noteOn(note, 0.7f, 0, 0);
-  const vital::poly_float* engine_output = engine_->output(0)->buffer;
+  const vial::poly_float* engine_output = engine_->output(0)->buffer;
   float max_value = 0.01f;
   for (int s = 0; s < samples; s += kBufferSize) {
     int num_samples = std::min(samples - s, kBufferSize);
@@ -545,7 +545,7 @@ void SynthBase::renderAudioForResynthesis(float* data, int samples, int note) {
 }
 
 bool SynthBase::saveToFile(File preset) {
-  preset = preset.withFileExtension(String(vital::kPresetExtension));
+  preset = preset.withFileExtension(String(vial::kPresetExtension));
 
   File parent = preset.getParentDirectory();
   if (!parent.exists()) {
@@ -585,7 +585,7 @@ void SynthBase::processAudio(AudioSampleBuffer* buffer, int channels, int sample
   writeAudio(buffer, channels, samples, offset);
 }
 
-void SynthBase::processAudioWithInput(AudioSampleBuffer* buffer, const vital::poly_float* input_buffer,
+void SynthBase::processAudioWithInput(AudioSampleBuffer* buffer, const vial::poly_float* input_buffer,
                                       int channels, int samples, int offset) {
   if (expired_)
     return;
@@ -595,12 +595,12 @@ void SynthBase::processAudioWithInput(AudioSampleBuffer* buffer, const vital::po
 }
 
 void SynthBase::writeAudio(AudioSampleBuffer* buffer, int channels, int samples, int offset) {
-  const vital::mono_float* engine_output = (const vital::mono_float*)engine_->output(0)->buffer;
+  const vial::mono_float* engine_output = (const vial::mono_float*)engine_->output(0)->buffer;
   for (int channel = 0; channel < channels; ++channel) {
     float* channel_data = buffer->getWritePointer(channel, offset);
 
     for (int i = 0; i < samples; ++i) {
-      channel_data[i] = engine_output[vital::poly_float::kSize * i + channel];
+      channel_data[i] = engine_output[vial::poly_float::kSize * i + channel];
       VITAL_ASSERT(std::isfinite(channel_data[i]));
     }
   }
@@ -622,7 +622,7 @@ void SynthBase::processKeyboardEvents(MidiBuffer& buffer, int num_samples) {
 }
 
 void SynthBase::processModulationChanges() {
-  vital::modulation_change change;
+  vial::modulation_change change;
   while (getNextModulationChange(change)) {
     if (change.disconnecting)
       engine_->disconnectModulation(change);
@@ -631,23 +631,23 @@ void SynthBase::processModulationChanges() {
   }
 }
 
-void SynthBase::updateMemoryOutput(int samples, const vital::poly_float* audio) {
+void SynthBase::updateMemoryOutput(int samples, const vial::poly_float* audio) {
   for (int i = 0; i < samples; ++i)
     audio_memory_->push(audio[i]);
 
-  vital::mono_float last_played = engine_->getLastActiveNote();
-  last_played = vital::utils::clamp(last_played, kOutputWindowMinNote, kOutputWindowMaxNote);
+  vial::mono_float last_played = engine_->getLastActiveNote();
+  last_played = vial::utils::clamp(last_played, kOutputWindowMinNote, kOutputWindowMaxNote);
 
   int num_pressed = engine_->getNumPressedNotes();
-  int output_inc = std::max<int>(1, engine_->getSampleRate() / vital::kOscilloscopeMemorySampleRate);
-  int oscilloscope_samples = 2 * vital::kOscilloscopeMemoryResolution;
+  int output_inc = std::max<int>(1, engine_->getSampleRate() / vial::kOscilloscopeMemorySampleRate);
+  int oscilloscope_samples = 2 * vial::kOscilloscopeMemoryResolution;
 
   if (last_played && (last_played_note_ != last_played || num_pressed > last_num_pressed_)) {
     last_played_note_ = last_played;
     
-    vital::mono_float frequency = vital::utils::midiNoteToFrequency(last_played_note_);
-    vital::mono_float period = engine_->getSampleRate() / frequency;
-    int window_length = output_inc * vital::kOscilloscopeMemoryResolution;
+    vial::mono_float frequency = vial::utils::midiNoteToFrequency(last_played_note_);
+    vial::mono_float period = engine_->getSampleRate() / frequency;
+    int window_length = output_inc * vial::kOscilloscopeMemoryResolution;
 
     memory_reset_period_ = period;
     while (memory_reset_period_ < window_length)
@@ -655,13 +655,13 @@ void SynthBase::updateMemoryOutput(int samples, const vital::poly_float* audio) 
 
     memory_reset_period_ = std::min(memory_reset_period_, 2.0f * window_length);
     memory_index_ = 0;
-    vital::utils::copyBuffer(oscilloscope_memory_, oscilloscope_memory_write_, oscilloscope_samples);
+    vial::utils::copyBuffer(oscilloscope_memory_, oscilloscope_memory_write_, oscilloscope_samples);
   }
   last_num_pressed_ = num_pressed;
 
   for (; memory_input_offset_ < samples; memory_input_offset_ += output_inc) {
-    int input_index = vital::utils::iclamp(memory_input_offset_, 0, samples);
-    memory_index_ = vital::utils::iclamp(memory_index_, 0, oscilloscope_samples - 1);
+    int input_index = vial::utils::iclamp(memory_input_offset_, 0, samples);
+    memory_index_ = vial::utils::iclamp(memory_index_, 0, oscilloscope_samples - 1);
     VITAL_ASSERT(input_index >= 0);
     VITAL_ASSERT(input_index < samples);
     VITAL_ASSERT(memory_index_ >= 0);
@@ -671,7 +671,7 @@ void SynthBase::updateMemoryOutput(int samples, const vital::poly_float* audio) 
     if (memory_index_ * output_inc >= memory_reset_period_) {
       memory_input_offset_ += memory_reset_period_ - memory_index_ * output_inc;
       memory_index_ = 0;
-      vital::utils::copyBuffer(oscilloscope_memory_, oscilloscope_memory_write_, oscilloscope_samples);
+      vial::utils::copyBuffer(oscilloscope_memory_, oscilloscope_memory_write_, oscilloscope_samples);
     }
   }
 
@@ -737,13 +737,13 @@ String SynthBase::getMacroName(int index) {
   return name;
 }
 
-const vital::StereoMemory* SynthBase::getEqualizerMemory() {
+const vial::StereoMemory* SynthBase::getEqualizerMemory() {
   if (engine_)
     return engine_->getEqualizerMemory();
   return nullptr;
 }
 
-vital::ModulationConnectionBank& SynthBase::getModulationBank() {
+vial::ModulationConnectionBank& SynthBase::getModulationBank() {
   return engine_->getModulationBank();
 }
 

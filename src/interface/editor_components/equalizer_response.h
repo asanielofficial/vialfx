@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 #include "digital_svf.h"
 #include "open_gl_line_renderer.h"
 #include "open_gl_multi_quad.h"
@@ -41,8 +41,8 @@ class EqualizerResponse : public OpenGlLineRenderer, SynthSlider::SliderListener
     EqualizerResponse();
     ~EqualizerResponse();
   
-    void initEq(const vital::output_map& mono_modulations);
-    void initReverb(const vital::output_map& mono_modulations);
+    void initEq(const vial::output_map& mono_modulations);
+    void initReverb(const vial::output_map& mono_modulations);
 
     virtual void init(OpenGlWrapper& open_gl) override;
     virtual void render(OpenGlWrapper& open_gl, bool animate) override;
@@ -93,7 +93,7 @@ class EqualizerResponse : public OpenGlLineRenderer, SynthSlider::SliderListener
     void addListener(Listener* listener) { listeners_.push_back(listener); }
 
   private:
-    vital::poly_float getOutputTotal(vital::Output* output, Slider* slider);
+    vial::poly_float getOutputTotal(vial::Output* output, Slider* slider);
 
     int resolution_;
     bool active_;
@@ -111,13 +111,13 @@ class EqualizerResponse : public OpenGlLineRenderer, SynthSlider::SliderListener
     OpenGlQuad selected_point_;
     OpenGlQuad dragging_point_;
 
-    vital::DigitalSvf low_filter_;
-    vital::DigitalSvf band_filter_;
-    vital::DigitalSvf high_filter_;
+    vial::DigitalSvf low_filter_;
+    vial::DigitalSvf band_filter_;
+    vial::DigitalSvf high_filter_;
 
-    vital::SynthFilter::FilterState low_filter_state_;
-    vital::SynthFilter::FilterState band_filter_state_;
-    vital::SynthFilter::FilterState high_filter_state_;
+    vial::SynthFilter::FilterState low_filter_state_;
+    vial::SynthFilter::FilterState band_filter_state_;
+    vial::SynthFilter::FilterState high_filter_state_;
 
     SynthSlider* low_cutoff_;
     SynthSlider* low_resonance_;
@@ -129,15 +129,15 @@ class EqualizerResponse : public OpenGlLineRenderer, SynthSlider::SliderListener
     SynthSlider* high_resonance_;
     SynthSlider* high_gain_;
 
-    vital::Output* low_cutoff_output_;
-    vital::Output* low_resonance_output_;
-    vital::Output* low_gain_output_;
-    vital::Output* band_cutoff_output_;
-    vital::Output* band_resonance_output_;
-    vital::Output* band_gain_output_;
-    vital::Output* high_cutoff_output_;
-    vital::Output* high_resonance_output_;
-    vital::Output* high_gain_output_;
+    vial::Output* low_cutoff_output_;
+    vial::Output* low_resonance_output_;
+    vial::Output* low_gain_output_;
+    vial::Output* band_cutoff_output_;
+    vial::Output* band_resonance_output_;
+    vial::Output* band_gain_output_;
+    vial::Output* high_cutoff_output_;
+    vial::Output* high_resonance_output_;
+    vial::Output* high_gain_output_;
 
     SynthSlider* current_cutoff_;
     SynthSlider* current_gain_;

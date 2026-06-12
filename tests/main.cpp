@@ -14,7 +14,7 @@
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 #include "interface/full_interface_test.h"
 
 class SynthTestRunner : public UnitTestRunner {

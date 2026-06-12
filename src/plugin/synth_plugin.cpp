@@ -22,9 +22,9 @@
 SynthPlugin::SynthPlugin() {
   last_seconds_time_ = 0.0;
 
-  int num_params = vital::Parameters::getNumParameters();
+  int num_params = vial::Parameters::getNumParameters();
   for (int i = 0; i < num_params; ++i) {
-    const vital::ValueDetails* details = vital::Parameters::getDetails(i);
+    const vial::ValueDetails* details = vial::Parameters::getDetails(i);
     if (controls_.count(details->name) == 0)
       continue;
 
@@ -59,9 +59,9 @@ void SynthPlugin::endChangeGesture(const std::string& name) {
     bridge_lookup_[name]->endChangeGesture();
 }
 
-void SynthPlugin::setValueNotifyHost(const std::string& name, vital::mono_float value) {
+void SynthPlugin::setValueNotifyHost(const std::string& name, vial::mono_float value) {
   if (bridge_lookup_.count(name)) {
-    vital::mono_float plugin_value = bridge_lookup_[name]->convertToPluginValue(value);
+    vial::mono_float plugin_value = bridge_lookup_[name]->convertToPluginValue(value);
     bridge_lookup_[name]->setValueNotifyHost(plugin_value);
   }
 }
@@ -135,7 +135,7 @@ void SynthPlugin::prepareToPlay(double sample_rate, int buffer_size) {
 void SynthPlugin::releaseResources() {
 }
 
-void SynthPlugin::processBlock(AudioSampleBuffer& buffer, MidiBuffer& midi_messages) {
+void SynthPlugin::processBlock(juce::AudioBuffer<float>& buffer, MidiBuffer& midi_messages) {
   static constexpr double kSecondsPerMinute = 60.0f;
 
   if (bypass_parameter_->getValue()) {
@@ -163,7 +163,7 @@ void SynthPlugin::processBlock(AudioSampleBuffer& buffer, MidiBuffer& midi_messa
 
   double sample_time = 1.0 / AudioProcessor::getSampleRate();
   for (int sample_offset = 0; sample_offset < total_samples;) {
-    int num_samples = std::min<int>(total_samples - sample_offset, vital::kMaxBufferSize);
+    int num_samples = std::min<int>(total_samples - sample_offset, vial::kMaxBufferSize);
 
     engine_->correctToTime(last_seconds_time_);
     processMidi(midi_messages, sample_offset, sample_offset + num_samples);
@@ -182,7 +182,7 @@ AudioProcessorEditor* SynthPlugin::createEditor() {
   return new SynthEditor(*this);
 }
 
-void SynthPlugin::parameterChanged(std::string name, vital::mono_float value) {
+void SynthPlugin::parameterChanged(std::string name, vial::mono_float value) {
   valueChangedExternal(name, value);
 }
 

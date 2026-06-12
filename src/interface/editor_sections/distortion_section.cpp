@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "distortion_section.h"
@@ -31,7 +31,7 @@ class DistortionViewer : public OpenGlLineRenderer {
   public:
     static constexpr float kDrawPercent = 0.9f;
 
-    DistortionViewer(int resolution, const vital::output_map& mono_modulations) :
+    DistortionViewer(int resolution, const vial::output_map& mono_modulations) :
         OpenGlLineRenderer(resolution), type_slider_(nullptr), drive_slider_(nullptr) {
       drive_ = mono_modulations.at("distortion_drive");
       active_ = true;
@@ -39,14 +39,14 @@ class DistortionViewer : public OpenGlLineRenderer {
       setFillCenter(0.0f);
     }
 
-    vital::poly_float getDrive() {
+    vial::poly_float getDrive() {
       if (drive_slider_ && !drive_->owner->enabled())
         return drive_slider_->getValue();
       return drive_->trigger_value;
     }
 
     void drawDistortion(OpenGlWrapper& open_gl, bool animate, int index) {
-      vital::poly_float drive = vital::Distortion::getDriveValue(type_slider_->getValue(), getDrive());
+      vial::poly_float drive = vial::Distortion::getDriveValue(type_slider_->getValue(), getDrive());
 
       float width = getWidth();
       float height = getHeight();
@@ -56,7 +56,7 @@ class DistortionViewer : public OpenGlLineRenderer {
         float t = i / (num_points - 1.0f);
         float val = 2.0f * t - 1.0f;
         setXAt(i, t * width);
-        float result = kDrawPercent * vital::Distortion::getDrivenValue(type_slider_->getValue(), val, drive)[index];
+        float result = kDrawPercent * vial::Distortion::getDrivenValue(type_slider_->getValue(), val, drive)[index];
         setYAt(i, (1.0f - result) * y_scale);
       }
 
@@ -109,12 +109,12 @@ class DistortionViewer : public OpenGlLineRenderer {
     bool active_;
     Point<int> last_mouse_position_;
 
-    vital::Output* drive_;
+    vial::Output* drive_;
     Slider* type_slider_;
     Slider* drive_slider_;
 };
 
-DistortionFilterResponse::DistortionFilterResponse(const vital::output_map& mono_modulations) :
+DistortionFilterResponse::DistortionFilterResponse(const vial::output_map& mono_modulations) :
     OpenGlLineRenderer(kResolution) {
   active_ = true;
 
@@ -208,7 +208,7 @@ void DistortionFilterResponse::destroy(OpenGlWrapper& open_gl) {
     stage = nullptr;
 }
 
-vital::poly_float DistortionFilterResponse::getOutputTotal(vital::Output* output, vital::poly_float default_value) {
+vial::poly_float DistortionFilterResponse::getOutputTotal(vial::Output* output, vial::poly_float default_value) {
   if (output && output->owner->enabled())
     return output->trigger_value;
   return default_value;
@@ -227,12 +227,12 @@ void DistortionFilterResponse::loadShader(int index) {
   float cutoff = std::max(min_cutoff, filter_state_.midi_cutoff[index]);
   response_shader_.midi_cutoff->set(cutoff);
 
-  float resonance = vital::utils::clamp(filter_.getResonance()[index], 0.0f, 2.0f);
+  float resonance = vial::utils::clamp(filter_.getResonance()[index], 0.0f, 2.0f);
   response_shader_.resonance->set(resonance);
   response_shader_.mix->set(1.0f);
 
   response_shader_.drive->set(filter_.getDrive()[index]);
-  response_shader_.db24->set(filter_state_.style != vital::SynthFilter::k12Db ? 1.0f : 0.0f);
+  response_shader_.db24->set(filter_state_.style != vial::SynthFilter::k12Db ? 1.0f : 0.0f);
 
   response_shader_.stages[0]->set(filter_.getLowAmount()[index]);
   response_shader_.stages[1]->set(filter_.getBandAmount()[index]);
@@ -250,23 +250,23 @@ void DistortionFilterResponse::bind(OpenGLContext& open_gl_context) {
                                                    GL_FALSE, 2 * sizeof(float), nullptr);
   open_gl_context.extensions.glEnableVertexAttribArray(position->attributeID);
 
-  open_gl_context.extensions.glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, response_buffer_);
+  glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, response_buffer_);
 }
 
 void DistortionFilterResponse::unbind(OpenGLContext& open_gl_context) {
   OpenGLShaderProgram::Attribute* position = response_shader_.position.get();
   open_gl_context.extensions.glDisableVertexAttribArray(position->attributeID);
   open_gl_context.extensions.glBindBuffer(GL_ARRAY_BUFFER, 0);
-  open_gl_context.extensions.glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0);
+  glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0);
 }
 
 void DistortionFilterResponse::renderLineResponse(OpenGlWrapper& open_gl) {
-  open_gl.context.extensions.glBeginTransformFeedback(GL_POINTS);
+  glBeginTransformFeedback(GL_POINTS);
   glDrawArrays(GL_POINTS, 0, kResolution);
-  open_gl.context.extensions.glEndTransformFeedback();
+  glEndTransformFeedback();
 
-  void* buffer = open_gl.context.extensions.glMapBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, 0,
-                                                             kResolution * sizeof(float), GL_MAP_READ_BIT);
+  void* buffer = glMapBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, 0,
+                                  kResolution * sizeof(float), GL_MAP_READ_BIT);
 
   float* response_data = (float*)buffer;
   float x_adjust = getWidth();
@@ -276,7 +276,7 @@ void DistortionFilterResponse::renderLineResponse(OpenGlWrapper& open_gl) {
     setYAt(i, y_adjust * (1.0 - response_data[i]));
   }
 
-  open_gl.context.extensions.glUnmapBuffer(GL_TRANSFORM_FEEDBACK_BUFFER);
+  glUnmapBuffer(GL_TRANSFORM_FEEDBACK_BUFFER);
 }
 
 void DistortionFilterResponse::drawFilterResponse(OpenGlWrapper& open_gl, bool animate) {
@@ -324,7 +324,7 @@ void DistortionFilterResponse::drawFilterResponse(OpenGlWrapper& open_gl, bool a
   checkGlError();
 }
 
-DistortionSection::DistortionSection(String name, const vital::output_map& mono_modulations) : SynthSection(name) {
+DistortionSection::DistortionSection(String name, const vial::output_map& mono_modulations) : SynthSection(name) {
   type_ = std::make_unique<TextSelector>("distortion_type");
   addSlider(type_.get());
   type_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
@@ -441,7 +441,7 @@ void DistortionSection::sliderValueChanged(Slider* changed_slider) {
   SynthSection::sliderValueChanged(changed_slider);
 }
 
-void DistortionSection::setAllValues(vital::control_map& controls) {
+void DistortionSection::setAllValues(vial::control_map& controls) {
   SynthSection::setAllValues(controls);
   setFilterActive(filter_order_->getValue() != 0.0f && isActive());
 }

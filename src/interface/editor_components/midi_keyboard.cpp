@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "midi_keyboard.h"
@@ -24,13 +24,13 @@ const float MidiKeyboard::kBlackKeyOffsets[kNumBlackKeysPerOctave] = {
   6.0f - 0.3f * kBlackKeyWidthRatio,
 };
 
-const bool MidiKeyboard::kWhiteKeys[vital::kNotesPerOctave] = {
+const bool MidiKeyboard::kWhiteKeys[vial::kNotesPerOctave] = {
   true, false, true, false, true, true, false, true, false, true, false, true
 };
 
 namespace {
   int getBlackKeyOctaveOffset(int black_key_index) {
-    for (int i = 0; i < vital::kNotesPerOctave; ++i) {
+    for (int i = 0; i < vial::kNotesPerOctave; ++i) {
       if (!MidiKeyboard::kWhiteKeys[i]) {
         if (black_key_index == 0)
           return i;
@@ -42,7 +42,7 @@ namespace {
   }
 
   int getWhiteKeyOctaveOffset(int white_key_index) {
-    for (int i = 0; i < vital::kNotesPerOctave; ++i) {
+    for (int i = 0; i < vial::kNotesPerOctave; ++i) {
       if (MidiKeyboard::kWhiteKeys[i]) {
         if (white_key_index == 0)
           return i;
@@ -152,19 +152,19 @@ int MidiKeyboard::getNoteAtPosition(Point<float> position) {
     for (int i = 0; i < kNumBlackKeysPerOctave; ++i) {
       float note_offset = white_key_in_octave - kBlackKeyOffsets[i];
       if (note_offset <= kBlackKeyWidthRatio && note_offset >= 0.0f) {
-        int note = octave * vital::kNotesPerOctave + getBlackKeyOctaveOffset(i);
-        return std::min(vital::kMidiSize - 1, std::max(note, 0));
+        int note = octave * vial::kNotesPerOctave + getBlackKeyOctaveOffset(i);
+        return std::min(vial::kMidiSize - 1, std::max(note, 0));
       }
     }
   }
 
   int white_key_index = std::min<int>(kNumWhiteKeysPerOctave - 1, white_key_in_octave);
-  int note = octave * vital::kNotesPerOctave + getWhiteKeyOctaveOffset(white_key_index);
-  return std::min(vital::kMidiSize - 1, std::max(note, 0));
+  int note = octave * vial::kNotesPerOctave + getWhiteKeyOctaveOffset(white_key_index);
+  return std::min(vial::kMidiSize - 1, std::max(note, 0));
 }
 
 float MidiKeyboard::getVelocityForNote(int midi, Point<float> position) {
-  static constexpr float kMinVelocity = 1.0f / (vital::kMidiSize - 1);
+  static constexpr float kMinVelocity = 1.0f / (vial::kMidiSize - 1);
 
   float velocity = position.y / getHeight();
   if (!isWhiteKey(midi))
@@ -180,8 +180,8 @@ void MidiKeyboard::render(OpenGlWrapper& open_gl, bool animate) {
   int hover_note = hover_note_;
 
   if (hover_note >= 0) {
-    int octave = hover_note / vital::kNotesPerOctave;
-    int note_offset = hover_note - octave * vital::kNotesPerOctave;
+    int octave = hover_note / vial::kNotesPerOctave;
+    int note_offset = hover_note - octave * vial::kNotesPerOctave;
     if (isWhiteKey(hover_note)) {
       int index = octave * kNumWhiteKeysPerOctave + getWhiteKeyIndexFromOffset(note_offset);
       setWhiteKeyQuad(&hover_note_quad_, 0, index);
@@ -211,7 +211,7 @@ void MidiKeyboard::setPressedKeyPositions() {
   int num_pressed_black_keys = 0;
   int white_key_index = 0;
   int black_key_index = 0;
-  for (int i = 0; i < vital::kMidiSize; ++i) {
+  for (int i = 0; i < vial::kMidiSize; ++i) {
     bool white_key = isWhiteKey(i);
     if (state_.isNoteOnForChannels(0xffff, i)) {
       if (white_key) {

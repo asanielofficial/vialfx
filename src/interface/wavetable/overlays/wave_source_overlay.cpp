@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "wave_source_overlay.h"
@@ -38,7 +38,7 @@ namespace {
 
 WaveSourceOverlay::WaveSourceOverlay() : WavetableComponentOverlay("WAVE SOURCE"), wave_source_(nullptr) {
   current_frame_ = nullptr;
-  int waveform_size = vital::WaveFrame::kWaveformSize;
+  int waveform_size = vial::WaveFrame::kWaveformSize;
   oscillator_ = std::make_unique<WaveSourceEditor>(waveform_size);
   oscillator_->setGrid(kDefaultXGrid, kDefaultYGrid);
   oscillator_->setFill(true);
@@ -47,7 +47,7 @@ WaveSourceOverlay::WaveSourceOverlay() : WavetableComponentOverlay("WAVE SOURCE"
   addOpenGlComponent(oscillator_.get());
   oscillator_->setVisible(false);
 
-  int bar_size = vital::WaveFrame::kNumRealComplex;
+  int bar_size = vial::WaveFrame::kNumRealComplex;
   frequency_amplitudes_ = std::make_unique<BarEditor>(bar_size);
   frequency_amplitudes_->setSquareScale(true);
   frequency_amplitudes_->addListener(this);
@@ -190,24 +190,24 @@ bool WaveSourceOverlay::setPhaseBounds(Rectangle<int> bounds) {
 }
 
 void WaveSourceOverlay::updateFrequencyDomain(std::complex<float>* frequency_domain) {
-  for (int i = 0; i < vital::WaveFrame::kNumRealComplex; ++i) {
+  for (int i = 0; i < vial::WaveFrame::kNumRealComplex; ++i) {
     std::complex<float> frequency = frequency_domain[i];
     float amplitude = std::abs(frequency);
     float phase = kDefaultPhase;
     if (amplitude)
-      phase = std::arg(frequency) / vital::kPi;
+      phase = std::arg(frequency) / vial::kPi;
 
-    float adjusted_amplitude = amplitude / vital::WaveFrame::kWaveformSize;
+    float adjusted_amplitude = amplitude / vial::WaveFrame::kWaveformSize;
     frequency_amplitudes_->setScaledY(i, adjusted_amplitude);
     frequency_phases_->setY(i, phase);
   }
 }
 
 void WaveSourceOverlay::loadFrequencyDomain() {
-  for (int i = 0; i < vital::WaveFrame::kNumRealComplex; ++i) {
+  for (int i = 0; i < vial::WaveFrame::kNumRealComplex; ++i) {
     float amplitude = frequency_amplitudes_->scaledYAt(i);
-    amplitude *= vital::WaveFrame::kWaveformSize;
-    float phase = vital::kPi * frequency_phases_->yAt(i);
+    amplitude *= vial::WaveFrame::kWaveformSize;
+    float phase = vial::kPi * frequency_phases_->yAt(i);
     std::complex<float> value = std::polar(amplitude, phase);
     current_frame_->frequency_domain[i] = value;
   }

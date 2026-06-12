@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 
 #include "open_gl_multi_quad.h"
 #include "synth_gui_interface.h"
@@ -28,13 +28,13 @@ class MidiKeyboard : public OpenGlComponent {
 
     static constexpr int kNumWhiteKeys = 75;
     static constexpr int kNumWhiteKeysPerOctave = 7;
-    static constexpr int kNumBlackKeys = vital::kMidiSize - kNumWhiteKeys;
-    static constexpr int kNumBlackKeysPerOctave = vital::kNotesPerOctave - kNumWhiteKeysPerOctave;
+    static constexpr int kNumBlackKeys = vial::kMidiSize - kNumWhiteKeys;
+    static constexpr int kNumBlackKeysPerOctave = vial::kNotesPerOctave - kNumWhiteKeysPerOctave;
     static constexpr float kBlackKeyHeightRatio = 0.7f;
     static constexpr float kBlackKeyWidthRatio = 0.8f;
 
     force_inline static bool isWhiteKey(int midi) {
-      return kWhiteKeys[midi % vital::kNotesPerOctave];
+      return kWhiteKeys[midi % vial::kNotesPerOctave];
     }
 
     MidiKeyboard(MidiKeyboardState& state);

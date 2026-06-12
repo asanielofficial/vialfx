@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "compressor_section.h"
@@ -22,6 +22,7 @@
 #include "fonts.h"
 #include "synth_button.h"
 #include "synth_slider.h"
+#include "synth_strings.h"
 #include "text_look_and_feel.h"
 
 CompressorSection::CompressorSection(const String& name) : SynthSection(name) {
@@ -116,7 +117,7 @@ void CompressorSection::resized() {
   SynthSection::resized();
 }
 
-void CompressorSection::setAllValues(vital::control_map& controls) {
+void CompressorSection::setAllValues(vial::control_map& controls) {
   SynthSection::setAllValues(controls);
   compressor_editor_->setAllValues(controls);
   setCompressorActiveBands();
@@ -135,10 +136,10 @@ void CompressorSection::sliderValueChanged(Slider* changed_slider) {
 
 void CompressorSection::setCompressorActiveBands() {
   int enabled_bands = enabled_bands_->getValue();
-  bool low_enabled = enabled_bands == vital::MultibandCompressor::kLowBand ||
-                     enabled_bands == vital::MultibandCompressor::kMultiband;
-  bool high_enabled = enabled_bands == vital::MultibandCompressor::kHighBand ||
-                      enabled_bands == vital::MultibandCompressor::kMultiband;
+  bool low_enabled = enabled_bands == vial::MultibandCompressor::kLowBand ||
+                     enabled_bands == vial::MultibandCompressor::kMultiband;
+  bool high_enabled = enabled_bands == vial::MultibandCompressor::kHighBand ||
+                      enabled_bands == vial::MultibandCompressor::kMultiband;
   compressor_editor_->setLowBandActive(low_enabled);
   compressor_editor_->setHighBandActive(high_enabled);
   low_gain_->setActive(low_enabled);

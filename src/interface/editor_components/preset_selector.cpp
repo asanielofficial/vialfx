@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "preset_selector.h"
@@ -26,11 +26,7 @@ PresetSelector::PresetSelector() : SynthSection("preset_selector"),
   static const PathStrokeType arrow_stroke(0.05f, PathStrokeType::JointStyle::curved,
                                            PathStrokeType::EndCapStyle::rounded);
 
-  text_ = std::make_unique<PlainTextComponent>("Text", "Init");
-  text_->setFontType(PlainTextComponent::kTitle);
-  text_->setInterceptsMouseClicks(false, false);
-  addOpenGlComponent(text_.get());
-  text_->setScissor(true);
+  text_value_ = "Init";
   Path prev_line, prev_shape, next_line, next_shape;
 
   prev_preset_ = std::make_unique<OpenGlShapeButton>("Prev");
@@ -66,6 +62,21 @@ void PresetSelector::paintBackground(Graphics& g) {
   float round_amount = findValue(Skin::kWidgetRoundedCorner);
   g.setColour(findColour(Skin::kPopupSelectorBackground, true));
   g.fillRoundedRectangle(0, 0, getWidth(), getHeight(), round_amount);
+
+  g.setColour(findColour(Skin::kPresetText, true));
+  int height = getHeight();
+  Rectangle<int> text_bounds(height, 0, getWidth() - 2 * height, height);
+  if (text_component_) {
+    SynthSection* parent = findParentComponentOfClass<SynthSection>();
+    int button_height = parent->findValue(Skin::kTextComponentFontSize);
+    int offset = parent->findValue(Skin::kTextComponentOffset);
+    text_bounds = getLocalBounds().translated(0, offset);
+    g.setFont(Fonts::instance()->proportional_regular().withPointHeight(button_height));
+  }
+  else {
+    g.setFont(Fonts::instance()->proportional_title().withPointHeight(height * font_height_ratio_));
+  }
+  g.drawText(text_value_, text_bounds, Justification::centred, false);
 }
 
 void PresetSelector::resized() {
@@ -78,16 +89,11 @@ void PresetSelector::resized() {
     int button_y = (getHeight() - button_height) / 2 + offset;
     prev_preset_->setBounds(0, button_y, button_height, button_height);
     next_preset_->setBounds(getWidth() - button_height, button_y, button_height, button_height);
-    text_->setBounds(getLocalBounds().translated(0, offset));
-    text_->setTextSize(button_height);
   }
   else {
     int height = getHeight();
-    text_->setBounds(Rectangle<int>(height, 0, getWidth() - 2 * height, height));
-    text_->setTextSize(height * font_height_ratio_);
     prev_preset_->setBounds(0, 0, height, height);
     next_preset_->setBounds(getWidth() - height, 0, height, height);
-    text_->setColor(findColour(Skin::kPresetText, true));
   }
 }
 
@@ -107,11 +113,13 @@ void PresetSelector::buttonClicked(Button* clicked_button) {
 }
 
 void PresetSelector::setText(String text) {
-  text_->setText(text);
+  text_value_ = text;
+  repaintBackground();
 }
 
 void PresetSelector::setText(String left, String center, String right) {
-  text_->setText(left + "  " + center + "  " + right);
+  text_value_ = left + "  " + center + "  " + right;
+  repaintBackground();
 }
 
 void PresetSelector::clickPrev() {

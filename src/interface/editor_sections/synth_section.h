@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 #include "fonts.h"
 #include "paths.h"
 #include "open_gl_image_component.h"
@@ -80,7 +80,7 @@ class LoadingWheel : public OpenGlQuad {
       static constexpr float kMaxRads = 4.0f;
       static constexpr float kRadRange = kMaxRads - kMinRads;
       static constexpr float kCompleteSpeed = 0.15f;
-      static constexpr float kStartRads = -vital::kPi - 0.05f;
+      static constexpr float kStartRads = -vial::kPi - 0.05f;
 
       tick_++;
       setStartPos(-tick_ * kRotationMult);
@@ -274,8 +274,8 @@ class SynthSection : public Component, public Slider::Listener,
     virtual void setActive(bool active);
     bool isActive() const { return active_; }
     virtual void animate(bool animate);
-    virtual void setAllValues(vital::control_map& controls);
-    virtual void setValue(const std::string& name, vital::mono_float value, NotificationType notification);
+    virtual void setAllValues(vial::control_map& controls);
+    virtual void setValue(const std::string& name, vial::mono_float value, NotificationType notification);
 
     void addModulationButton(ModulationButton* button, bool show = true);
     void addSubSection(SynthSection* section, bool show = true);

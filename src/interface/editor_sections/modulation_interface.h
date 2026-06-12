@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 #include "modulation_tab_selector.h"
 #include "synth_constants.h"
 #include "synth_section.h"
@@ -49,13 +49,13 @@ class ModulationInterface  : public SynthSection, public ModulationTabSelector::
     void setFocus() { grabKeyboardFocus(); }
 
   private:
-    std::unique_ptr<EnvelopeSection> envelopes_[vital::kNumEnvelopes];
+    std::unique_ptr<EnvelopeSection> envelopes_[vial::kNumEnvelopes];
     std::unique_ptr<ModulationTabSelector> envelope_tab_selector_;
 
-    std::unique_ptr<LfoSection> lfos_[vital::kNumLfos];
+    std::unique_ptr<LfoSection> lfos_[vial::kNumLfos];
     std::unique_ptr<ModulationTabSelector> lfo_tab_selector_;
 
-    std::unique_ptr<RandomSection> random_lfos_[vital::kNumRandomLfos];
+    std::unique_ptr<RandomSection> random_lfos_[vial::kNumRandomLfos];
     std::unique_ptr<ModulationTabSelector> random_tab_selector_;
 
     std::unique_ptr<ModulationTabSelector> keyboard_modulations_top_;

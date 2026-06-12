@@ -1,26 +1,25 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "value.h"
-
+#include "common.h"
 #include <string>
 
-namespace vital {
+namespace vial {
 
   constexpr int kNumLfos = 8;
   constexpr int kNumOscillators = 3;
@@ -49,13 +48,13 @@ namespace vital {
   constexpr wchar_t kDefaultKeyboardOctaveDown = 'z';
   const std::wstring kDefaultKeyboard = L"awsedftgyhujkolp;'";
 
-  const std::string kPresetExtension = "vital";
-  const std::string kWavetableExtension = "vitaltable";
-  const std::string kWavetableExtensionsList = "*." + vital::kWavetableExtension + ";*.wav;*.flac";
+  const std::string kPresetExtension = "vial";
+  const std::string kWavetableExtension = "vialtable";
+  const std::string kWavetableExtensionsList = "*." + vial::kWavetableExtension + ";*.wav;*.flac";
   const std::string kSampleExtensionsList = "*.wav;*.flac";
   const std::string kSkinExtension = "vialskin";
-  const std::string kLfoExtension = "vitallfo";
-  const std::string kBankExtension = "vitalbank";
+  const std::string kLfoExtension = "viallfo";
+  const std::string kBankExtension = "vialbank";
 
   namespace constants {
     enum SourceDestination {
@@ -69,30 +68,30 @@ namespace vital {
 
     static SourceDestination toggleFilter1(SourceDestination current_destination, bool on) {
       if (on) {
-        if (current_destination == vital::constants::kFilter2)
-          return vital::constants::kDualFilters;
+        if (current_destination == vial::constants::kFilter2)
+          return vial::constants::kDualFilters;
         else
-          return vital::constants::kFilter1;
+          return vial::constants::kFilter1;
       }
-      else if (current_destination == vital::constants::kDualFilters)
-        return vital::constants::kFilter2;
-      else if (current_destination == vital::constants::kFilter1)
-        return vital::constants::kEffects;
+      else if (current_destination == vial::constants::kDualFilters)
+        return vial::constants::kFilter2;
+      else if (current_destination == vial::constants::kFilter1)
+        return vial::constants::kEffects;
 
       return current_destination;
     }
 
     static SourceDestination toggleFilter2(SourceDestination current_destination, bool on) {
       if (on) {
-        if (current_destination == vital::constants::kFilter1)
-          return vital::constants::kDualFilters;
+        if (current_destination == vial::constants::kFilter1)
+          return vial::constants::kDualFilters;
         else
-          return vital::constants::kFilter2;
+          return vial::constants::kFilter2;
       }
-      else if (current_destination == vital::constants::kDualFilters)
-        return vital::constants::kFilter1;
-      else if (current_destination == vital::constants::kFilter2)
-        return vital::constants::kEffects;
+      else if (current_destination == vial::constants::kDualFilters)
+        return vial::constants::kFilter1;
+      else if (current_destination == vial::constants::kFilter2)
+        return vial::constants::kEffects;
 
       return current_destination;
     }
@@ -130,7 +129,7 @@ namespace vital {
     };
 
     constexpr int kNumSyncedFrequencyRatios = 13;
-    constexpr vital::mono_float kSyncedFrequencyRatios[kNumSyncedFrequencyRatios] = {
+    constexpr vial::mono_float kSyncedFrequencyRatios[kNumSyncedFrequencyRatios] = {
       0.0f,
       1.0f / 128.0f,
       1.0f / 64.0f,
@@ -169,4 +168,4 @@ namespace vital {
     const cr::Value kValueSqrt2(kSqrt2);
     const cr::Value kValueNegOne(-1.0f);
   } // namespace constants
-} // namespace vital
+} // namespace vial

@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "modulation_manager.h"
@@ -103,7 +103,7 @@ class ExpandModulationButton : public OpenGlToggleButton {
   private:
     std::vector<ModulationAmountKnob*> sliders_;
     int num_sliders_;
-    Colour colors_[vital::kMaxModulationConnections];
+    Colour colors_[vial::kMaxModulationConnections];
 
     OpenGlQuad amount_quad_;
 
@@ -337,7 +337,7 @@ void ModulationAmountKnob::setCurrentModulator(bool current) {
 
 void ModulationAmountKnob::setDestinationComponent(Component* component, const std::string& name) {
   color_component_ = component;
-  setPopupPrefix(vital::Parameters::getDisplayName(name) + ": ");
+  setPopupPrefix(vial::Parameters::getDisplayName(name) + ": ");
   
   if (color_component_)
     setColour(Skin::kRotaryArc, color_component_->findColour(Skin::kRotaryArc, true));
@@ -357,8 +357,8 @@ void ModulationAmountKnob::setSource(const std::string& name) {
 ModulationManager::ModulationManager(
     std::map<std::string, ModulationButton*> modulation_buttons,
     std::map<std::string, SynthSlider*> sliders,
-    vital::output_map mono_modulations,
-    vital::output_map poly_modulations) : SynthSection("modulation_manager"),
+    vial::output_map mono_modulations,
+    vial::output_map poly_modulations) : SynthSection("modulation_manager"),
                                           drag_quad_(Shaders::kRingFragment),
                                           current_modulator_quad_(Shaders::kRoundedRectangleBorderFragment),
                                           editing_rotary_amount_quad_(Shaders::kRotaryModulationFragment),
@@ -451,14 +451,14 @@ ModulationManager::ModulationManager(
 
   for (auto& slider : slider_model_lookup_) {
     std::string name = slider.first;
-    const vital::Output* mono_total = mono_modulations[name];
+    const vial::Output* mono_total = mono_modulations[name];
 
     if (mono_total == nullptr)
       continue;
 
     bool rotary = slider.second->isRotary() && !slider.second->isTextOrCurve();
     Viewport* viewport = slider.second->findParentComponentOfClass<Viewport>();
-    const vital::Output* poly_total = poly_modulations[name];
+    const vial::Output* poly_total = poly_modulations[name];
 
     if (rotary) {
       int index = num_rotary_meters[viewport] - 1;
@@ -477,7 +477,7 @@ ModulationManager::ModulationManager(
 
   addChildComponent(modulation_destinations_.get());
 
-  for (int i = 0; i < vital::kMaxModulationConnections; ++i) {
+  for (int i = 0; i < vial::kMaxModulationConnections; ++i) {
     std::string name = "modulation_" + std::to_string(i + 1) + "_amount"; 
     modulation_amount_sliders_[i] = std::make_unique<ModulationAmountKnob>(name, i);
     modulation_amount_sliders_[i]->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
@@ -504,8 +504,8 @@ ModulationManager::ModulationManager(
   }
 }
 
-void ModulationManager::createModulationMeter(const vital::Output* mono_total,
-                                              const vital::Output* poly_total,
+void ModulationManager::createModulationMeter(const vial::Output* mono_total,
+                                              const vial::Output* poly_total,
                                               SynthSlider* slider, OpenGlMultiQuad* quads, int index) {
   std::string name = slider->getName().toStdString();
   std::unique_ptr<ModulationMeter> meter = std::make_unique<ModulationMeter>(mono_total, poly_total,
@@ -634,7 +634,7 @@ void ModulationManager::modulationRemoved(SynthSlider* slider) {
   modulation_buttons_[source_name]->repaint();
 }
 
-void ModulationManager::modulationDisconnected(vital::ModulationConnection* connection, bool last) {
+void ModulationManager::modulationDisconnected(vial::ModulationConnection* connection, bool last) {
   if (current_modulator_ == nullptr)
     return;
   
@@ -667,9 +667,9 @@ void ModulationManager::modulationCleared() {
 
 bool ModulationManager::hasFreeConnection() {
   SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
-  vital::ModulationConnectionBank& bank = parent->getSynth()->getModulationBank();
-  for (int i = 0; i < vital::kMaxModulationConnections; ++i) {
-    vital::ModulationConnection* connection = bank.atIndex(i);
+  vial::ModulationConnectionBank& bank = parent->getSynth()->getModulationBank();
+  for (int i = 0; i < vial::kMaxModulationConnections; ++i) {
+    vial::ModulationConnection* connection = bank.atIndex(i);
     if (connection->source_name.empty() && connection->destination_name.empty())
       return true;
   }
@@ -700,8 +700,8 @@ void ModulationManager::startModulationMap(ModulationButton* source, const Mouse
   SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
   std::string source_name = source->getName().toStdString();
   std::set<std::string> active_destinations;
-  std::vector<vital::ModulationConnection*> connections = parent->getSynth()->getSourceConnections(source_name);
-  for (vital::ModulationConnection* connection : connections)
+  std::vector<vial::ModulationConnection*> connections = parent->getSynth()->getSourceConnections(source_name);
+  for (vial::ModulationConnection* connection : connections)
     active_destinations.insert(connection->destination_name);
 
   for (auto& destination : destination_lookup_) {
@@ -778,7 +778,7 @@ void ModulationManager::modulationDraggedToHoverSlider(ModulationAmountKnob* hov
 
   std::string name = hover_slider->getOriginalName().toStdString();
   std::string source_name = current_modulator_->getName().toStdString();
-  vital::ModulationConnection* connection = getConnection(source_name, name);
+  vial::ModulationConnection* connection = getConnection(source_name, name);
   if (connection == nullptr) {
     float value = hover_slider->getValue() * 0.5f;
     hover_slider->setValue(0.0f, sendNotificationSync);
@@ -818,9 +818,9 @@ void ModulationManager::modulationDraggedToComponent(Component* component, bool 
       setDestinationQuadBounds(destination);
 
       SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
-      std::vector<vital::ModulationConnection*> connections = parent->getSynth()->getDestinationConnections(name);
+      std::vector<vial::ModulationConnection*> connections = parent->getSynth()->getDestinationConnections(name);
 
-      for (vital::ModulationConnection* connection : connections) {
+      for (vial::ModulationConnection* connection : connections) {
         if (connection->source_name == source_name && connection->destination_name == name) {
           int index = connection->modulation_processor->index();
           showModulationAmountOverlay(selected_modulation_sliders_[index].get());
@@ -886,7 +886,7 @@ void ModulationManager::modulationDragged(const MouseEvent& e) {
   mouse_drag_position_ = getLocalPoint(current_source_, e.getPosition());
   Component* component = getComponentAt(mouse_drag_position_.x, mouse_drag_position_.y);
   ModulationAmountKnob* hover_knob = nullptr;
-  for (int i = 0; i < vital::kMaxModulationConnections; ++i) {
+  for (int i = 0; i < vial::kMaxModulationConnections; ++i) {
     if (modulation_amount_sliders_[i].get() == component)
       hover_knob = modulation_amount_sliders_[i].get();
     else if (modulation_hover_sliders_[i].get() == component)
@@ -962,7 +962,7 @@ void ModulationManager::clearModulationSource() {
 }
 
 void ModulationManager::disconnectModulation(ModulationAmountKnob* modulation_knob) {
-  vital::ModulationConnection* connection = getConnectionForModulationSlider(modulation_knob);
+  vial::ModulationConnection* connection = getConnectionForModulationSlider(modulation_knob);
   while (connection && !connection->source_name.empty() && !connection->destination_name.empty()) {
     removeModulation(connection->source_name, connection->destination_name);
     connection = getConnectionForModulationSlider(modulation_knob);
@@ -972,7 +972,7 @@ void ModulationManager::disconnectModulation(ModulationAmountKnob* modulation_kn
 }
 
 void ModulationManager::setModulationSettings(ModulationAmountKnob* modulation_knob) {
-  vital::ModulationConnection* connection = getConnectionForModulationSlider(modulation_knob);
+  vial::ModulationConnection* connection = getConnectionForModulationSlider(modulation_knob);
   float value = modulation_knob->getValue();
   bool bipolar = modulation_knob->isBipolar();
   bool stereo = modulation_knob->isStereo();
@@ -1050,7 +1050,7 @@ void ModulationManager::drawDraggingModulation(OpenGlWrapper& open_gl) {
   if (current_source_ == nullptr || temporarily_set_destination_ || temporarily_set_hover_slider_)
     return;
 
-  vital::poly_float mod_percent = modulation_source_readouts_[current_source_->getName().toStdString()]->value();
+  vial::poly_float mod_percent = modulation_source_readouts_[current_source_->getName().toStdString()]->value();
   float draw_radius = kRadiusWidthRatio * getWidth();
   float radius_x = draw_radius / getWidth();
   float radius_y = draw_radius / getHeight();
@@ -1128,7 +1128,7 @@ void ModulationManager::renderSourceMeters(OpenGlWrapper& open_gl, int index) {
     ModulationButton* button = modulation_buttons_[mod_readout.first];
     float readout_value = mod_readout.second->value()[index];
 
-    float clamped_value = vital::utils::clamp(readout_value, 0.0f, 1.0f);
+    float clamped_value = vial::utils::clamp(readout_value, 0.0f, 1.0f);
     if (!active_mod_values_[mod_readout.first] && !mod_readout.second->isClearValue(readout_value))
       smooth_mod_values_[mod_readout.first].set(index, clamped_value);
     float smooth_value = smooth_mod_values_[mod_readout.first][index];
@@ -1169,13 +1169,13 @@ void ModulationManager::updateSmoothModValues() {
   float decay = std::max(std::min(kModSmoothDecay * seconds * kTimeDecayScale, 1.0f), 0.0f);
 
   for (auto& mod_readout : modulation_source_readouts_) {
-    vital::poly_float readout_value = mod_readout.second->value();
-    vital::poly_float clamped_value = vital::utils::clamp(readout_value, 0.0f, 1.0f);
-    vital::poly_float smooth_value = smooth_mod_values_[mod_readout.first];
+    vial::poly_float readout_value = mod_readout.second->value();
+    vial::poly_float clamped_value = vial::utils::clamp(readout_value, 0.0f, 1.0f);
+    vial::poly_float smooth_value = smooth_mod_values_[mod_readout.first];
     bool active = !mod_readout.second->isClearValue(readout_value);
     active_mod_values_[mod_readout.first] = active;
     if (active)
-      smooth_mod_values_[mod_readout.first] = vital::utils::interpolate(smooth_value, clamped_value, decay);
+      smooth_mod_values_[mod_readout.first] = vial::utils::interpolate(smooth_value, clamped_value, decay);
   }
 }
 
@@ -1199,7 +1199,7 @@ void ModulationManager::destroyOpenGlComponents(OpenGlWrapper& open_gl) {
 }
 
 void ModulationManager::showModulationAmountOverlay(ModulationAmountKnob* slider) {
-  vital::ModulationConnection* connection = getConnection(slider->index());
+  vial::ModulationConnection* connection = getConnection(slider->index());
   if (connection == nullptr || meter_lookup_.count(connection->destination_name) == 0)
     return;
 
@@ -1281,9 +1281,9 @@ void ModulationManager::modulationsChanged(const std::string& destination) {
 
 int ModulationManager::getModulationIndex(std::string source, std::string destination) {
   SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
-  std::vector<vital::ModulationConnection*> connections = parent->getSynth()->getDestinationConnections(destination);
+  std::vector<vial::ModulationConnection*> connections = parent->getSynth()->getDestinationConnections(destination);
 
-  for (vital::ModulationConnection* connection : connections) {
+  for (vial::ModulationConnection* connection : connections) {
     if (connection->source_name == source)
       return connection->modulation_processor->index();
   }
@@ -1298,7 +1298,7 @@ int ModulationManager::getIndexForModulationSlider(Slider* slider) {
   return -1;
 }
 
-vital::ModulationConnection* ModulationManager::getConnectionForModulationSlider(Slider* slider) {
+vial::ModulationConnection* ModulationManager::getConnectionForModulationSlider(Slider* slider) {
   int index = getIndexForModulationSlider(slider);
   if (index < 0)
     return nullptr;
@@ -1309,7 +1309,7 @@ vital::ModulationConnection* ModulationManager::getConnectionForModulationSlider
   return getConnection(index);
 }
 
-vital::ModulationConnection* ModulationManager::getConnection(int index) {
+vial::ModulationConnection* ModulationManager::getConnection(int index) {
   SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
   if (parent == nullptr)
     return nullptr;
@@ -1317,13 +1317,13 @@ vital::ModulationConnection* ModulationManager::getConnection(int index) {
   return parent->getSynth()->getModulationBank().atIndex(index);
 }
 
-vital::ModulationConnection* ModulationManager::getConnection(const std::string& source, const std::string& dest) {
+vial::ModulationConnection* ModulationManager::getConnection(const std::string& source, const std::string& dest) {
   SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
   if (parent == nullptr)
     return nullptr;
 
-  std::vector<vital::ModulationConnection*> connections = parent->getSynth()->getSourceConnections(source);
-  for (vital::ModulationConnection* connection : connections) {
+  std::vector<vial::ModulationConnection*> connections = parent->getSynth()->getSourceConnections(source);
+  for (vial::ModulationConnection* connection : connections) {
     if (connection->destination_name == dest)
       return connection;
   }
@@ -1340,7 +1340,7 @@ void ModulationManager::mouseDown(SynthSlider* slider) {
   if (modulation_expansion_box_.isVisible())
     return;
 
-  vital::ModulationConnection* connection = getConnectionForModulationSlider(slider);
+  vial::ModulationConnection* connection = getConnectionForModulationSlider(slider);
   if (connection && !connection->source_name.empty() && !connection->destination_name.empty())
     modulationSelected(modulation_buttons_[connection->source_name]);
   else {
@@ -1357,7 +1357,7 @@ void ModulationManager::mouseUp(SynthSlider* slider) {
 
 void ModulationManager::doubleClick(SynthSlider* slider) {
   changing_hover_modulation_ = false;
-  vital::ModulationConnection* connection = getConnectionForModulationSlider(slider);
+  vial::ModulationConnection* connection = getConnectionForModulationSlider(slider);
   if (connection)
     removeModulation(connection->source_name, connection->destination_name);
   setModulationAmounts();
@@ -1386,7 +1386,7 @@ void ModulationManager::sliderValueChanged(Slider* slider) {
   while (aux_connections_to_from_.count(index))
     index = aux_connections_to_from_[index];
 
-  vital::ModulationConnection* connection = getConnection(index);
+  vial::ModulationConnection* connection = getConnection(index);
   bool bipolar = connection->modulation_processor->isBipolar();
   bool stereo = connection->modulation_processor->isStereo();
   bool bypass = connection->modulation_processor->isBypassed();
@@ -1426,7 +1426,7 @@ void ModulationManager::removeModulation(std::string source, std::string destina
   if (parent == nullptr || source.empty() || destination.empty())
     return;
 
-  vital::ModulationConnection* connection = getConnection(source, destination);
+  vial::ModulationConnection* connection = getConnection(source, destination);
   if (connection == nullptr) {
     positionModulationAmountSliders();
     return;
@@ -1500,11 +1500,11 @@ void ModulationManager::setModulationSliderScale(int index) {
   if (parent == nullptr)
     return;
 
-  vital::ModulationConnectionBank& bank = parent->getSynth()->getModulationBank();
-  vital::ModulationConnection* connection = bank.atIndex(end_index);
+  vial::ModulationConnectionBank& bank = parent->getSynth()->getModulationBank();
+  vial::ModulationConnection* connection = bank.atIndex(end_index);
   if (!connection->destination_name.empty()) {
-    vital::ValueDetails details = vital::Parameters::getDetails(connection->destination_name);
-    if (details.value_scale == vital::ValueDetails::kLinear || details.value_scale == vital::ValueDetails::kIndexed) {
+    vial::ValueDetails details = vial::Parameters::getDetails(connection->destination_name);
+    if (details.value_scale == vial::ValueDetails::kLinear || details.value_scale == vial::ValueDetails::kIndexed) {
       float display_multiply = scale * (details.max - details.min);
       modulation_amount_sliders_[index]->setDisplayMultiply(display_multiply);
       modulation_hover_sliders_[index]->setDisplayMultiply(display_multiply);
@@ -1518,7 +1518,7 @@ void ModulationManager::setModulationSliderScale(int index) {
 }
 
 void ModulationManager::setModulationValues(std::string source, std::string destination,
-                                            vital::mono_float amount, bool bipolar, bool stereo, bool bypass) {
+                                            vial::mono_float amount, bool bipolar, bool stereo, bool bypass) {
   SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
   if (parent == nullptr || source.empty() || destination.empty())
     return;
@@ -1538,7 +1538,7 @@ void ModulationManager::initAuxConnections() {
   if (parent == nullptr)
     return;
 
-  for (int i = 0; i < vital::kMaxModulationConnections; ++i) {
+  for (int i = 0; i < vial::kMaxModulationConnections; ++i) {
     modulation_amount_sliders_[i]->removeAux();
     modulation_hover_sliders_[i]->removeAux();
     selected_modulation_sliders_[i]->removeAux();
@@ -1547,9 +1547,9 @@ void ModulationManager::initAuxConnections() {
   aux_connections_from_to_.clear();
   aux_connections_to_from_.clear();
 
-  vital::ModulationConnectionBank& bank = parent->getSynth()->getModulationBank();
-  for (int i = 0; i < vital::kMaxModulationConnections; ++i) {
-    vital::ModulationConnection* connection = bank.atIndex(i);
+  vial::ModulationConnectionBank& bank = parent->getSynth()->getModulationBank();
+  for (int i = 0; i < vial::kMaxModulationConnections; ++i) {
+    vial::ModulationConnection* connection = bank.atIndex(i);
     int index = connection->modulation_processor->index();
 
     if (modulation_amount_lookup_.count(connection->destination_name)) {
@@ -1584,9 +1584,9 @@ void ModulationManager::hideUnusedHoverModulations() {
   if (parent == nullptr || changing_hover_modulation_)
     return;
 
-  vital::ModulationConnectionBank& bank = parent->getSynth()->getModulationBank();
-  for (int i = 0; i < vital::kMaxModulationConnections; ++i) {
-    vital::ModulationConnection* connection = bank.atIndex(i);
+  vial::ModulationConnectionBank& bank = parent->getSynth()->getModulationBank();
+  for (int i = 0; i < vial::kMaxModulationConnections; ++i) {
+    vial::ModulationConnection* connection = bank.atIndex(i);
     int index = connection->modulation_processor->index();
     if (connection->source_name.empty() || connection->destination_name.empty())
       modulation_hover_sliders_[index]->hideImmediately();
@@ -1646,11 +1646,11 @@ void ModulationManager::makeCurrentModulatorAmountsVisible() {
     return;
 
   std::string source_name = current_modulator_->getName().toStdString();
-  std::vector<vital::ModulationConnection*> connections = parent->getSynth()->getSourceConnections(source_name);
+  std::vector<vial::ModulationConnection*> connections = parent->getSynth()->getSourceConnections(source_name);
   std::set<ModulationAmountKnob*> selected_modulation_sliders;
 
   int width = size_ratio_ * 24.0f;
-  for (vital::ModulationConnection* connection : connections) {
+  for (vial::ModulationConnection* connection : connections) {
     int index = connection->modulation_processor->index();
     ModulationAmountKnob* selected_slider = selected_modulation_sliders_[index].get();
     selected_slider->setCurrentModulator(true);
@@ -1710,11 +1710,11 @@ void ModulationManager::makeModulationsVisible(SynthSlider* destination, bool vi
   if (slider_model_lookup_[name] != destination)
     return;
 
-  std::vector<vital::ModulationConnection*> connections = parent->getSynth()->getDestinationConnections(name);
+  std::vector<vial::ModulationConnection*> connections = parent->getSynth()->getDestinationConnections(name);
   std::vector<ModulationAmountKnob*> modulation_hover_sliders;
 
   bool current_modulation_showing = false;
-  for (vital::ModulationConnection* connection : connections) {
+  for (vial::ModulationConnection* connection : connections) {
     int index = connection->modulation_processor->index();
     ModulationAmountKnob* hover_slider = modulation_hover_sliders_[index].get();
     if (current_modulator_ && current_modulator_->getName() == String(connection->source_name))
@@ -1786,7 +1786,7 @@ void ModulationManager::makeModulationsVisible(SynthSlider* destination, bool vi
 }
 
 void ModulationManager::positionModulationAmountSlidersInside(const std::string& source,
-                                                              std::vector<vital::ModulationConnection*> connections) {
+                                                              std::vector<vial::ModulationConnection*> connections) {
   static constexpr float kRightPopupPositionX = 150;
   int total_connections = static_cast<int>(connections.size());
   ModulationButton* modulation_button = modulation_buttons_[source];
@@ -1797,7 +1797,7 @@ void ModulationManager::positionModulationAmountSlidersInside(const std::string&
     hideModulationAmountCallout();
 
   for (int i = 0; i < total_connections; ++i) {
-    vital::ModulationConnection* connection = connections[i];
+    vial::ModulationConnection* connection = connections[i];
     int index = connection->modulation_processor->index();
     ModulationAmountKnob* slider = modulation_amount_sliders_[index].get();
     slider->setVisible(showingInParents(modulation_button));
@@ -1823,14 +1823,14 @@ void ModulationManager::positionModulationAmountSlidersInside(const std::string&
 }
 
 void ModulationManager::positionModulationAmountSlidersCallout(const std::string& source,
-                                                               std::vector<vital::ModulationConnection*> connections) {  
+                                                               std::vector<vial::ModulationConnection*> connections) {  
   ModulationButton* modulation_button = modulation_buttons_[source];
   ExpandModulationButton* expand_button = modulation_callout_buttons_[source].get();
   expand_button->setBounds(getLocalArea(modulation_button, modulation_button->getModulationAreaBounds()));
   expand_button->setVisible(showingInParents(modulation_button));
 
   std::vector<ModulationAmountKnob*> amount_controls;
-  for (vital::ModulationConnection* connection : connections) {
+  for (vial::ModulationConnection* connection : connections) {
     int index = connection->modulation_processor->index();
     amount_controls.push_back(modulation_amount_sliders_[index].get());
     ModulationAmountKnob* slider = modulation_amount_sliders_[index].get();
@@ -1919,7 +1919,7 @@ void ModulationManager::positionModulationAmountSliders(const std::string& sourc
   int max_modulation_height = (kMaxModulationsAcross * modulation_area.getHeight()) / area_width;
   int max_modulations_inside = kMaxModulationsAcross * max_modulation_height;
 
-  std::vector<vital::ModulationConnection*> connections = parent->getSynth()->getSourceConnections(source);
+  std::vector<vial::ModulationConnection*> connections = parent->getSynth()->getSourceConnections(source);
   int total_connections = static_cast<int>(connections.size());
   if (total_connections) {
     if (total_connections && total_connections > max_modulations_inside)
@@ -1946,7 +1946,7 @@ void ModulationManager::positionModulationAmountSliders() {
 }
 
 bool ModulationManager::enteringHoverValue() {
-  for (int i = 0; i < vital::kMaxModulationConnections; ++i) {
+  for (int i = 0; i < vial::kMaxModulationConnections; ++i) {
     if (modulation_amount_sliders_[i] && modulation_amount_sliders_[i]->enteringValue())
       return true;
     if (modulation_hover_sliders_[i] && modulation_hover_sliders_[i]->enteringValue())
@@ -1962,9 +1962,9 @@ void ModulationManager::setModulationAmounts() {
   if (parent == nullptr || modifying_)
     return;
 
-  vital::ModulationConnectionBank& bank = parent->getSynth()->getModulationBank();
-  for (int i = 0; i < vital::kMaxModulationConnections; ++i) {
-    vital::ModulationConnection* connection = bank.atIndex(i);
+  vial::ModulationConnectionBank& bank = parent->getSynth()->getModulationBank();
+  for (int i = 0; i < vial::kMaxModulationConnections; ++i) {
+    vial::ModulationConnection* connection = bank.atIndex(i);
     if (aux_connections_to_from_.count(i) == 0)
       setModulationSliderValues(i, connection->modulation_processor->currentBaseValue());
 

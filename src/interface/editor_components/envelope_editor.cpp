@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "envelope_editor.h"
@@ -25,7 +25,7 @@
 namespace {
   String formatTime(float time) {
     if (time < 1.0f) {
-      int ms_value = time * vital::kMsPerSec;
+      int ms_value = time * vial::kMsPerSec;
       return String(ms_value) + "ms";
     }
 
@@ -39,8 +39,8 @@ namespace {
 
 EnvelopeEditor::EnvelopeEditor(
     const String& prefix,
-    const vital::output_map& mono_modulations,
-    const vital::output_map& poly_modulations) : OpenGlLineRenderer(kTotalPoints),
+    const vial::output_map& mono_modulations,
+    const vial::output_map& poly_modulations) : OpenGlLineRenderer(kTotalPoints),
                                                  drag_circle_(Shaders::kCircleFragment),
                                                  hover_circle_(Shaders::kRingFragment),
                                                  grid_lines_(kMaxGridLines), sub_grid_lines_(kMaxGridLines),
@@ -333,27 +333,27 @@ float EnvelopeEditor::getSliderReleaseX() {
 }
 
 inline float EnvelopeEditor::getDelayTime(int index) {
-  vital::poly_float delays = getOutputsTotal(delay_outputs_, delay_slider_->getValue());
+  vial::poly_float delays = getOutputsTotal(delay_outputs_, delay_slider_->getValue());
   return delay_slider_->getAdjustedValue(std::max<float>(0.0f, delays[index]));
 }
 
 inline float EnvelopeEditor::getAttackTime(int index) {
-  vital::poly_float attacks = getOutputsTotal(attack_outputs_, attack_slider_->getValue());
+  vial::poly_float attacks = getOutputsTotal(attack_outputs_, attack_slider_->getValue());
   return attack_slider_->getAdjustedValue(std::max<float>(0.0f, attacks[index]));
 }
 
 inline float EnvelopeEditor::getHoldTime(int index) {
-  vital::poly_float holds = getOutputsTotal(hold_outputs_, hold_slider_->getValue());
+  vial::poly_float holds = getOutputsTotal(hold_outputs_, hold_slider_->getValue());
   return hold_slider_->getAdjustedValue(std::max<float>(0.0f, holds[index]));
 }
 
 inline float EnvelopeEditor::getDecayTime(int index) {
-  vital::poly_float decays = getOutputsTotal(decay_outputs_, decay_slider_->getValue());
+  vial::poly_float decays = getOutputsTotal(decay_outputs_, decay_slider_->getValue());
   return decay_slider_->getAdjustedValue(std::max<float>(0.0f, decays[index]));
 }
 
 inline float EnvelopeEditor::getReleaseTime(int index) {
-  vital::poly_float releases = getOutputsTotal(release_outputs_, release_slider_->getValue());
+  vial::poly_float releases = getOutputsTotal(release_outputs_, release_slider_->getValue());
   return release_slider_->getAdjustedValue(std::max<float>(0.0f, releases[index]));
 }
 
@@ -389,9 +389,9 @@ float EnvelopeEditor::getSustainY(int index) {
   if (index < 0)
     return getSliderSustainY();
 
-  vital::poly_float sustains = getOutputsTotal(sustain_outputs_, sustain_slider_->getValue());
+  vial::poly_float sustains = getOutputsTotal(sustain_outputs_, sustain_slider_->getValue());
   float percent = sustains[index] / sustain_slider_->getRange().getLength();
-  percent = vital::utils::clamp(percent, 0.0f, 1.0f);
+  percent = vial::utils::clamp(percent, 0.0f, 1.0f);
   return getHeight() * (1.0f - percent);
 }
 
@@ -404,9 +404,9 @@ float EnvelopeEditor::getReleaseX(int index) {
 
 float EnvelopeEditor::getBackupPhase(float phase, int index) {
   static constexpr float kBackupTime = 1.0f / 50.0f;
-  static constexpr float kTotalPhase = vital::kVoiceKill - vital::kVoiceOn;
-  static constexpr float kDecayPoint = (vital::kVoiceDecay - 1.0f * vital::kVoiceOn) / kTotalPhase;
-  static constexpr float kReleasePoint = (vital::kVoiceOff - 1.0f * vital::kVoiceOn) / kTotalPhase;
+  static constexpr float kTotalPhase = vial::kVoiceKill - vial::kVoiceOn;
+  static constexpr float kDecayPoint = (vial::kVoiceDecay - 1.0f * vial::kVoiceOn) / kTotalPhase;
+  static constexpr float kReleasePoint = (vial::kVoiceOff - 1.0f * vial::kVoiceOn) / kTotalPhase;
 
   float time = kBackupTime;
   float current_phase = phase;
@@ -454,15 +454,15 @@ float EnvelopeEditor::getBackupPhase(float phase, int index) {
   return std::max(0.0f, current_phase - phase_delta);
 }
 
-vital::poly_float EnvelopeEditor::getBackupPhase(vital::poly_float phase) {
-  vital::poly_float backup = 0.0f;
+vial::poly_float EnvelopeEditor::getBackupPhase(vial::poly_float phase) {
+  vial::poly_float backup = 0.0f;
   backup.set(0, getBackupPhase(phase[0], 0));
   backup.set(1, getBackupPhase(phase[1], 1));
   return backup;
 }
 
 float EnvelopeEditor::getEnvelopeValue(float t, float power, float start, float end) {
-  return start + (end - start) * vital::futils::powerScale(t, power);
+  return start + (end - start) * vial::futils::powerScale(t, power);
 }
 
 inline float EnvelopeEditor::getSliderAttackValue(float t) {
@@ -529,7 +529,7 @@ void EnvelopeEditor::setHoldX(float x) {
 }
 
 void EnvelopeEditor::setPower(SynthSlider* slider, float power) {
-  power = vital::utils::clamp(power, (float)slider->getMinimum(), (float)slider->getMaximum());
+  power = vial::utils::clamp(power, (float)slider->getMinimum(), (float)slider->getMaximum());
   slider->setValue(power);
 }
 
@@ -559,7 +559,7 @@ void EnvelopeEditor::setSustainY(float y) {
   if (sustain_slider_ == nullptr)
     return;
 
-  float percent = vital::utils::clamp(1.0 - y / getHeight(), 0.0f, 1.0f);
+  float percent = vial::utils::clamp(1.0 - y / getHeight(), 0.0f, 1.0f);
   sustain_slider_->setValue(sustain_slider_->proportionOfLengthToValue(percent));
 }
 
@@ -618,8 +618,8 @@ void EnvelopeEditor::setReleasePowerSlider(SynthSlider* release_power_slider) {
   release_power_slider_->addSliderListener(this);
 }
 
-inline vital::poly_float EnvelopeEditor::getOutputsTotal(
-    std::pair<vital::Output*, vital::Output*> outputs, vital::poly_float default_value) {
+inline vial::poly_float EnvelopeEditor::getOutputsTotal(
+    std::pair<vial::Output*, vial::Output*> outputs, vial::poly_float default_value) {
   if (!animate_ || !outputs.first->owner->enabled())
     return default_value;
   if (num_voices_readout_ == nullptr || num_voices_readout_->value()[0] <= 0.0f)
@@ -637,7 +637,7 @@ void EnvelopeEditor::resetEnvelopeLine(int index) {
 
   for (int i = 0; i < kNumPointsPerSection; ++i) {
     float t = (1.0f * i) / kNumPointsPerSection;
-    float x = vital::utils::interpolate(delay_x, attack_x, t);
+    float x = vial::utils::interpolate(delay_x, attack_x, t);
     float y = getAttackValue(t, index);
     setXAt(i, padX(x));
     setYAt(i, padY(y));
@@ -645,14 +645,14 @@ void EnvelopeEditor::resetEnvelopeLine(int index) {
 
   for (int i = 0; i < kNumPointsPerSection; ++i) {
     float t = (1.0f * i) / kNumPointsPerSection;
-    float x = vital::utils::interpolate(attack_x, hold_x, t);
+    float x = vial::utils::interpolate(attack_x, hold_x, t);
     setXAt(i + kNumPointsPerSection, padX(x));
     setYAt(i + kNumPointsPerSection, padY(0.0f));
   }
 
   for (int i = 0; i < kNumPointsPerSection; ++i) {
     float t = (1.0f * i) / kNumPointsPerSection;
-    float x = vital::utils::interpolate(hold_x, decay_x, t);
+    float x = vial::utils::interpolate(hold_x, decay_x, t);
     float y = getDecayValue(t, index);
     setXAt(i + 2 * kNumPointsPerSection, padX(x));
     setYAt(i + 2 * kNumPointsPerSection, padY(y));
@@ -660,7 +660,7 @@ void EnvelopeEditor::resetEnvelopeLine(int index) {
 
   for (int i = 0; i <= kNumPointsPerSection; ++i) {
     float t = (1.0f * i) / kNumPointsPerSection;
-    float x = vital::utils::interpolate(decay_x, release_x, t);
+    float x = vial::utils::interpolate(decay_x, release_x, t);
     float y = getReleaseValue(t, index);
     setXAt(i + 3 * kNumPointsPerSection, padX(x));
     setYAt(i + 3 * kNumPointsPerSection, padY(y));
@@ -670,7 +670,7 @@ void EnvelopeEditor::resetEnvelopeLine(int index) {
 std::pair<float, float> EnvelopeEditor::getPosition(int index) {
   float phase = envelope_phase_->value()[index];
 
-  if (envelope_phase_->isClearValue(phase) || phase < vital::kVoiceOn || phase >= vital::kVoiceKill)
+  if (envelope_phase_->isClearValue(phase) || phase < vial::kVoiceOn || phase >= vial::kVoiceKill)
     return { -1.0f, -1.0f};
 
   float delay_time = getDelayTime(index);
@@ -683,19 +683,19 @@ std::pair<float, float> EnvelopeEditor::getPosition(int index) {
 
   float time = 0.0f;
   float value = 0.0f;
-  if (stage == vital::kVoiceOn) {
+  if (stage == vial::kVoiceOn) {
     time = delay_time + stage_phase * attack_time;
     value = getAttackValue(stage_phase, index);
   }
-  else if (stage == vital::kVoiceHold) {
+  else if (stage == vial::kVoiceHold) {
     time = delay_time + attack_time + stage_phase * hold_time;
     value = 1.0f;
   }
-  else if (stage == vital::kVoiceDecay) {
+  else if (stage == vial::kVoiceDecay) {
     time = delay_time + attack_time + hold_time + stage_phase * decay_time;
     value = getDecayValue(stage_phase, index);
   }
-  else if (stage == vital::kVoiceOff) {
+  else if (stage == vial::kVoiceOff) {
     time = delay_time + attack_time + hold_time + decay_time + stage_phase * release_time;
     value = getReleaseValue(stage_phase, index);
   }
@@ -753,16 +753,16 @@ void EnvelopeEditor::render(OpenGlWrapper& open_gl, bool animate) {
 
   setLineWidth(findValue(Skin::kWidgetLineWidth));
   setFillCenter(findValue(Skin::kWidgetFillCenter));
-  vital::poly_float input_phase = envelope_phase_->value();
-  vital::poly_mask off_mask = vital::poly_float::equal(input_phase, vital::kVoiceKill);
-  float phase_length = vital::kVoiceKill - vital::kVoiceOn;
-  vital::poly_float phase = (input_phase - vital::kVoiceOn) * (1.0f / phase_length);
-  phase = vital::utils::maskLoad(phase, 1.0f, off_mask);
-  phase = vital::utils::min(phase, 1.0f);
+  vial::poly_float input_phase = envelope_phase_->value();
+  vial::poly_mask off_mask = vial::poly_float::equal(input_phase, vial::kVoiceKill);
+  float phase_length = vial::kVoiceKill - vial::kVoiceOn;
+  vial::poly_float phase = (input_phase - vial::kVoiceOn) * (1.0f / phase_length);
+  phase = vial::utils::maskLoad(phase, 1.0f, off_mask);
+  phase = vial::utils::min(phase, 1.0f);
 
-  vital::poly_mask reset_mask = vital::poly_float::greaterThan(last_phase_, phase);
-  vital::poly_float backup_phase = getBackupPhase(phase);
-  last_phase_ = vital::utils::maskLoad(last_phase_, backup_phase, reset_mask);
+  vial::poly_mask reset_mask = vial::poly_float::greaterThan(last_phase_, phase);
+  vial::poly_float backup_phase = getBackupPhase(phase);
+  last_phase_ = vial::utils::maskLoad(last_phase_, backup_phase, reset_mask);
 
   if (!animate_)
     last_phase_ = phase;
@@ -781,12 +781,12 @@ void EnvelopeEditor::render(OpenGlWrapper& open_gl, bool animate) {
   if (animating) {
     decayBoosts(kTailDecay);
 
-    float release_point = (vital::kVoiceOff - vital::kVoiceOn) / phase_length;
-    vital::poly_mask released_mask = vital::poly_float::greaterThan(phase, release_point);
-    released_mask = released_mask & vital::poly_float::lessThan(last_phase_, release_point) & ~reset_mask;
-    last_phase_ = vital::utils::maskLoad(last_phase_, release_point, released_mask);
+    float release_point = (vial::kVoiceOff - vial::kVoiceOn) / phase_length;
+    vial::poly_mask released_mask = vial::poly_float::greaterThan(phase, release_point);
+    released_mask = released_mask & vial::poly_float::lessThan(last_phase_, release_point) & ~reset_mask;
+    last_phase_ = vial::utils::maskLoad(last_phase_, release_point, released_mask);
 
-    last_phase_ = vital::utils::max(last_phase_, 0.0f);
+    last_phase_ = vial::utils::max(last_phase_, 0.0f);
     if (!envelope_phase_->isClearValue(input_phase))
       boostRange(last_phase_, phase, 0, kTailDecay);
     last_phase_ = phase;
@@ -1083,7 +1083,7 @@ void EnvelopeEditor::drawPosition(OpenGlWrapper& open_gl, int index) {
     current_position_alpha_.set(index, 1.0f);
   else {
     float release = getOutputsTotal(release_outputs_, release_slider_->getValue())[index];
-    release = vital::utils::max(release, 0.0f);
+    release = vial::utils::max(release, 0.0f);
     current_position_alpha_.set(index, current_position_alpha_[index] * std::min(kMinPositionAlphaDecay, release));
   }
 
@@ -1094,7 +1094,7 @@ void EnvelopeEditor::drawPosition(OpenGlWrapper& open_gl, int index) {
   glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
   float current_phase = envelope_phase_->value()[index];
-  if (current_phase <= vital::kVoiceKill && current_phase >= vital::kVoiceOn) {
+  if (current_phase <= vial::kVoiceKill && current_phase >= vial::kVoiceOn) {
     float width = getWidth();
     float height = getHeight();
     float marker_width = size_ratio_ * 2.0f * kMarkerWidth / width;

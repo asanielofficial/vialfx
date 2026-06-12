@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "wave_fold_modifier.h"
@@ -37,11 +37,11 @@ void WaveFoldModifier::WaveFoldModifierKeyframe::interpolate(const WavetableKeyf
   wave_fold_boost_ = linearTween(from->wave_fold_boost_, to->wave_fold_boost_, t);
 }
 
-void WaveFoldModifier::WaveFoldModifierKeyframe::render(vital::WaveFrame* wave_frame) {
+void WaveFoldModifier::WaveFoldModifierKeyframe::render(vial::WaveFrame* wave_frame) {
   float max_value = std::max(1.0f, wave_frame->getMaxZeroOffset());
 
-  for (int i = 0; i < vital::WaveFrame::kWaveformSize; ++i) {
-    float value = vital::utils::clamp(wave_frame->time_domain[i] / max_value, -1.0f, 1.0f);
+  for (int i = 0; i < vial::WaveFrame::kWaveformSize; ++i) {
+    float value = vial::utils::clamp(wave_frame->time_domain[i] / max_value, -1.0f, 1.0f);
     float adjusted_value = max_value * wave_fold_boost_ * asinf(value);
 
     wave_frame->time_domain[i] = sinf(adjusted_value);
@@ -66,7 +66,7 @@ WavetableKeyframe* WaveFoldModifier::createKeyframe(int position) {
   return keyframe;
 }
 
-void WaveFoldModifier::render(vital::WaveFrame* wave_frame, float position) {
+void WaveFoldModifier::render(vial::WaveFrame* wave_frame, float position) {
   interpolate(&compute_frame_, position);
   compute_frame_.render(wave_frame);
 }

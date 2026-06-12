@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "volume_section.h"
@@ -25,7 +25,7 @@ class VolumeSlider : public SynthSlider {
   public:
     VolumeSlider(String name) : SynthSlider(name), point_y_(0), end_y_(1) {
       paintToImage(true);
-      details_ = vital::Parameters::getDetails("volume");
+      details_ = vial::Parameters::getDetails("volume");
     }
 
     void paint(Graphics& g) override {
@@ -46,7 +46,7 @@ class VolumeSlider : public SynthSlider {
     int getEndY() { return end_y_; }
 
   private:
-    vital::ValueDetails details_;
+    vial::ValueDetails details_;
     int point_y_;
     int end_y_;
 };
@@ -95,7 +95,7 @@ void VolumeSection::paintBackground(Graphics& g) {
 
   int ticks_y = peak_meter_right_->getBottom() + getPadding();
   int tick_height = peak_meter_right_->getHeight() / 2;
-  vital::ValueDetails details = vital::Parameters::getDetails("volume");
+  vial::ValueDetails details = vial::Parameters::getDetails("volume");
   
   g.setColour(findColour(Skin::kLightenScreen, true));
   for (int decibel = -66; decibel <= 6; decibel += 6) {

@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "wavetable_3d.h"
@@ -26,28 +26,28 @@
 #include "synth_oscillator.h"
 #include "utils.h"
 
-void Wavetable3d::paint3dLine(Graphics& g, vital::Wavetable* wavetable, int index, Colour color,
+void Wavetable3d::paint3dLine(Graphics& g, vial::Wavetable* wavetable, int index, Colour color,
                               float width, float height, float wave_height_percent,
                               float wave_range_x, float frame_range_x, float wave_range_y, float frame_range_y,
                               float start_x, float start_y, float offset_x, float offset_y) {
   PathStrokeType stroke(2.5f, PathStrokeType::beveled, PathStrokeType::butt);
 
-  float frame_t = index / (vital::kNumOscillatorWaveFrames - 1.0f);
+  float frame_t = index / (vial::kNumOscillatorWaveFrames - 1.0f);
   float wave_start_x = start_x + frame_t * frame_range_x;
   float wave_start_y = start_y + frame_t * frame_range_y;
 
   float* buffer = wavetable->getBuffer(index);
 
   Path path;
-  float loop_value = 0.5f * (buffer[0] + buffer[vital::Wavetable::kWaveformSize - 1]);
+  float loop_value = 0.5f * (buffer[0] + buffer[vial::Wavetable::kWaveformSize - 1]);
   float loop_y_offset = -wave_height_percent * loop_value;
   path.startNewSubPath(wave_start_x * width, (wave_start_y + loop_y_offset) * height);
 
   g.setColour(color);
-  int inc = vital::Wavetable::kWaveformSize / kBackgroundResolution;
+  int inc = vial::Wavetable::kWaveformSize / kBackgroundResolution;
 
-  for (int i = 0; i < vital::Wavetable::kWaveformSize; i += inc) {
-    float wave_t = i / (vital::Wavetable::kWaveformSize - 1.0f);
+  for (int i = 0; i < vial::Wavetable::kWaveformSize; i += inc) {
+    float wave_t = i / (vial::Wavetable::kWaveformSize - 1.0f);
     float value = buffer[i];
     float y_offset = -wave_height_percent * value;
     float x = wave_start_x + wave_t * wave_range_x;
@@ -60,7 +60,7 @@ void Wavetable3d::paint3dLine(Graphics& g, vital::Wavetable* wavetable, int inde
   g.strokePath(path, stroke);
 }
 
-void Wavetable3d::paint3dBackground(Graphics& g, vital::Wavetable* wavetable, bool active,
+void Wavetable3d::paint3dBackground(Graphics& g, vial::Wavetable* wavetable, bool active,
                                     Colour background_color, Colour wave_color1, Colour wave_color2,
                                     float width, float height,
                                     float wave_height_percent,
@@ -68,8 +68,8 @@ void Wavetable3d::paint3dBackground(Graphics& g, vital::Wavetable* wavetable, bo
                                     float start_x, float start_y, float offset_x, float offset_y) {
   PathStrokeType stroke(1.0f, PathStrokeType::beveled, PathStrokeType::butt);
 
-  for (int f = vital::kNumOscillatorWaveFrames - 1; f >= -kExtraShadows; --f) {
-    float frame_t = f / (vital::kNumOscillatorWaveFrames - 1.0f);
+  for (int f = vial::kNumOscillatorWaveFrames - 1; f >= -kExtraShadows; --f) {
+    float frame_t = f / (vial::kNumOscillatorWaveFrames - 1.0f);
     float wave_start_x = start_x + frame_t * frame_range_x;
     float wave_start_y = start_y + frame_t * frame_range_y;
 
@@ -77,7 +77,7 @@ void Wavetable3d::paint3dBackground(Graphics& g, vital::Wavetable* wavetable, bo
       float* buffer = wavetable->getBuffer(f);
 
       Path path;
-      float loop_value = 0.5f * (buffer[0] + buffer[vital::Wavetable::kWaveformSize - 1]);
+      float loop_value = 0.5f * (buffer[0] + buffer[vial::Wavetable::kWaveformSize - 1]);
       float loop_y_offset = -wave_height_percent * loop_value;
       path.startNewSubPath(wave_start_x * width, (wave_start_y + loop_y_offset) * height);
 
@@ -93,10 +93,10 @@ void Wavetable3d::paint3dBackground(Graphics& g, vital::Wavetable* wavetable, bo
       g.setGradientFill(ColourGradient(wave_color, wave_start_x * width, start_y * height,
                                        wave_dip, (wave_start_x + offset_x) * width,
                                        (start_y + offset_y) * height, false));
-      int inc = vital::Wavetable::kWaveformSize / kBackgroundResolution;
+      int inc = vial::Wavetable::kWaveformSize / kBackgroundResolution;
 
-      for (int i = 0; i < vital::Wavetable::kWaveformSize; i += inc) {
-        float wave_t = i / (vital::Wavetable::kWaveformSize - 1.0f);
+      for (int i = 0; i < vial::Wavetable::kWaveformSize; i += inc) {
+        float wave_t = i / (vial::Wavetable::kWaveformSize - 1.0f);
         float value = buffer[i];
         float y_offset = -wave_height_percent * value;
         float x = wave_start_x + wave_t * wave_range_x;
@@ -111,8 +111,8 @@ void Wavetable3d::paint3dBackground(Graphics& g, vital::Wavetable* wavetable, bo
   }
 }
 
-Wavetable3d::Wavetable3d(int index, const vital::output_map& mono_modulations,
-                                    const vital::output_map& poly_modulations) :
+Wavetable3d::Wavetable3d(int index, const vial::output_map& mono_modulations,
+                                    const vial::output_map& poly_modulations) :
     left_line_renderer_(kResolution + 2), right_line_renderer_(kResolution + 2),
     end_caps_(2, Shaders::kRingFragment),
     import_overlay_(Shaders::kColorFragment), drag_load_style_(WavetableCreator::kNone), transform_(kNumBits),
@@ -160,10 +160,10 @@ Wavetable3d::Wavetable3d(int index, const vital::output_map& mono_modulations,
 
   wavetable_ = nullptr;
   frame_slider_ = nullptr;
-  last_spectral_morph_type_ = vital::SynthOscillator::kNumSpectralMorphTypes;
-  last_distortion_type_ = vital::SynthOscillator::kNumDistortionTypes;
-  spectral_morph_type_ = vital::SynthOscillator::kNoSpectralMorph;
-  distortion_type_ = vital::SynthOscillator::kNone;
+  last_spectral_morph_type_ = vial::SynthOscillator::kNumSpectralMorphTypes;
+  last_distortion_type_ = vial::SynthOscillator::kNumDistortionTypes;
+  spectral_morph_type_ = vial::SynthOscillator::kNoSpectralMorph;
+  distortion_type_ = vial::SynthOscillator::kNone;
   spectral_morph_slider_ = nullptr;
   distortion_slider_ = nullptr;
   distortion_phase_slider_ = nullptr;
@@ -246,8 +246,8 @@ void Wavetable3d::resized() {
   import_overlay_.setColor(findColour(Skin::kOverlayScreen, true));
 }
 
-inline vital::poly_float Wavetable3d::getOutputsTotal(
-    std::pair<vital::Output*, vital::Output*> outputs, vital::poly_float default_value) {
+inline vial::poly_float Wavetable3d::getOutputsTotal(
+    std::pair<vial::Output*, vial::Output*> outputs, vial::poly_float default_value) {
   if (!outputs.first->owner->enabled() || !animate_)
     return default_value;
   if (num_voices_readout_ == nullptr || num_voices_readout_->value()[0] <= 0.0f)
@@ -317,16 +317,16 @@ bool Wavetable3d::updateRenderValues() {
   last_render_type_ = render_type_;
   last_loading_wavetable_ = loading_wavetable_;
 
-  vital::poly_float wave_frame = getOutputsTotal(wave_frame_outputs_, frame_slider_->getValue());
-  vital::poly_float spectral_morph_value = getSpectralMorphValue();
-  vital::poly_float distortion_value = getDistortionValue();
-  vital::poly_int distortion_phase = getDistortionPhaseValue();
+  vial::poly_float wave_frame = getOutputsTotal(wave_frame_outputs_, frame_slider_->getValue());
+  vial::poly_float spectral_morph_value = getSpectralMorphValue();
+  vial::poly_float distortion_value = getDistortionValue();
+  vial::poly_int distortion_phase = getDistortionPhaseValue();
 
-  vital::poly_mask equal = vital::constants::kFullMask;
-  equal = equal & vital::poly_float::equal(wave_frame_, wave_frame);
-  equal = equal & vital::poly_float::equal(spectral_morph_value_, spectral_morph_value);
-  equal = equal & vital::poly_float::equal(distortion_value_, distortion_value);
-  equal = equal & vital::poly_int::equal(distortion_phase_, distortion_phase);
+  vial::poly_mask equal = vial::constants::kFullMask;
+  equal = equal & vial::poly_float::equal(wave_frame_, wave_frame);
+  equal = equal & vial::poly_float::equal(spectral_morph_value_, spectral_morph_value);
+  equal = equal & vial::poly_float::equal(distortion_value_, distortion_value);
+  equal = equal & vial::poly_int::equal(distortion_phase_, distortion_phase);
 
   wave_frame_ = wave_frame;
   spectral_morph_value_ = spectral_morph_value;
@@ -351,7 +351,7 @@ void Wavetable3d::loadWaveData(int index) {
 
   if (last_render_type_ == kWave3d) {
     float wave_frame = getOutputsTotal(wave_frame_outputs_, frame_slider_->getValue())[index];
-    float frame_t = vital::utils::clamp(wave_frame / (vital::kNumOscillatorWaveFrames - 1.0f), 0.0f, 1.0f);
+    float frame_t = vial::utils::clamp(wave_frame / (vial::kNumOscillatorWaveFrames - 1.0f), 0.0f, 1.0f);
     start_x = (0.5f * (1.0f - wave_range_x_ - frame_range_x_) + frame_range_x_ * frame_t) * width;
     start_y = (0.5f * (1.0f - wave_range_y_ - frame_range_y_) + y_offset_ + frame_range_y_ * frame_t) * height;
     wave_width = wave_range_x_ * width;
@@ -365,13 +365,13 @@ void Wavetable3d::loadWaveData(int index) {
   if (index)
     renderer = &right_line_renderer_;
 
-  vital::poly_float spread(1.0f, 2.0f, 3.0f, 4.0f);
+  vial::poly_float spread(1.0f, 2.0f, 3.0f, 4.0f);
   float* time_domain = process_frame_.time_domain;
   float delta = 1.0f / size_;
-  for (int i = 0; i < size_ - vital::poly_float::kSize + 1; i += vital::poly_float::kSize) {
-    vital::poly_float t = (spread + i) * delta;
+  for (int i = 0; i < size_ - vial::poly_float::kSize + 1; i += vial::poly_float::kSize) {
+    vial::poly_float t = (spread + i) * delta;
 
-    for (int v = 0; v < vital::poly_float::kSize; ++v) {
+    for (int v = 0; v < vial::poly_float::kSize; ++v) {
       int point_index = i + v + 1;
       renderer->setXAt(point_index, start_x + t[v] * wave_width);
       float y = start_y - time_domain[i + v] * wave_height + t[v] * wave_range_y;
@@ -404,38 +404,38 @@ void Wavetable3d::loadSpectrumData(int index) {
   int width = getWidth();
   int height = getHeight();
   float center = height * 0.5f;
-  int num_points = std::min(width, vital::Wavetable::kWaveformSize / 2);
+  int num_points = std::min(width, vial::Wavetable::kWaveformSize / 2);
   float scale = 1.0f / num_points;
   int last_frequency = 0;
   for (int i = 0; i <= num_points; ++i) {
-    int invert_i = vital::Wavetable::kWaveformSize + 1 - i;
+    int invert_i = vial::Wavetable::kWaveformSize + 1 - i;
     float t = i * 1.0f / num_points;
     float x = t * width;
     renderer->setXAt(i, x);
     renderer->setXAt(invert_i, x);
 
-    float position = vital::futils::exp2(t * (vital::Wavetable::kFrequencyBins - 1.0f));
-    int frequency = std::min<int>(position, vital::Wavetable::kWaveformSize / 2 - 1);
+    float position = vial::futils::exp2(t * (vial::Wavetable::kFrequencyBins - 1.0f));
+    int frequency = std::min<int>(position, vial::Wavetable::kWaveformSize / 2 - 1);
     float frequency_t = position - frequency;
 
     float amplitude_from = std::abs(frequency_domain[frequency]);
     float amplitude_to = std::abs(frequency_domain[frequency + 1]);
-    float amplitude = vital::utils::interpolate(amplitude_from, amplitude_to, frequency_t) * scale;
+    float amplitude = vial::utils::interpolate(amplitude_from, amplitude_to, frequency_t) * scale;
 
     for (int f = last_frequency + 1; f < frequency; ++f)
       amplitude = std::max(std::abs(frequency_domain[f]) * scale, amplitude);
 
     last_frequency = frequency;
 
-    float db = vital::utils::magnitudeToDb(amplitude) + t * vital::Wavetable::kFrequencyBins * kDbBoostPerOctave;
+    float db = vial::utils::magnitudeToDb(amplitude) + t * vial::Wavetable::kFrequencyBins * kDbBoostPerOctave;
     float y = std::max(db - kMinDb, 0.0f) / kDbRange;
     renderer->setYAt(i, y * center + center);
     renderer->setYAt(invert_i, -y * center + center);
   }
 
   float end = width * 1.5f;
-  for (int i = width; i <= vital::Wavetable::kWaveformSize / 2; ++i) {
-    int invert_i = vital::Wavetable::kWaveformSize + 1 - i;
+  for (int i = width; i <= vial::Wavetable::kWaveformSize / 2; ++i) {
+    int invert_i = vial::Wavetable::kWaveformSize + 1 - i;
     renderer->setXAt(i, end);
     renderer->setXAt(invert_i, end);
     renderer->setYAt(i, center);
@@ -729,29 +729,29 @@ void Wavetable3d::setColors() {
   fill_disabled_color_ = findColour(Skin::kWidgetSecondaryDisabled, true);
 }
 
-vital::poly_float Wavetable3d::getDistortionValue() {
-  vital::poly_float distortion = getOutputsTotal(distortion_outputs_, distortion_slider_->getValue());
-  vital::poly_float adjusted_distortion = vital::utils::clamp(distortion, 0.0f, 1.0f);
-  vital::SynthOscillator::DistortionType distortion_type = (vital::SynthOscillator::DistortionType)distortion_type_;
-  vital::SynthOscillator::setDistortionValues(distortion_type, &adjusted_distortion, 1, false);
+vial::poly_float Wavetable3d::getDistortionValue() {
+  vial::poly_float distortion = getOutputsTotal(distortion_outputs_, distortion_slider_->getValue());
+  vial::poly_float adjusted_distortion = vial::utils::clamp(distortion, 0.0f, 1.0f);
+  vial::SynthOscillator::DistortionType distortion_type = (vial::SynthOscillator::DistortionType)distortion_type_;
+  vial::SynthOscillator::setDistortionValues(distortion_type, &adjusted_distortion, 1, false);
   return adjusted_distortion;
 }
 
-vital::poly_float Wavetable3d::getSpectralMorphValue() {
-  vital::poly_float morph = getOutputsTotal(spectral_morph_outputs_, spectral_morph_slider_->getValue());
-  vital::poly_float adjusted_morph = vital::utils::clamp(morph, 0.0f, 1.0f);
-  vital::SynthOscillator::SpectralMorph morph_type = (vital::SynthOscillator::SpectralMorph)spectral_morph_type_;
-  vital::SynthOscillator::setSpectralMorphValues(morph_type, &adjusted_morph, 1, false);
+vial::poly_float Wavetable3d::getSpectralMorphValue() {
+  vial::poly_float morph = getOutputsTotal(spectral_morph_outputs_, spectral_morph_slider_->getValue());
+  vial::poly_float adjusted_morph = vial::utils::clamp(morph, 0.0f, 1.0f);
+  vial::SynthOscillator::SpectralMorph morph_type = (vial::SynthOscillator::SpectralMorph)spectral_morph_type_;
+  vial::SynthOscillator::setSpectralMorphValues(morph_type, &adjusted_morph, 1, false);
   return adjusted_morph;
 }
 
-vital::poly_int Wavetable3d::getDistortionPhaseValue() {
-  vital::SynthOscillator::DistortionType distortion_type = (vital::SynthOscillator::DistortionType)distortion_type_;
-  if (!vital::SynthOscillator::usesDistortionPhase(distortion_type))
+vial::poly_int Wavetable3d::getDistortionPhaseValue() {
+  vial::SynthOscillator::DistortionType distortion_type = (vial::SynthOscillator::DistortionType)distortion_type_;
+  if (!vial::SynthOscillator::usesDistortionPhase(distortion_type))
     return 0;
   
-  vital::poly_float phase = getOutputsTotal(distortion_phase_outputs_, distortion_phase_slider_->getValue());
-  return vital::utils::toInt(phase * UINT_MAX - INT_MAX);
+  vial::poly_float phase = getOutputsTotal(distortion_phase_outputs_, distortion_phase_slider_->getValue());
+  return vial::utils::toInt(phase * UINT_MAX - INT_MAX);
 }
 
 
@@ -769,32 +769,32 @@ void Wavetable3d::loadFrequencyData(int index) {
 
 void Wavetable3d::warpSpectrumToWave(int index) {
   float morph = spectral_morph_value_[index];
-  vital::SynthOscillator::SpectralMorph morph_type = (vital::SynthOscillator::SpectralMorph)spectral_morph_type_;
+  vial::SynthOscillator::SpectralMorph morph_type = (vial::SynthOscillator::SpectralMorph)spectral_morph_type_;
 
-  memset(process_wave_data_, 0, vital::SynthOscillator::kSpectralBufferSize * sizeof(vital::poly_float));
-  vital::SynthOscillator::runSpectralMorph(morph_type, morph, current_wavetable_data_, wavetable_index_,
+  memset(process_wave_data_, 0, vial::SynthOscillator::kSpectralBufferSize * sizeof(vial::poly_float));
+  vial::SynthOscillator::runSpectralMorph(morph_type, morph, current_wavetable_data_, wavetable_index_,
                                            process_wave_data_, &transform_);
 }
 
 void Wavetable3d::warpPhase(int index) {
   float distortion = distortion_value_[index];
-  vital::SynthOscillator::DistortionType distortion_type = (vital::SynthOscillator::DistortionType)distortion_type_;
+  vial::SynthOscillator::DistortionType distortion_type = (vial::SynthOscillator::DistortionType)distortion_type_;
 
-  vital::poly_float spread(1.0f, 2.0f, 3.0f, 4.0f);
+  vial::poly_float spread(1.0f, 2.0f, 3.0f, 4.0f);
   float delta = 1.0f / size_;
   float* buffer = (float*)(process_wave_data_ + 1);
   float* time_domain = process_frame_.time_domain;
-  for (int i = 0; i < size_ - vital::poly_float::kSize + 1; i += vital::poly_float::kSize) {
-    vital::poly_float t = (spread + i) * delta;
-    vital::poly_int original_phase = vital::utils::toInt(t * UINT_MAX - INT_MAX) + INT_MAX;
-    vital::poly_int adjusted_phase = vital::SynthOscillator::adjustPhase(distortion_type, original_phase,
+  for (int i = 0; i < size_ - vial::poly_float::kSize + 1; i += vial::poly_float::kSize) {
+    vial::poly_float t = (spread + i) * delta;
+    vial::poly_int original_phase = vial::utils::toInt(t * UINT_MAX - INT_MAX) + INT_MAX;
+    vial::poly_int adjusted_phase = vial::SynthOscillator::adjustPhase(distortion_type, original_phase,
                                                                          distortion, distortion_phase_);
     
-    vital::poly_float window = vital::SynthOscillator::getPhaseWindow(distortion_type, original_phase, adjusted_phase);
+    vial::poly_float window = vial::SynthOscillator::getPhaseWindow(distortion_type, original_phase, adjusted_phase);
     adjusted_phase += distortion_phase_;
     
-    vital::poly_float value = window * vital::SynthOscillator::interpolate(buffer, adjusted_phase);
-    for (int v = 0; v < vital::poly_float::kSize; ++v)
+    vial::poly_float value = window * vial::SynthOscillator::interpolate(buffer, adjusted_phase);
+    for (int v = 0; v < vial::poly_float::kSize; ++v)
       time_domain[i + v] = value[v];
   }
 }

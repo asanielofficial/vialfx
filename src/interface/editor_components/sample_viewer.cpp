@@ -1,23 +1,24 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "sample_viewer.h"
 
 #include "skin.h"
 #include "synth_gui_interface.h"
+#include "synth_section.h"
 
 SampleViewer::SampleViewer() : OpenGlLineRenderer(kResolution), bottom_(kResolution),
                                dragging_overlay_(Shaders::kColorFragment) {
@@ -57,7 +58,7 @@ void SampleViewer::setLinePositions() {
     return;
 
   double sample_length = sample_->originalLength();
-  const vital::mono_float* buffer = sample_->buffer();
+  const vial::mono_float* buffer = sample_->buffer();
   float center = getHeight() / 2.0f;
   for (int i = 0; i < kResolution; ++i) {
     int start_index = std::min<int>(sample_length * i / kResolution, sample_length);
@@ -113,19 +114,19 @@ void SampleViewer::render(OpenGlWrapper& open_gl, bool animate) {
   if (sample_phase_output_ == nullptr || sample_length == 0)
     return;
 
-  vital::poly_float encoded_phase = sample_phase_output_->value();
-  std::pair<vital::poly_float, vital::poly_float> decoded = vital::utils::decodePhaseAndVoice(encoded_phase);
-  vital::poly_float phase = decoded.first;
-  vital::poly_float voice = decoded.second;
+  vial::poly_float encoded_phase = sample_phase_output_->value();
+  std::pair<vial::poly_float, vial::poly_float> decoded = vial::utils::decodePhaseAndVoice(encoded_phase);
+  vial::poly_float phase = decoded.first;
+  vial::poly_float voice = decoded.second;
 
-  vital::poly_mask switch_mask = vital::poly_float::notEqual(voice, last_voice_);
-  vital::poly_float phase_reset = vital::utils::max(0.0f, phase);
-  last_phase_ = vital::utils::maskLoad(last_phase_, phase_reset, switch_mask);
+  vial::poly_mask switch_mask = vial::poly_float::notEqual(voice, last_voice_);
+  vial::poly_float phase_reset = vial::utils::max(0.0f, phase);
+  last_phase_ = vial::utils::maskLoad(last_phase_, phase_reset, switch_mask);
 
-  if (!sample_phase_output_->isClearValue(phase) && vital::poly_float::notEqual(phase, 0.0f).anyMask() != 0) {
-    vital::poly_float phase_delta = vital::poly_float::abs(phase - last_phase_);
-    vital::poly_float decay = vital::poly_float(1.0f) - phase_delta * kSpeedDecayMult;
-    decay = vital::utils::clamp(decay, kBoostDecay, 1.0f);
+  if (!sample_phase_output_->isClearValue(phase) && vial::poly_float::notEqual(phase, 0.0f).anyMask() != 0) {
+    vial::poly_float phase_delta = vial::poly_float::abs(phase - last_phase_);
+    vial::poly_float decay = vial::poly_float(1.0f) - phase_delta * kSpeedDecayMult;
+    decay = vial::utils::clamp(decay, kBoostDecay, 1.0f);
     decayBoosts(decay);
     bottom_.decayBoosts(decay);
 

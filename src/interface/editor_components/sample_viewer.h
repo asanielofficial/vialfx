@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 
 #include "audio_file_drop_source.h"
 #include "common.h"
@@ -74,15 +74,15 @@ class SampleViewer : public OpenGlLineRenderer, public AudioFileDropSource {
       listeners_.push_back(listener);
     }
 
-    void setSample(vital::Sample* sample) { sample_ = sample; setLinePositions(); }
+    void setSample(vial::Sample* sample) { sample_ = sample; setLinePositions(); }
 
   private:
     std::vector<Listener*> listeners_;
 
-    const vital::StatusOutput* sample_phase_output_;
-    vital::poly_float last_phase_;
-    vital::poly_float last_voice_;
-    vital::Sample* sample_;
+    const vial::StatusOutput* sample_phase_output_;
+    vial::poly_float last_phase_;
+    vial::poly_float last_voice_;
+    vial::Sample* sample_;
   
     OpenGlLineRenderer bottom_;
     OpenGlQuad dragging_overlay_;

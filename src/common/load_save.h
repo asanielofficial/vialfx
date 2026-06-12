@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 #include "json/json.h"
 
 #include <map>
@@ -25,7 +25,7 @@
 
 using json = nlohmann::json;
 
-namespace vital {
+namespace vial {
   class StringLayout;
 }
 
@@ -127,7 +127,7 @@ class LoadSave {
     static void saveJsonToFavorites(json favorites_json);
     static void saveAuthor(std::string author);
     static void savePreferredTTWTLanguage(std::string language);
-    static void saveLayoutConfig(vital::StringLayout* layout);
+    static void saveLayoutConfig(vial::StringLayout* layout);
     static void saveVersionConfig();
     static void saveContentVersion(std::string version);
     static void saveUpdateCheckConfig(bool check_for_updates);
@@ -138,7 +138,7 @@ class LoadSave {
     static void saveAuthenticated(bool authenticated);
     static void saveWindowSize(float window_size);
     static void saveMidiMapConfig(MidiManager* midi_manager);
-    static void loadConfig(MidiManager* midi_manager, vital::StringLayout* layout = nullptr);
+    static void loadConfig(MidiManager* midi_manager, vial::StringLayout* layout = nullptr);
 
     static std::wstring getComputerKeyboardLayout();
     static std::string getPreferredTTWTLanguage();

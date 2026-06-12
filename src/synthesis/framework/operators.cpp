@@ -1,23 +1,23 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "operators.h"
 #include "synth_constants.h"
 
-namespace vital {
+namespace vial {
 
   void Clamp::process(int num_samples) {
     VITAL_ASSERT(inputMatchesBufferSize());
@@ -342,4 +342,4 @@ namespace vital {
     poly_float result = utils::maskLoad(tempo_adjusted, input(kFrequency)->at(0), frequency_mask);
     output()->buffer[0] = utils::maskLoad(result, keytrack_frequency, keytrack_mask);
   }
-} // namespace vital
+} // namespace vial

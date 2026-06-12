@@ -1,23 +1,32 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "popup_browser.h"
 
 #include "skin.h"
 #include "fonts.h"
+
+namespace {
+  template<class Comparator>
+  void sortFileArray(Array<File>& file_array) {
+    Comparator comparator;
+    file_array.sort(comparator, true);
+  }
+}
+
 #include "load_save.h"
 #include "paths.h"
 #include "open_gl_component.h"
@@ -293,8 +302,8 @@ void PopupList::renderOpenGlComponents(OpenGlWrapper& open_gl, bool animate) {
   Rectangle<int> view_bounds(getLocalBounds());
   OpenGlComponent::setViewPort(this, view_bounds, open_gl);
 
-  float image_width = vital::utils::nextPowerOfTwo(getWidth());
-  float image_height = vital::utils::nextPowerOfTwo(rows_.getImageHeight());
+  float image_width = vial::utils::nextPowerOfTwo(getWidth());
+  float image_height = vial::utils::nextPowerOfTwo(rows_.getImageHeight());
   float width_ratio = image_width / getWidth();
   float height_ratio = image_height / (getPixelMultiple() * getHeight());
   float y_offset = 2.0f * getViewPosition() / getHeight();
@@ -871,8 +880,8 @@ void SelectionList::renderOpenGlComponents(OpenGlWrapper& open_gl, bool animate)
   Rectangle<int> view_bounds(getLocalBounds());
   OpenGlComponent::setViewPort(this, view_bounds, open_gl);
 
-  float image_width = vital::utils::nextPowerOfTwo(getWidth());
-  float image_height = vital::utils::nextPowerOfTwo(row_height);
+  float image_width = vial::utils::nextPowerOfTwo(getWidth());
+  float image_height = vial::utils::nextPowerOfTwo(row_height);
   float width_ratio = image_width / getWidth();
   float height_ratio = image_height / row_height;
 

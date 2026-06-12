@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "synth_slider.h"
@@ -97,12 +97,12 @@ void OpenGlSlider::redoImage(bool skip_image) {
     slider_quad_.setThumbColor(thumb_color_);
 
     if (t > 0.0f) {
-      slider_quad_.setShaderValue(0, vital::utils::interpolate(vital::kPi, -vital::kPi, t));
+      slider_quad_.setShaderValue(0, vial::utils::interpolate(vial::kPi, -vial::kPi, t));
       slider_quad_.setColor(unselected_color_);
       slider_quad_.setAltColor(selected_color_);
     }
     else {
-      slider_quad_.setShaderValue(0, vital::utils::interpolate(-vital::kPi, vital::kPi, -t));
+      slider_quad_.setShaderValue(0, vial::utils::interpolate(-vial::kPi, vial::kPi, -t));
       slider_quad_.setColor(selected_color_);
       slider_quad_.setAltColor(unselected_color_);
     }
@@ -116,11 +116,11 @@ void OpenGlSlider::redoImage(bool skip_image) {
     slider_quad_.setActive(true);
     float arc = slider_quad_.getMaxArc();
     float t = valueToProportionOfLength(getValue());
-    slider_quad_.setShaderValue(0, vital::utils::interpolate(-arc, arc, t));
+    slider_quad_.setShaderValue(0, vial::utils::interpolate(-arc, arc, t));
     slider_quad_.setColor(selected_color_);
     slider_quad_.setAltColor(unselected_color_);
     slider_quad_.setThumbColor(thumb_color_);
-    slider_quad_.setStartPos(bipolar_ ? 0.0f : -vital::kPi);
+    slider_quad_.setStartPos(bipolar_ ? 0.0f : -vial::kPi);
 
     float thickness = findValue(Skin::kKnobArcThickness);
     if (isMouseOverOrDragging())
@@ -198,16 +198,16 @@ SynthSlider::SynthSlider(String name) : OpenGlSlider(name), show_popup_on_hover_
   setWantsKeyboardFocus(true);
   setTextBoxStyle(Slider::NoTextBox, true, 0, 0);
 
-  has_parameter_assignment_ = vital::Parameters::isParameter(name.toStdString());
+  has_parameter_assignment_ = vial::Parameters::isParameter(name.toStdString());
   if (!has_parameter_assignment_)
     return;
 
-  setRotaryParameters(2.0f * vital::kPi - kRotaryAngle, 2.0f * vital::kPi + kRotaryAngle, true);
+  setRotaryParameters(2.0f * vial::kPi - kRotaryAngle, 2.0f * vial::kPi + kRotaryAngle, true);
 
-  details_ = vital::Parameters::getDetails(name.toStdString());
+  details_ = vial::Parameters::getDetails(name.toStdString());
   setStringLookup(details_.string_lookup);
 
-  VITAL_ASSERT(details_.value_scale != vital::ValueDetails::kIndexed || details_.max - details_.min >= 1.0f);
+  VITAL_ASSERT(details_.value_scale != vial::ValueDetails::kIndexed || details_.max - details_.min >= 1.0f);
   setDefaultRange();
   setDoubleClickReturnValue(true, details_.default_value);
   setVelocityBasedMode(false);
@@ -228,7 +228,7 @@ PopupItems SynthSlider::createPopupMenu() {
 
   options.addItem(kManualEntry, "Enter Value");
 
-  std::vector<vital::ModulationConnection*> connections = getConnections();
+  std::vector<vial::ModulationConnection*> connections = getConnections();
   if (!connections.empty())
     options.addItem(-1, "");
 
@@ -288,7 +288,7 @@ void SynthSlider::mouseDrag(const MouseEvent& e) {
     if (shift)
       max = std::max<double>(details_.max + shift - shift_index_amount_, value);
     if (value < min || value > max)
-      setValue(vital::utils::clamp(value, min, max));
+      setValue(vial::utils::clamp(value, min, max));
     setRange(min, max, shift_index_amount_);
     multiply = std::max(1, shift_index_amount_ / 2);
   }
@@ -399,7 +399,7 @@ String SynthSlider::getRawTextFromValue(double value) {
 
 String SynthSlider::getSliderTextFromValue(double value) {
   if (string_lookup_) {
-    int lookup = vital::utils::iclamp(value, 0, getMaximum());
+    int lookup = vial::utils::iclamp(value, 0, getMaximum());
     return string_lookup_[lookup];
   }
 
@@ -437,24 +437,24 @@ double SynthSlider::getValueFromText(const String& text) {
 }
 
 double SynthSlider::getAdjustedValue(double value) {
-  vital::ValueDetails* details = getDisplayDetails();
+  vial::ValueDetails* details = getDisplayDetails();
 
   double adjusted_value = value;
   switch (details->value_scale) {
-    case vital::ValueDetails::kQuadratic:
+    case vial::ValueDetails::kQuadratic:
       adjusted_value *= adjusted_value;
       break;
-    case vital::ValueDetails::kCubic:
+    case vial::ValueDetails::kCubic:
       adjusted_value *= adjusted_value * adjusted_value;
       break;
-    case vital::ValueDetails::kQuartic:
+    case vial::ValueDetails::kQuartic:
       adjusted_value *= adjusted_value;
       adjusted_value *= adjusted_value;
       break;
-    case vital::ValueDetails::kExponential:
+    case vial::ValueDetails::kExponential:
       adjusted_value = powf(display_exponential_base_, adjusted_value);
       break;
-    case vital::ValueDetails::kSquareRoot:
+    case vial::ValueDetails::kSquareRoot:
       adjusted_value = sqrtf(std::max(adjusted_value, 0.0));
       break;
     default:
@@ -473,7 +473,7 @@ double SynthSlider::getAdjustedValue(double value) {
 }
 
 double SynthSlider::getValueFromAdjusted(double value) {
-  vital::ValueDetails* details = getDisplayDetails();
+  vial::ValueDetails* details = getDisplayDetails();
 
   double readjusted_value = value;
   if (display_multiply_)
@@ -486,15 +486,15 @@ double SynthSlider::getValueFromAdjusted(double value) {
   readjusted_value -= details->post_offset;
 
   switch (details->value_scale) {
-    case vital::ValueDetails::kQuadratic:
+    case vial::ValueDetails::kQuadratic:
       return sqrtf(std::max(readjusted_value, 0.0));
-    case vital::ValueDetails::kCubic:
+    case vial::ValueDetails::kCubic:
       return powf(std::max(readjusted_value, 0.0), 1.0f / 3.0f);
-    case vital::ValueDetails::kQuartic:
+    case vial::ValueDetails::kQuartic:
       return sqrtf(sqrtf(std::max(readjusted_value, 0.0)));
-    case vital::ValueDetails::kExponential:
+    case vial::ValueDetails::kExponential:
       return log(readjusted_value) / std::log(display_exponential_base_);
-    case vital::ValueDetails::kSquareRoot:
+    case vial::ValueDetails::kSquareRoot:
       return readjusted_value * readjusted_value;
     default:
       return readjusted_value;
@@ -631,7 +631,7 @@ void SynthSlider::setDefaultRange() {
   if (!has_parameter_assignment_)
     return;
 
-  if (details_.value_scale == vital::ValueDetails::kIndexed)
+  if (details_.value_scale == vial::ValueDetails::kIndexed)
     setRange(details_.min, details_.max, 1.0f);
   else
     setRange(details_.min, details_.max);
@@ -652,7 +652,7 @@ void SynthSlider::hidePopup(bool primary) {
 
 String SynthSlider::formatValue(float value) {
   String format;
-  if (details_.value_scale == vital::ValueDetails::kIndexed)
+  if (details_.value_scale == vial::ValueDetails::kIndexed)
     format = String(value);
   else {
     if (max_decimal_places_ == 0)
@@ -701,9 +701,9 @@ Rectangle<int> SynthSlider::getModulationMeterBounds() const {
                         mod_bounds.getWidth(), mod_bounds.getHeight() - 2 * buffer);
 }
 
-std::vector<vital::ModulationConnection*> SynthSlider::getConnections() {
+std::vector<vial::ModulationConnection*> SynthSlider::getConnections() {
   if (synth_interface_ == nullptr)
-    return std::vector<vital::ModulationConnection*>();
+    return std::vector<vial::ModulationConnection*>();
 
   SynthBase* synth = synth_interface_->getSynth();
   return synth->getDestinationConnections(getName().toStdString());
@@ -711,7 +711,7 @@ std::vector<vital::ModulationConnection*> SynthSlider::getConnections() {
 
 void SynthSlider::handlePopupResult(int result) {
   SynthBase* synth = synth_interface_->getSynth();
-  std::vector<vital::ModulationConnection*> connections = getConnections();
+  std::vector<vial::ModulationConnection*> connections = getConnections();
 
   if (result == kArmMidiLearn)
     synth->armMidiLearn(getName().toStdString());
@@ -722,7 +722,7 @@ void SynthSlider::handlePopupResult(int result) {
   else if (result == kManualEntry)
     showTextEntry();
   else if (result == kClearModulations) {
-    for (vital::ModulationConnection* connection : connections) {
+    for (vial::ModulationConnection* connection : connections) {
       std::string source = connection->source_name;
       synth_interface_->disconnectModulation(connection);
     }
@@ -773,7 +773,7 @@ void SynthSlider::notifyModulationsChanged() {
     listener->modulationsChanged(getName().toStdString());
 }
 
-vital::ValueDetails* SynthSlider::getDisplayDetails() {
+vial::ValueDetails* SynthSlider::getDisplayDetails() {
   if (alternate_display_setting_.first == 0 || parent_ == nullptr)
     return &details_;
 

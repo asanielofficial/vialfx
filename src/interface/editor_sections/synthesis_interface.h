@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 
 #include "filter_section.h"
 #include "oscillator_section.h"
@@ -26,8 +26,8 @@
 class SynthesisInterface : public SynthSection, public OscillatorSection::Listener,
                            public SampleSection::Listener, public FilterSection::Listener {
   public:
-    SynthesisInterface(const vital::output_map& mono_modulations,
-                       const vital::output_map& poly_modulations);
+    SynthesisInterface(const vial::output_map& mono_modulations,
+                       const vial::output_map& poly_modulations);
     virtual ~SynthesisInterface();
 
     void paintBackground(Graphics& g) override;
@@ -57,7 +57,7 @@ class SynthesisInterface : public SynthSection, public OscillatorSection::Listen
   private:
     std::unique_ptr<FilterSection> filter_section_1_;
     std::unique_ptr<FilterSection> filter_section_2_;
-    std::unique_ptr<OscillatorSection> oscillators_[vital::kNumOscillators];
+    std::unique_ptr<OscillatorSection> oscillators_[vial::kNumOscillators];
     std::unique_ptr<SampleSection> sample_section_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SynthesisInterface)

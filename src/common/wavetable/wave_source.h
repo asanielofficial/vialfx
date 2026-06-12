@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 #include "wavetable_component.h"
 #include "wave_frame.h"
 
@@ -33,12 +33,12 @@ class WaveSource : public WavetableComponent {
     virtual ~WaveSource();
 
     virtual WavetableKeyframe* createKeyframe(int position) override;
-    virtual void render(vital::WaveFrame* wave_frame, float position) override;
+    virtual void render(vial::WaveFrame* wave_frame, float position) override;
     virtual WavetableComponentFactory::ComponentType getType() override;
     virtual json stateToJson() override;
     virtual void jsonToState(json data) override;
 
-    vital::WaveFrame* getWaveFrame(int index);
+    vial::WaveFrame* getWaveFrame(int index);
     WaveSourceKeyframe* getKeyframe(int index);
 
     void setInterpolationMode(InterpolationMode mode) { interpolation_mode_ = mode; }
@@ -54,22 +54,22 @@ class WaveSource : public WavetableComponent {
 class WaveSourceKeyframe : public WavetableKeyframe {
   public:
     WaveSourceKeyframe() : interpolation_mode_(WaveSource::kFrequency) {
-      wave_frame_ = std::make_unique<vital::WaveFrame>();
+      wave_frame_ = std::make_unique<vial::WaveFrame>();
     }
     virtual ~WaveSourceKeyframe() { }
 
-    vital::WaveFrame* wave_frame() { return wave_frame_.get(); }
+    vial::WaveFrame* wave_frame() { return wave_frame_.get(); }
 
     void copy(const WavetableKeyframe* keyframe) override;
-    void linearTimeInterpolate(const vital::WaveFrame* from, const vital::WaveFrame* to, float t);
+    void linearTimeInterpolate(const vial::WaveFrame* from, const vial::WaveFrame* to, float t);
 
-    void cubicTimeInterpolate(const vital::WaveFrame* prev, const vital::WaveFrame* from,
-                              const vital::WaveFrame* to, const vital::WaveFrame* next,
+    void cubicTimeInterpolate(const vial::WaveFrame* prev, const vial::WaveFrame* from,
+                              const vial::WaveFrame* to, const vial::WaveFrame* next,
                               float range_prev, float range, float range_next, float t);
-    void linearFrequencyInterpolate(const vital::WaveFrame* from, const vital::WaveFrame* to, float t);
+    void linearFrequencyInterpolate(const vial::WaveFrame* from, const vial::WaveFrame* to, float t);
 
-    void cubicFrequencyInterpolate(const vital::WaveFrame* prev, const vital::WaveFrame* from,
-                                   const vital::WaveFrame* to, const vital::WaveFrame* next,
+    void cubicFrequencyInterpolate(const vial::WaveFrame* prev, const vial::WaveFrame* from,
+                                   const vial::WaveFrame* to, const vial::WaveFrame* next,
                                    float range_prev, float range, float range_next, float t);
     
     void interpolate(const WavetableKeyframe* from_keyframe,
@@ -79,7 +79,7 @@ class WaveSourceKeyframe : public WavetableKeyframe {
                            const WavetableKeyframe* to_keyframe,
                            const WavetableKeyframe* next_keyframe, float t) override;
      
-    void render(vital::WaveFrame* wave_frame) override {
+    void render(vial::WaveFrame* wave_frame) override {
       wave_frame->copy(wave_frame_.get());
     }
 
@@ -90,7 +90,7 @@ class WaveSourceKeyframe : public WavetableKeyframe {
     WaveSource::InterpolationMode getInterpolationMode() const { return interpolation_mode_; }
 
   protected:
-    std::unique_ptr<vital::WaveFrame> wave_frame_;
+    std::unique_ptr<vial::WaveFrame> wave_frame_;
     WaveSource::InterpolationMode interpolation_mode_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WaveSourceKeyframe)

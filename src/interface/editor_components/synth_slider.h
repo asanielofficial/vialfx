@@ -1,24 +1,25 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 
 #include "curve_look_and_feel.h"
+#include "synth_section.h"
 #include "text_look_and_feel.h"
 #include "open_gl_image_component.h"
 #include "open_gl_multi_quad.h"
@@ -44,7 +45,7 @@ class OpenGlSliderQuad : public OpenGlQuad {
 
 class OpenGlSlider : public Slider {
   public:
-    static constexpr float kRotaryAngle = 0.8f * vital::kPi;
+    static constexpr float kRotaryAngle = 0.8f * vial::kPi;
 
     OpenGlSlider(String name) : Slider(name), parent_(nullptr), modulation_knob_(false), modulation_amount_(0.0f),
                                 paint_to_image_(false), active_(true), bipolar_(false), slider_quad_(this) {
@@ -312,11 +313,11 @@ class SynthSlider : public OpenGlSlider, public TextEditor::Listener {
       snap_value_ = value;
     }
 
-    void setScalingType(vital::ValueDetails::ValueScale scaling_type) {
+    void setScalingType(vial::ValueDetails::ValueScale scaling_type) {
       details_.value_scale = scaling_type;
     }
 
-    vital::ValueDetails::ValueScale getScalingType() const { return details_.value_scale; }
+    vial::ValueDetails::ValueScale getScalingType() const { return details_.value_scale; }
 
     void setStringLookup(const std::string* lookup) {
       string_lookup_ = lookup;
@@ -369,7 +370,7 @@ class SynthSlider : public OpenGlSlider, public TextEditor::Listener {
     void setTextHeightPercentage(float percentage) { text_height_percentage_ = percentage; }
     float getTextHeightPercentage() { return text_height_percentage_; }
     float mouseHovering() const { return hovering_; }
-    std::vector<vital::ModulationConnection*> getConnections();
+    std::vector<vial::ModulationConnection*> getConnections();
     void setMouseWheelMovement(double movement) { mouse_wheel_index_movement_ = movement; }
 
     void setMaxDisplayCharacters(int characters) { max_display_characters_ = characters; }
@@ -404,12 +405,12 @@ class SynthSlider : public OpenGlSlider, public TextEditor::Listener {
       return OpenGlSlider::findValue(value_id);
     }
 
-    void setAlternateDisplay(Skin::ValueId id, float value, vital::ValueDetails details) {
+    void setAlternateDisplay(Skin::ValueId id, float value, vial::ValueDetails details) {
       alternate_display_setting_ = { id, value };
       alternate_details_ = details;
     }
 
-    vital::ValueDetails* getDisplayDetails();
+    vial::ValueDetails* getDisplayDetails();
 
     OpenGlComponent* getTextEditorComponent() { return text_entry_->getImageComponent(); }
 
@@ -452,12 +453,12 @@ class SynthSlider : public OpenGlSlider, public TextEditor::Listener {
     Point<int> last_modulation_edit_position_;
     Point<int> mouse_down_position_;
 
-    vital::ValueDetails details_;
+    vial::ValueDetails details_;
     float display_multiply_;
     float display_exponential_base_;
 
     std::pair<Skin::ValueId, float> alternate_display_setting_;
-    vital::ValueDetails alternate_details_;
+    vial::ValueDetails alternate_details_;
 
     const std::string* string_lookup_;
 

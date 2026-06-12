@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 
 #include "line_generator.h"
 #include "open_gl_component.h"
@@ -69,7 +69,7 @@ class CompressorEditor : public OpenGlComponent, public SynthSlider::SliderListe
     void renderCompressor(OpenGlWrapper& open_gl, bool animate);
     void destroy(OpenGlWrapper& open_gl) override;
     void setSizeRatio(float ratio) { size_ratio_ = ratio; }
-    void setAllValues(vital::control_map& controls);
+    void setAllValues(vial::control_map& controls);
 
     void setHighBandActive(bool active) { high_band_active_ = active; }
     void setLowBandActive(bool active) { low_band_active_ = active; }
@@ -153,13 +153,13 @@ class CompressorEditor : public OpenGlComponent, public SynthSlider::SliderListe
     float band_lower_ratio_;
     float high_lower_ratio_;
 
-    const vital::StatusOutput* low_input_ms_;
-    const vital::StatusOutput* band_input_ms_;
-    const vital::StatusOutput* high_input_ms_;
+    const vial::StatusOutput* low_input_ms_;
+    const vial::StatusOutput* band_input_ms_;
+    const vial::StatusOutput* high_input_ms_;
 
-    const vital::StatusOutput* low_output_ms_;
-    const vital::StatusOutput* band_output_ms_;
-    const vital::StatusOutput* high_output_ms_;
+    const vial::StatusOutput* low_output_ms_;
+    const vial::StatusOutput* band_output_ms_;
+    const vial::StatusOutput* high_output_ms_;
 
     float size_ratio_;
     bool animate_;

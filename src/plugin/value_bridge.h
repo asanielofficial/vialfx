@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 #include "value.h"
 #include "synth_parameters.h"
 
@@ -25,17 +25,17 @@ class ValueBridge : public AudioProcessorParameter {
     class Listener {
       public:
         virtual ~Listener() { }
-        virtual void parameterChanged(std::string name, vital::mono_float value) = 0;
+        virtual void parameterChanged(std::string name, vial::mono_float value) = 0;
     };
 
     ValueBridge() = delete;
 
-    ValueBridge(std::string name, vital::Value* value) :
+    ValueBridge(std::string name, vial::Value* value) :
         AudioProcessorParameter(), name_(name), value_(value), listener_(nullptr),
         source_changed_(false) {
-      details_ = vital::Parameters::getDetails(name);
+      details_ = vial::Parameters::getDetails(name);
       span_ = details_.max - details_.min;
-      if (details_.value_scale == vital::ValueDetails::kIndexed)
+      if (details_.value_scale == vial::ValueDetails::kIndexed)
         span_ = std::round(span_);
     }
 
@@ -46,7 +46,7 @@ class ValueBridge : public AudioProcessorParameter {
     void setValue(float value) override {
       if (listener_ && !source_changed_) {
         source_changed_ = true;
-        vital::mono_float synth_value = convertToEngineValue(value);
+        vial::mono_float synth_value = convertToEngineValue(value);
         listener_->parameterChanged(name_.toStdString(), synth_value);
         source_changed_ = false;
       }
@@ -96,7 +96,7 @@ class ValueBridge : public AudioProcessorParameter {
 
     bool isDiscrete() const override {
       static constexpr int kMaxIndexedSteps = 300;
-      return details_.value_scale == vital::ValueDetails::kIndexed && span_ < kMaxIndexedSteps;
+      return details_.value_scale == vial::ValueDetails::kIndexed && span_ < kMaxIndexedSteps;
     }
 
     bool isBoolean() const override {
@@ -104,15 +104,15 @@ class ValueBridge : public AudioProcessorParameter {
     }
 
     // Converts internal value to value from 0.0 to 1.0.
-    float convertToPluginValue(vital::mono_float synth_value) const {
+    float convertToPluginValue(vial::mono_float synth_value) const {
       return (synth_value - details_.min) / span_;
     }
 
     // Converts from value from 0.0 to 1.0 to internal engine value.
-    float convertToEngineValue(vital::mono_float plugin_value) const {
+    float convertToEngineValue(vial::mono_float plugin_value) const {
       float value = plugin_value * span_ + details_.min;
 
-      if (details_.value_scale == vital::ValueDetails::kIndexed)
+      if (details_.value_scale == vial::ValueDetails::kIndexed)
         return std::round(value);
 
       return value;
@@ -133,18 +133,18 @@ class ValueBridge : public AudioProcessorParameter {
 
     float skewValue(float value) const {
       switch (details_.value_scale) {
-        case vital::ValueDetails::kQuadratic:
+        case vial::ValueDetails::kQuadratic:
           return value * value;
-        case vital::ValueDetails::kCubic:
+        case vial::ValueDetails::kCubic:
           return value * value * value;
-        case vital::ValueDetails::kQuartic:
+        case vial::ValueDetails::kQuartic:
           value *= value;
           return value * value;
-        case vital::ValueDetails::kExponential:
+        case vial::ValueDetails::kExponential:
           if (details_.display_invert)
             return 1.0f / powf(2.0f, value);
           return powf(2.0f, value);
-        case vital::ValueDetails::kSquareRoot:
+        case vial::ValueDetails::kSquareRoot:
           return sqrtf(value);
         default:
           return value;
@@ -153,13 +153,13 @@ class ValueBridge : public AudioProcessorParameter {
 
     float unskewValue(float value) const {
       switch (details_.value_scale) {
-        case vital::ValueDetails::kQuadratic:
+        case vial::ValueDetails::kQuadratic:
           return sqrtf(value);
-        case vital::ValueDetails::kCubic:
+        case vial::ValueDetails::kCubic:
           return powf(value, 1.0f / 3.0f);
-        case vital::ValueDetails::kQuartic:
+        case vial::ValueDetails::kQuartic:
           return powf(value, 1.0f / 4.0f);
-        case vital::ValueDetails::kExponential:
+        case vial::ValueDetails::kExponential:
           if (details_.display_invert)
             return log2(1.0f / value);
           return log2(value);
@@ -169,9 +169,9 @@ class ValueBridge : public AudioProcessorParameter {
     }
 
     String name_;
-    vital::ValueDetails details_;
-    vital::mono_float span_;
-    vital::Value* value_;
+    vial::ValueDetails details_;
+    vial::mono_float span_;
+    vial::Value* value_;
     Listener* listener_;
     bool source_changed_;
 

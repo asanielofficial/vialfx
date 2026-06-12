@@ -1,24 +1,24 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
-
+#include <JuceHeader.h>
 #include "synth_section.h"
+#include "synth_slider.h"
 #include "lfo_editor.h"
 #include "preset_selector.h"
 
@@ -76,14 +76,14 @@ class LfoSection : public SynthSection, public PresetSelector::Listener, public 
 
     LfoSection(String name, std::string value_prepend,
                LineGenerator* lfo_source,
-               const vital::output_map& mono_modulations,
-               const vital::output_map& poly_modulations);
+               const vial::output_map& mono_modulations,
+               const vial::output_map& poly_modulations);
     ~LfoSection();
 
     void paintBackground(Graphics& g) override;
     void resized() override;
     void reset() override;
-    void setAllValues(vital::control_map& controls) override;
+    void setAllValues(vial::control_map& controls) override;
     void sliderValueChanged(Slider* changed_slider) override;
     void buttonClicked(Button* clicked_button) override;
 
@@ -118,7 +118,7 @@ class LfoSection : public SynthSection, public PresetSelector::Listener, public 
     std::unique_ptr<SynthSlider> fade_;
     std::unique_ptr<SynthSlider> smooth_;
     std::string smooth_mode_control_name_;
-    std::unique_ptr<PlainTextComponent> smooth_mode_text_;
+    int smooth_mode_{0};
     std::unique_ptr<ShapeButton> smooth_mode_type_selector_;
 
     std::unique_ptr<SynthSlider> delay_;

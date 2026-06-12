@@ -1,23 +1,23 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
 #include "common.h"
+#include <JuceHeader.h>
 #include "json/json.h"
 
 using json = nlohmann::json;
@@ -29,7 +29,7 @@ class LineGenerator {
     static constexpr int kExtraValues = 3;
 
     static force_inline float smoothTransition(float t) {
-      return 0.5f * sinf((t - 0.5f) * vital::kPi) + 0.5f;
+      return 0.5f * sinf((t - 0.5f) * vial::kPi) + 0.5f;
     }
 
     LineGenerator(int resolution = kDefaultResolution);
@@ -70,8 +70,8 @@ class LineGenerator {
     force_inline int resolution() const { return resolution_; }
     force_inline bool linear() const { return linear_; }
     force_inline bool smooth() const { return smooth_; }
-    force_inline vital::mono_float* getBuffer() const { return buffer_.get() + 1; }
-    force_inline vital::mono_float* getCubicInterpolationBuffer() const { return buffer_.get(); }
+    force_inline vial::mono_float* getBuffer() const { return buffer_.get() + 1; }
+    force_inline vial::mono_float* getCubicInterpolationBuffer() const { return buffer_.get(); }
 
     force_inline std::pair<float, float> getPoint(int index) const {
       VITAL_ASSERT(index < kMaxPoints && index >= 0);
@@ -115,7 +115,7 @@ class LineGenerator {
     int num_points_;
     int resolution_;
 
-    std::unique_ptr<vital::mono_float[]> buffer_;
+    std::unique_ptr<vial::mono_float[]> buffer_;
     bool loop_;
     bool smooth_;
     bool linear_;

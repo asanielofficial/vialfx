@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "modulation_button.h"
@@ -138,6 +138,11 @@ void ModulationButton::paintBackground(Graphics& g) {
     text = ModulationMatrix::getUiSourceDisplayName(getName());
 
   int font_area_height = kFontAreaHeightRatio * width;
+  // Clamp font area to actual button height so text doesn't clip outside bounds,
+  // and for tall-but-narrow buttons use height-based ratio instead.
+  if (height > width)
+    font_area_height = std::max(font_area_height, (int)(kFontAreaHeightRatio * height));
+  font_area_height = std::min(font_area_height, height);
   g.drawText(text, meter_bounds.getRight(), 0, width - meter_bounds.getRight(),
              font_area_height, Justification::centred);
 
@@ -203,7 +208,7 @@ void ModulationButton::mouseDown(const MouseEvent& e) {
     if (parent_ == nullptr)
       return;
 
-    std::vector<vital::ModulationConnection*> connections =
+    std::vector<vial::ModulationConnection*> connections =
         parent_->getSynth()->getSourceConnections(getName().toStdString());
 
     if (connections.empty())
@@ -214,7 +219,7 @@ void ModulationButton::mouseDown(const MouseEvent& e) {
     PopupItems options;
     std::string disconnect = "Disconnect from ";
     for (int i = 0; i < connections.size(); ++i) {
-      std::string destination = vital::Parameters::getDisplayName(connections[i]->destination_name);
+      std::string destination = vial::Parameters::getDisplayName(connections[i]->destination_name);
       options.addItem(kModulationList + i, disconnect + destination);
     }
 
@@ -297,11 +302,11 @@ void ModulationButton::disconnectIndex(int index) {
   if (parent_ == nullptr)
     return;
 
-  std::vector<vital::ModulationConnection*> connections =
+  std::vector<vial::ModulationConnection*> connections =
       parent_->getSynth()->getSourceConnections(getName().toStdString());
 
   if (index == kDisconnect) {
-    for (vital::ModulationConnection* connection : connections)
+    for (vial::ModulationConnection* connection : connections)
       disconnectModulation(connection);
   }
   else if (index >= kModulationList) {
@@ -325,7 +330,7 @@ void ModulationButton::setForceEnableModulationSource() {
     parent_->getSynth()->forceShowModulation(getName().toStdString(), active_modulation_);
 }
 
-void ModulationButton::disconnectModulation(vital::ModulationConnection* connection) {
+void ModulationButton::disconnectModulation(vial::ModulationConnection* connection) {
   int modulations_left = parent_->getSynth()->getNumModulations(connection->destination_name);
 
   for (Listener* listener : listeners_) {

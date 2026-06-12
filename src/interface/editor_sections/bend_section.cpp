@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "bend_section.h"
@@ -36,10 +36,10 @@ void ControlWheel::paintLine(Graphics& g, float y_percent, Colour line_color, Co
   float buffer = getWidth() * kBufferWidthRatio;
   float width = getWidth() - 2.0f * buffer;
   float height = getHeight() - 4.0f * buffer;
-  float end_radians = vital::kPi / 2.0f;
+  float end_radians = vial::kPi / 2.0f;
   float radians = 2.0f * end_radians * y_percent - end_radians;
 
-  if (radians > vital::kPi * 0.6f || radians < -vital::kPi * 0.6f)
+  if (radians > vial::kPi * 0.6f || radians < -vial::kPi * 0.6f)
     return;
 
   float sin_value = sinf(radians);

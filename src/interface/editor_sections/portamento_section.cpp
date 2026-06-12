@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "portamento_section.h"
@@ -73,8 +73,8 @@ void PortamentoSection::resized() {
   int buttons_width = 3 * getWidth() / 8;
   int buttons_x = getWidth() - buttons_width;
   int widget_margin = findValue(Skin::kWidgetMargin);
-  int internal_margin = widget_margin / 2;
-  float button_height = (height - 2 * (widget_margin + internal_margin)) / 3.0f;
+  int internal_margin = std::max(1, widget_margin / 4);
+  float button_height = (height - 2 * widget_margin - 2 * internal_margin) / 3.0f;
   portamento_force_->setBounds(buttons_x, widget_margin, buttons_width - widget_margin, button_height);
   legato_->setBounds(buttons_x, height - widget_margin - button_height,
                      buttons_width - widget_margin, button_height);
@@ -99,7 +99,7 @@ void PortamentoSection::sliderValueChanged(Slider* changed_slider) {
   SynthSection::sliderValueChanged(changed_slider);
 }
 
-void PortamentoSection::setAllValues(vital::control_map& controls) {
+void PortamentoSection::setAllValues(vial::control_map& controls) {
   SynthSection::setAllValues(controls);
   portamento_slope_->setActive(portamento_->getValue() != portamento_->getMinimum());
 }

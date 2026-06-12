@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "midi_manager.h"
@@ -25,7 +25,7 @@ namespace {
   constexpr float kHighResolutionMax = (1 << (2 * kMidiControlBits)) - 1.0f;
   constexpr float kControlMax = (1 << kMidiControlBits) - 1.0f;
 
-  force_inline vital::mono_float toHighResolutionValue(int msb, int lsb) {
+  force_inline vial::mono_float toHighResolutionValue(int msb, int lsb) {
     if (lsb < 0)
       return msb / kControlMax;
 
@@ -43,13 +43,13 @@ MidiManager::MidiManager(SynthBase* synth, MidiKeyboardState* keyboard_state,
   current_folder_ = -1;
   current_preset_ = -1;
   
-  for (int i = 0; i < vital::kNumMidiChannels; ++i) {
+  for (int i = 0; i < vial::kNumMidiChannels; ++i) {
     lsb_slide_values_[i] = -1;
     lsb_pressure_values_[i] = -1;
   }
 
   mpe_enabled_ = false;
-  mpe_zone_layout_.setLowerZone(vital::kNumMidiChannels - 1);
+  mpe_zone_layout_.setLowerZone(vial::kNumMidiChannels - 1);
 }
 
 MidiManager::~MidiManager() {
@@ -59,7 +59,7 @@ void MidiManager::armMidiLearn(std::string name) {
   current_bank_ = -1;
   current_folder_ = -1;
   current_preset_ = -1;
-  armed_value_ = &vital::Parameters::getDetails(name);
+  armed_value_ = &vial::Parameters::getDetails(name);
 }
 
 void MidiManager::cancelMidiLearn() {
@@ -75,7 +75,7 @@ void MidiManager::clearMidiLearn(const std::string& name) {
   }
 }
 
-void MidiManager::midiInput(int midi_id, vital::mono_float value) {
+void MidiManager::midiInput(int midi_id, vial::mono_float value) {
   if (armed_value_) {
     midi_learn_map_[midi_id][armed_value_->name] = armed_value_;
     armed_value_ = nullptr;
@@ -86,12 +86,12 @@ void MidiManager::midiInput(int midi_id, vital::mono_float value) {
 
   if (midi_learn_map_.count(midi_id)) {
     for (auto& control : midi_learn_map_[midi_id]) {
-      const vital::ValueDetails* details = control.second;
-      vital::mono_float percent = value / kControlMax;
-      vital::mono_float range = details->max - details->min;
-      vital::mono_float translated = percent * range + details->min;
+      const vial::ValueDetails* details = control.second;
+      vial::mono_float percent = value / kControlMax;
+      vial::mono_float range = details->max - details->min;
+      vial::mono_float translated = percent * range + details->min;
 
-      if (details->value_scale == vital::ValueDetails::kIndexed)
+      if (details->value_scale == vial::ValueDetails::kIndexed)
         translated = std::round(translated);
       listener_->valueChangedThroughMidi(control.first, translated);
     }
@@ -176,8 +176,8 @@ void MidiManager::processSostenuto(const MidiMessage& midi_message, int sample_p
 }
 
 void MidiManager::processPitchBend(const MidiMessage& midi_message, int sample_position, int channel) {
-  vital::mono_float percent = midi_message.getPitchWheelValue() / kHighResolutionMax;
-  vital::mono_float value = 2 * percent - 1.0f;
+  vial::mono_float percent = midi_message.getPitchWheelValue() / kHighResolutionMax;
+  vial::mono_float value = 2 * percent - 1.0f;
 
   if (isMpeChannelMasterLowerZone(channel)) {
     engine_->setZonedPitchWheel(value, lowerMasterChannel(), lowerMasterChannel() + 1);
@@ -198,7 +198,7 @@ void MidiManager::processPitchBend(const MidiMessage& midi_message, int sample_p
 }
 
 void MidiManager::processPressure(const MidiMessage& midi_message, int sample_position, int channel) {
-  vital::mono_float value = toHighResolutionValue(msb_pressure_values_[channel], lsb_pressure_values_[channel]);
+  vial::mono_float value = toHighResolutionValue(msb_pressure_values_[channel], lsb_pressure_values_[channel]);
   if (isMpeChannelMasterLowerZone(channel))
     engine_->setChannelRangeAftertouch(lowerZoneStartChannel(), lowerZoneEndChannel(), value, 0);
   else if (isMpeChannelMasterUpperZone(channel))
@@ -208,7 +208,7 @@ void MidiManager::processPressure(const MidiMessage& midi_message, int sample_po
 }
 
 void MidiManager::processSlide(const MidiMessage& midi_message, int sample_position, int channel) {
-  vital::mono_float value = toHighResolutionValue(msb_slide_values_[channel], lsb_slide_values_[channel]);
+  vial::mono_float value = toHighResolutionValue(msb_slide_values_[channel], lsb_slide_values_[channel]);
   if (isMpeChannelMasterLowerZone(channel))
     engine_->setChannelRangeSlide(value, lowerZoneStartChannel(), lowerZoneEndChannel(), 0);
   else if (isMpeChannelMasterUpperZone(channel))
@@ -243,13 +243,13 @@ void MidiManager::processMidiMessage(const MidiMessage& midi_message, int sample
       return;
     }
     case kNoteOff: {
-      vital::mono_float velocity = midi_message.getVelocity() / kControlMax;
+      vial::mono_float velocity = midi_message.getVelocity() / kControlMax;
       engine_->noteOff(midi_message.getNoteNumber(), velocity, sample_position, channel);
       return;
     }
     case kAftertouch: {
       int note = midi_message.getNoteNumber();
-      vital::mono_float value = midi_message.getAfterTouchValue() / kControlMax;
+      vial::mono_float value = midi_message.getAfterTouchValue() / kControlMax;
       engine_->setAftertouch(note, value, sample_position, channel);
       return;
     }
@@ -291,7 +291,7 @@ void MidiManager::processMidiMessage(const MidiMessage& midi_message, int sample
         case kSoftPedalOn: // TODO
           break;
         case kModWheel: {
-          vital::mono_float percent = (1.0f * midi_message.getControllerValue()) / kControlMax;
+          vial::mono_float percent = (1.0f * midi_message.getControllerValue()) / kControlMax;
           engine_->setModWheel(percent, channel);
           listener_->modWheelMidiChanged(percent);
           break;

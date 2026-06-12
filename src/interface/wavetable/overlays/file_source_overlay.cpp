@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "file_source_overlay.h"
@@ -41,9 +41,9 @@ namespace {
     static constexpr float kMaxWindowSize = 9999.9f;
     String trimmed = text.trim();
     int note_midi = Tuning::noteToMidiKey(text);
-    if (note_midi < 0 || note_midi >= vital::kMidiSize)
-      return vital::utils::clamp(trimmed.getFloatValue(), 1.0f, kMaxWindowSize);
-    return sample_rate / vital::utils::midiNoteToFrequency(note_midi);
+    if (note_midi < 0 || note_midi >= vial::kMidiSize)
+      return vial::utils::clamp(trimmed.getFloatValue(), 1.0f, kMaxWindowSize);
+    return sample_rate / vial::utils::midiNoteToFrequency(note_midi);
   }
     
   float positionTextToSize(String text) {
@@ -159,7 +159,7 @@ void AudioFileViewer::setWindowValues() {
   for (int i = 0; i < kResolution; ++i) {
     float position = i / (kResolution - 1.0f);
     float window_phase = std::min(position - start, end - position) / fade_length;
-    window_phase = std::max(std::min(window_phase, 1.0f), 0.0f) * vital::kPi;
+    window_phase = std::max(std::min(window_phase, 1.0f), 0.0f) * vial::kPi;
     float window_value = 0.5f - cosf(window_phase) * 0.5f;
 
     top_.setBoostLeft(i, window_value);

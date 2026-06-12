@@ -1,21 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "sound_engine.h"
 
+#include "chorus_module.h"
 #include "compressor_module.h"
 #include "flanger_module.h"
 #include "phaser_module.h"
@@ -23,12 +24,13 @@
 #include "modulation_connection_processor.h"
 #include "synth_constants.h"
 #include "effects_modulation_handler.h"
+#include "upsampler.h"
 #include "peak_meter.h"
 #include "operators.h"
 #include "reorderable_effect_chain.h"
 #include "value_switch.h"
 
-namespace vital {
+namespace vial {
 
   SoundEngine::SoundEngine() : SynthModule(0, 1), modulation_handler_(nullptr), 
                                last_oversampling_amount_(-1), last_sample_rate_(-1), peak_meter_(nullptr) {
@@ -59,7 +61,7 @@ namespace vital {
 
     modulation_handler_ = new EffectsModulationHandler(beats_per_second_clamped->output());
     addSubmodule(modulation_handler_);
-    modulation_handler_->setPolyphony(vital::kMaxPolyphony);
+    modulation_handler_->setPolyphony(vial::kMaxPolyphony);
     modulation_handler_->plug(polyphony, VoiceHandler::kPolyphony);
     modulation_handler_->plug(voice_priority, VoiceHandler::kVoicePriority);
     modulation_handler_->plug(voice_override, VoiceHandler::kVoiceOverride);
@@ -135,7 +137,7 @@ namespace vital {
   void SoundEngine::connectModulation(const modulation_change& change) {
     change.modulation_processor->plug(change.source, ModulationConnectionProcessor::kModulationInput);
     change.modulation_processor->setDestinationScale(change.destination_scale);
-    VITAL_ASSERT(vital::utils::isFinite(change.destination_scale));
+    VITAL_ASSERT(vial::utils::isFinite(change.destination_scale));
 
     Processor* destination = change.mono_destination;
     bool polyphonic = change.source->owner->isPolyphonic() && change.poly_destination;
@@ -374,4 +376,4 @@ namespace vital {
   void SoundEngine::sostenutoOffRange(int sample, int from_channel, int to_channel) {
     modulation_handler_->sostenutoOffRange(sample, from_channel, to_channel);
   }
-} // namespace vital
+} // namespace vial

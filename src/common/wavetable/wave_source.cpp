@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "wave_source.h"
@@ -31,7 +31,7 @@ WavetableKeyframe* WaveSource::createKeyframe(int position) {
   return keyframe;
 }
 
-void WaveSource::render(vital::WaveFrame* wave_frame, float position) {
+void WaveSource::render(vial::WaveFrame* wave_frame, float position) {
   compute_frame_->setInterpolationMode(interpolation_mode_);
   interpolate(compute_frame_.get(), position);
   wave_frame->copy(compute_frame_->wave_frame());
@@ -53,7 +53,7 @@ void WaveSource::jsonToState(json data) {
   compute_frame_->setInterpolationMode(interpolation_mode_);
 }
 
-vital::WaveFrame* WaveSource::getWaveFrame(int index) {
+vial::WaveFrame* WaveSource::getWaveFrame(int index) {
   return getKeyframe(index)->wave_frame();
 }
 
@@ -67,17 +67,17 @@ void WaveSourceKeyframe::copy(const WavetableKeyframe* keyframe) {
   wave_frame_->copy(source->wave_frame_.get());
 }
 
-void WaveSourceKeyframe::linearTimeInterpolate(const vital::WaveFrame* from, const vital::WaveFrame* to, float t) {
-  for (int i = 0; i < vital::WaveFrame::kWaveformSize; ++i)
+void WaveSourceKeyframe::linearTimeInterpolate(const vial::WaveFrame* from, const vial::WaveFrame* to, float t) {
+  for (int i = 0; i < vial::WaveFrame::kWaveformSize; ++i)
     wave_frame_->time_domain[i] = linearTween(from->time_domain[i], to->time_domain[i], t);
   wave_frame_->toFrequencyDomain();
 }
 
-void WaveSourceKeyframe::cubicTimeInterpolate(const vital::WaveFrame* prev, const vital::WaveFrame* from,
-                                              const vital::WaveFrame* to, const vital::WaveFrame* next,
+void WaveSourceKeyframe::cubicTimeInterpolate(const vial::WaveFrame* prev, const vial::WaveFrame* from,
+                                              const vial::WaveFrame* to, const vial::WaveFrame* next,
                                               float range_prev, float range, float range_next, float t) {
 
-  for (int i = 0; i < vital::WaveFrame::kWaveformSize; ++i) {
+  for (int i = 0; i < vial::WaveFrame::kWaveformSize; ++i) {
     wave_frame_->time_domain[i] = cubicTween(prev->time_domain[i], from->time_domain[i],
                                              to->time_domain[i], next->time_domain[i],
                                              range_prev, range, range_next, t);
@@ -85,9 +85,9 @@ void WaveSourceKeyframe::cubicTimeInterpolate(const vital::WaveFrame* prev, cons
   wave_frame_->toFrequencyDomain();
 }
 
-void WaveSourceKeyframe::linearFrequencyInterpolate(const vital::WaveFrame* from,
-                                                    const vital::WaveFrame* to, float t) {
-  for (int i = 0; i < vital::WaveFrame::kNumRealComplex; ++i) {
+void WaveSourceKeyframe::linearFrequencyInterpolate(const vial::WaveFrame* from,
+                                                    const vial::WaveFrame* to, float t) {
+  for (int i = 0; i < vial::WaveFrame::kNumRealComplex; ++i) {
     float amplitude_from = sqrtf(std::abs(from->frequency_domain[i]));
     float amplitude_to = sqrtf(std::abs(to->frequency_domain[i]));
     float amplitude = linearTween(amplitude_from, amplitude_to, t);
@@ -105,7 +105,7 @@ void WaveSourceKeyframe::linearFrequencyInterpolate(const vital::WaveFrame* from
   float dc_to = to->frequency_domain[0].real();
   wave_frame_->frequency_domain[0] = linearTween(dc_from, dc_to, t);
 
-  int last = vital::WaveFrame::kNumRealComplex - 1;
+  int last = vial::WaveFrame::kNumRealComplex - 1;
   float last_harmonic_from = from->frequency_domain[last].real();
   float last_harmonic_to = to->frequency_domain[last].real();
   wave_frame_->frequency_domain[last] = linearTween(last_harmonic_from, last_harmonic_to, t);
@@ -113,10 +113,10 @@ void WaveSourceKeyframe::linearFrequencyInterpolate(const vital::WaveFrame* from
   wave_frame_->toTimeDomain();
 }
 
-void WaveSourceKeyframe::cubicFrequencyInterpolate(const vital::WaveFrame* prev, const vital::WaveFrame* from,
-                                                   const vital::WaveFrame* to, const vital::WaveFrame* next,
+void WaveSourceKeyframe::cubicFrequencyInterpolate(const vial::WaveFrame* prev, const vial::WaveFrame* from,
+                                                   const vial::WaveFrame* to, const vial::WaveFrame* next,
                                                    float range_prev, float range, float range_next, float t) {
-  for (int i = 0; i < vital::WaveFrame::kNumRealComplex; ++i) {
+  for (int i = 0; i < vial::WaveFrame::kNumRealComplex; ++i) {
     float amplitude_prev = sqrtf(std::abs(prev->frequency_domain[i]));
     float amplitude_from = sqrtf(std::abs(from->frequency_domain[i]));
     float amplitude_to = sqrtf(std::abs(to->frequency_domain[i]));
@@ -149,7 +149,7 @@ void WaveSourceKeyframe::cubicFrequencyInterpolate(const vital::WaveFrame* prev,
   float dc_next = next->frequency_domain[0].real();
   wave_frame_->frequency_domain[0] = cubicTween(dc_prev, dc_from, dc_to, dc_next, range_prev, range, range_next, t);
 
-  int last = vital::WaveFrame::kNumRealComplex - 1;
+  int last = vial::WaveFrame::kNumRealComplex - 1;
   float last_harmonic_prev = prev->frequency_domain[last].real();
   float last_harmonic_from = from->frequency_domain[last].real();
   float last_harmonic_to = to->frequency_domain[last].real();
@@ -175,10 +175,10 @@ void WaveSourceKeyframe::smoothInterpolate(const WavetableKeyframe* prev_keyfram
                                            const WavetableKeyframe* from_keyframe,
                                            const WavetableKeyframe* to_keyframe,
                                            const WavetableKeyframe* next_keyframe, float t) {
-  const vital::WaveFrame* prev = dynamic_cast<const WaveSourceKeyframe*>(prev_keyframe)->wave_frame_.get();
-  const vital::WaveFrame* from = dynamic_cast<const WaveSourceKeyframe*>(from_keyframe)->wave_frame_.get();
-  const vital::WaveFrame* to = dynamic_cast<const WaveSourceKeyframe*>(to_keyframe)->wave_frame_.get();
-  const vital::WaveFrame* next = dynamic_cast<const WaveSourceKeyframe*>(next_keyframe)->wave_frame_.get();
+  const vial::WaveFrame* prev = dynamic_cast<const WaveSourceKeyframe*>(prev_keyframe)->wave_frame_.get();
+  const vial::WaveFrame* from = dynamic_cast<const WaveSourceKeyframe*>(from_keyframe)->wave_frame_.get();
+  const vial::WaveFrame* to = dynamic_cast<const WaveSourceKeyframe*>(to_keyframe)->wave_frame_.get();
+  const vial::WaveFrame* next = dynamic_cast<const WaveSourceKeyframe*>(next_keyframe)->wave_frame_.get();
 
   float range_prev = from_keyframe->position() - prev_keyframe->position();
   float range = to_keyframe->position() - from_keyframe->position();
@@ -191,7 +191,7 @@ void WaveSourceKeyframe::smoothInterpolate(const WavetableKeyframe* prev_keyfram
 }
 
 json WaveSourceKeyframe::stateToJson() {
-  String encoded = Base64::toBase64(wave_frame_->time_domain, sizeof(float) * vital::WaveFrame::kWaveformSize);
+  String encoded = Base64::toBase64(wave_frame_->time_domain, sizeof(float) * vial::WaveFrame::kWaveformSize);
   json data = WavetableKeyframe::stateToJson();
   data["wave_data"] = encoded.toStdString();
   return data;
@@ -200,9 +200,9 @@ json WaveSourceKeyframe::stateToJson() {
 void WaveSourceKeyframe::jsonToState(json data) {
   WavetableKeyframe::jsonToState(data);
 
-  MemoryOutputStream decoded(sizeof(float) * vital::WaveFrame::kWaveformSize);
+  MemoryOutputStream decoded(sizeof(float) * vial::WaveFrame::kWaveformSize);
   std::string wave_data = data["wave_data"];
   Base64::convertFromBase64(decoded, wave_data);
-  memcpy(wave_frame_->time_domain, decoded.getData(), sizeof(float) * vital::WaveFrame::kWaveformSize);
+  memcpy(wave_frame_->time_domain, decoded.getData(), sizeof(float) * vial::WaveFrame::kWaveformSize);
   wave_frame_->toFrequencyDomain();
 }

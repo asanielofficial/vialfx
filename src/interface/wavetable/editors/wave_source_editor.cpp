@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "wave_source_editor.h"
@@ -145,7 +145,7 @@ void WaveSourceEditor::mouseExit(const MouseEvent& e) {
 
 int WaveSourceEditor::getHoveredIndex(Point<int> position) {
   int index = floorf(numPoints() * (1.0f * position.x) / getWidth());
-  return vital::utils::iclamp(index, 0, numPoints() - 1);
+  return vial::utils::iclamp(index, 0, numPoints() - 1);
 }
 
 float WaveSourceEditor::getSnapRadius() {
@@ -187,7 +187,7 @@ void WaveSourceEditor::changeValues(const MouseEvent& e) {
   for (int index = selected_index; index != from_index + direction; index += direction) {
     if (index >= 0 && index < numPoints()) {
       float new_value = -2.0f * y / getHeight() + 1.0f;
-      values_[index] = vital::utils::clamp(new_value, -1.0f, 1.0f);
+      values_[index] = vial::utils::clamp(new_value, -1.0f, 1.0f);
     }
 
     y += inc_x * slope;

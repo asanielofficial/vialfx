@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "effects_interface.h"
@@ -37,7 +37,7 @@ class EffectsContainer : public SynthSection {
     }
 };
 
-EffectsInterface::EffectsInterface(const vital::output_map& mono_modulations) : SynthSection("effects") {
+EffectsInterface::EffectsInterface(const vial::output_map& mono_modulations) : SynthSection("effects") {
   container_ = std::make_unique<EffectsContainer>("container");
 
   addAndMakeVisible(viewport_);
@@ -187,7 +187,7 @@ void EffectsInterface::setEffectPositions() {
 
   Point<int> position = viewport_.getViewPosition();
 
-  for (int i = 0; i < vital::constants::kNumEffects; ++i) {
+  for (int i = 0; i < vial::constants::kNumEffects; ++i) {
     bool enabled = effect_order_->effectEnabled(i);
     effects_list_[effect_order_->getEffectIndex(i)]->setVisible(enabled);
     if (enabled) {
@@ -217,8 +217,8 @@ void EffectsInterface::renderOpenGlComponents(OpenGlWrapper& open_gl, bool anima
 
   OpenGlComponent::setViewPort(&viewport_, open_gl);
 
-  float image_width = vital::utils::nextPowerOfTwo(background_.getImageWidth());
-  float image_height = vital::utils::nextPowerOfTwo(background_.getImageHeight());
+  float image_width = vial::utils::nextPowerOfTwo(background_.getImageWidth());
+  float image_height = vial::utils::nextPowerOfTwo(background_.getImageHeight());
   int mult = getPixelMultiple();
   float width_ratio = image_width / (container_->getWidth() * mult);
   float height_ratio = image_height / (viewport_.getHeight() * mult);

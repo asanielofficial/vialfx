@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "chorus_module.h"
@@ -20,7 +20,7 @@
 #include "memory.h"
 #include "synth_constants.h"
 
-namespace vital {
+namespace vial {
 
   ChorusModule::ChorusModule(const Output* beats_per_second) :
       SynthModule(0, 1), beats_per_second_(beats_per_second),
@@ -113,13 +113,13 @@ namespace vital {
       poly_float phase = phase_ + right_offset + (poly_float(0.5f) & ~constants::kFirstMask) + pair_offset;
 
       poly_float mod_depth = mod_depth_->buffer[0] * kMaxChorusModulation;
-      poly_float mod = utils::sin(phase * vital::kPi * 2.0f) * 0.5f + 1.0f;
+      poly_float mod = utils::sin(phase * vial::kPi * 2.0f) * 0.5f + 1.0f;
       float delay_t = 0.0f;
       if (i > 0)
         delay_t = i / (num_voices - 1.0f);
       poly_float delay = mod * mod_depth + utils::interpolate(delay_time, average_delay, delay_t);
 
-      vital::poly_float delay_frequency = poly_float(1.0f) / utils::max(0.00001f, delay);
+      vial::poly_float delay_frequency = poly_float(1.0f) / utils::max(0.00001f, delay);
       delay_frequencies_[i].set(delay_frequency);
       delays_[i]->processWithInput(audio_out, num_samples);
       
@@ -158,4 +158,4 @@ namespace vital {
   void ChorusModule::correctToTime(double seconds) {
     phase_ = utils::getCycleOffsetFromSeconds(seconds, frequency_->buffer[0]);
   }
-} // namespace vital
+} // namespace vial

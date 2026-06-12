@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "file_source.h"
@@ -20,7 +20,7 @@ FileSource::FileSourceKeyframe::FileSourceKeyframe(SampleBuffer* sample_buffer) 
   sample_buffer_ = sample_buffer;
   start_position_ = 0.0f;
   window_fade_ = 1.0f;
-  window_size_ = vital::WaveFrame::kWaveformSize;
+  window_size_ = vial::WaveFrame::kWaveformSize;
   fade_style_ = kWaveBlend;
   phase_style_ = kNone;
   overridden_phase_ = nullptr;
@@ -49,12 +49,12 @@ void FileSource::FileSourceKeyframe::interpolate(const WavetableKeyframe* from_k
 
 force_inline float FileSource::FileSourceKeyframe::getScaledInterpolatedSample(float position) {
   const float* buffer = getCubicInterpolationBuffer();
-  float clamped_position = vital::utils::clamp(position, 0.0f, sample_buffer_->size - 1);
+  float clamped_position = vial::utils::clamp(position, 0.0f, sample_buffer_->size - 1);
   int start_index = clamped_position;
   float t = clamped_position - start_index;
 
-  vital::matrix interpolation_matrix = vital::utils::getCatmullInterpolationMatrix(t);
-  vital::matrix value_matrix = vital::utils::getValueMatrix(buffer, start_index);
+  vial::matrix interpolation_matrix = vial::utils::getCatmullInterpolationMatrix(t);
+  vial::matrix value_matrix = vial::utils::getValueMatrix(buffer, start_index);
   value_matrix.transpose();
   
   return interpolation_matrix.multiplyAndSumRows(value_matrix)[0];
@@ -72,8 +72,8 @@ float FileSource::FileSourceKeyframe::getNormalizationScale() {
 
   float max = 0.0f;
   float min = 0.0f;
-  for (int i = 0; i < vital::WaveFrame::kWaveformSize; ++i) {
-    double t = i / (vital::WaveFrame::kWaveformSize * 1.0);
+  for (int i = 0; i < vial::WaveFrame::kWaveformSize; ++i) {
+    double t = i / (vial::WaveFrame::kWaveformSize * 1.0);
     double position = std::min<double>(start_index + t * window_size_, sample_buffer_->size - 1);
     int from_index = position;
     int to_index = std::min(sample_buffer_->size - 1, from_index + 1);
@@ -92,7 +92,7 @@ float FileSource::FileSourceKeyframe::getNormalizationScale() {
   return 2.0f / std::max(max - min, 0.001f);
 }
 
-void FileSource::FileSourceKeyframe::render(vital::WaveFrame* wave_frame) {
+void FileSource::FileSourceKeyframe::render(vial::WaveFrame* wave_frame) {
   if (sample_buffer_->size <= 0) {
     wave_frame->clear();
     return;
@@ -108,7 +108,7 @@ void FileSource::FileSourceKeyframe::render(vital::WaveFrame* wave_frame) {
     renderFreqInterpolate(wave_frame);
 
   if (phase_style_ == kClear || phase_style_ == kVocode) {
-    for (int i = 0; i < vital::WaveFrame::kWaveformSize; ++i) {
+    for (int i = 0; i < vial::WaveFrame::kWaveformSize; ++i) {
       float amplitude = std::abs(wave_frame->frequency_domain[i]);
       wave_frame->frequency_domain[i] = std::polar(amplitude, overridden_phase_[i]);
     }
@@ -117,26 +117,26 @@ void FileSource::FileSourceKeyframe::render(vital::WaveFrame* wave_frame) {
   wave_frame->toTimeDomain();
 }
 
-void FileSource::FileSourceKeyframe::renderWaveBlend(vital::WaveFrame* wave_frame) {
-  double window_ratio = window_size_ / vital::WaveFrame::kWaveformSize;
-  int waveform_middle = vital::WaveFrame::kWaveformSize / 2;
+void FileSource::FileSourceKeyframe::renderWaveBlend(vial::WaveFrame* wave_frame) {
+  double window_ratio = window_size_ / vial::WaveFrame::kWaveformSize;
+  int waveform_middle = vial::WaveFrame::kWaveformSize / 2;
   int start_index = start_position_ / window_ratio + window_size_ / 2.0f + waveform_middle;
-  start_index = start_index % vital::WaveFrame::kWaveformSize;
+  start_index = start_index % vial::WaveFrame::kWaveformSize;
 
-  for (int i = 0; i < vital::WaveFrame::kWaveformSize; ++i) {
-    double t = i / (vital::WaveFrame::kWaveformSize * 1.0);
+  for (int i = 0; i < vial::WaveFrame::kWaveformSize; ++i) {
+    double t = i / (vial::WaveFrame::kWaveformSize * 1.0);
     double position = start_position_ + t * window_size_;
-    int write_index = (start_index + i) % vital::WaveFrame::kWaveformSize;
+    int write_index = (start_index + i) % vial::WaveFrame::kWaveformSize;
     wave_frame->time_domain[write_index] = getScaledInterpolatedSample(position);
   }
 
-  int fade_samples = window_fade_ * vital::WaveFrame::kWaveformSize;
+  int fade_samples = window_fade_ * vial::WaveFrame::kWaveformSize;
   double fade_size = fade_samples * window_ratio;
   for (int i = 0; i < fade_samples; ++i) {
     double t = i / (fade_samples - 1.0f);
-    double fade = 0.5 + 0.5 * cos(vital::kPi * t);
+    double fade = 0.5 + 0.5 * cos(vial::kPi * t);
 
-    int write_index = (start_index + i) % vital::WaveFrame::kWaveformSize;
+    int write_index = (start_index + i) % vial::WaveFrame::kWaveformSize;
     double position = start_position_ + window_size_ + t * fade_size;
     double existing_value = wave_frame->time_domain[write_index];
     double fade_value = getScaledInterpolatedSample(position);
@@ -145,14 +145,14 @@ void FileSource::FileSourceKeyframe::renderWaveBlend(vital::WaveFrame* wave_fram
   wave_frame->toFrequencyDomain();
 }
 
-void FileSource::FileSourceKeyframe::renderNoInterpolate(vital::WaveFrame* wave_frame) {
+void FileSource::FileSourceKeyframe::renderNoInterpolate(vial::WaveFrame* wave_frame) {
   double cycles_in = start_position_ / window_size_;
   int cycle = cycles_in;
 
   double start_index = cycle * window_size_;
 
-  for (int i = 0; i < vital::WaveFrame::kWaveformSize; ++i) {
-    double t = i / (vital::WaveFrame::kWaveformSize * 1.0);
+  for (int i = 0; i < vial::WaveFrame::kWaveformSize; ++i) {
+    double t = i / (vial::WaveFrame::kWaveformSize * 1.0);
     double position = start_index + t * window_size_;
     wave_frame->time_domain[i] = getScaledInterpolatedSample(position);
   }
@@ -160,7 +160,7 @@ void FileSource::FileSourceKeyframe::renderNoInterpolate(vital::WaveFrame* wave_
   wave_frame->toFrequencyDomain();
 }
 
-void FileSource::FileSourceKeyframe::renderTimeInterpolate(vital::WaveFrame* wave_frame) {
+void FileSource::FileSourceKeyframe::renderTimeInterpolate(vial::WaveFrame* wave_frame) {
   double cycles_in = start_position_ / window_size_;
   int from_cycle = cycles_in;
   int to_cycle = from_cycle + 1;
@@ -169,19 +169,19 @@ void FileSource::FileSourceKeyframe::renderTimeInterpolate(vital::WaveFrame* wav
   double start_index_from = from_cycle * window_size_;
   double start_index_to = to_cycle * window_size_;
 
-  for (int i = 0; i < vital::WaveFrame::kWaveformSize; ++i) {
-    double t = i / (vital::WaveFrame::kWaveformSize * 1.0);
+  for (int i = 0; i < vial::WaveFrame::kWaveformSize; ++i) {
+    double t = i / (vial::WaveFrame::kWaveformSize * 1.0);
     double from_position = start_index_from + t * window_size_;
     double to_position = start_index_to + t * window_size_;
     float from_sample = getScaledInterpolatedSample(from_position);
     float to_sample = getScaledInterpolatedSample(to_position);
-    wave_frame->time_domain[i] = vital::utils::interpolate(from_sample, to_sample, transition);
+    wave_frame->time_domain[i] = vial::utils::interpolate(from_sample, to_sample, transition);
   }
 
   wave_frame->toFrequencyDomain();
 }
 
-void FileSource::FileSourceKeyframe::renderFreqInterpolate(vital::WaveFrame* wave_frame) {
+void FileSource::FileSourceKeyframe::renderFreqInterpolate(vial::WaveFrame* wave_frame) {
   double cycles_in = start_position_ / window_size_;
   int from_cycle = cycles_in;
   int to_cycle = from_cycle + 1;
@@ -190,10 +190,10 @@ void FileSource::FileSourceKeyframe::renderFreqInterpolate(vital::WaveFrame* wav
   double start_index_from = from_cycle * window_size_;
   double start_index_to = to_cycle * window_size_;
 
-  vital::WaveFrame* from_wave_frame = interpolate_from_frame_->wave_frame();
-  vital::WaveFrame* to_wave_frame = interpolate_to_frame_->wave_frame();
-  for (int i = 0; i < vital::WaveFrame::kWaveformSize; ++i) {
-    double t = i / (vital::WaveFrame::kWaveformSize * 1.0);
+  vial::WaveFrame* from_wave_frame = interpolate_from_frame_->wave_frame();
+  vial::WaveFrame* to_wave_frame = interpolate_to_frame_->wave_frame();
+  for (int i = 0; i < vial::WaveFrame::kWaveformSize; ++i) {
+    double t = i / (vial::WaveFrame::kWaveformSize * 1.0);
     double from_position = start_index_from + t * window_size_;
     double to_position = start_index_to + t * window_size_;
     from_wave_frame->time_domain[i] = getScaledInterpolatedSample(from_position);
@@ -224,9 +224,9 @@ void FileSource::FileSourceKeyframe::jsonToState(json data) {
 FileSource::FileSource() : compute_frame_(&sample_buffer_), overridden_phase_(),
                            fade_style_(kWaveBlend), phase_style_(kNone),
                            normalize_gain_(false), normalize_mult_(false),
-                           random_generator_(-vital::kPi, vital::kPi) {
-  window_size_ = vital::WaveFrame::kWaveformSize;
-  random_seed_ = random_generator_.next() * (INT_MAX / vital::kPi);
+                           random_generator_(-vial::kPi, vial::kPi) {
+  window_size_ = vial::WaveFrame::kWaveformSize;
+  random_seed_ = random_generator_.next() * (INT_MAX / vial::kPi);
 }
 
 WavetableKeyframe* FileSource::createKeyframe(int position) {
@@ -235,7 +235,7 @@ WavetableKeyframe* FileSource::createKeyframe(int position) {
   return keyframe;
 }
 
-void FileSource::render(vital::WaveFrame* wave_frame, float position) {
+void FileSource::render(vial::WaveFrame* wave_frame, float position) {
   if (sample_buffer_.data == nullptr)
     wave_frame->clear();
   else {
@@ -247,7 +247,7 @@ void FileSource::render(vital::WaveFrame* wave_frame, float position) {
     compute_frame_.setInterpolateToFrame(&interpolate_to_frame_);
     compute_frame_.setOverriddenPhaseBuffer(overridden_phase_);
     compute_frame_.render(wave_frame);
-    wave_frame->setFrequencyRatio(window_size_ / vital::WaveFrame::kWaveformSize);
+    wave_frame->setFrequencyRatio(window_size_ / vial::WaveFrame::kWaveformSize);
     wave_frame->setSampleRate(sample_buffer_.sample_rate);
     if (normalize_mult_)
       wave_frame->normalize(normalize_gain_);
@@ -278,7 +278,7 @@ json FileSource::stateToJson() {
   String encoded = "";
   if (getDataBuffer()) {
     std::unique_ptr<int16_t[]> pcm_data = std::make_unique<int16_t[]>(num_samples);
-    vital::utils::floatToPcmData(pcm_data.get(), getDataBuffer(), num_samples);
+    vial::utils::floatToPcmData(pcm_data.get(), getDataBuffer(), num_samples);
     encoded = Base64::toBase64(pcm_data.get(), num_samples * sizeof(int16_t));
   }
   data["audio_file"] = encoded.toStdString();
@@ -307,7 +307,7 @@ void FileSource::jsonToState(json data) {
 
   WavetableComponent::jsonToState(data);
 
-  int sample_rate = vital::kDefaultSampleRate;
+  int sample_rate = vial::kDefaultSampleRate;
   if (data.count("audio_sample_rate"))
     sample_rate = data["audio_sample_rate"];
 
@@ -317,7 +317,7 @@ void FileSource::jsonToState(json data) {
 
   int size = static_cast<int>(decoded.getDataSize()) / sizeof(int16_t);
   std::unique_ptr<float[]> float_data = std::make_unique<float[]>(size);
-  vital::utils::pcmToFloatData(float_data.get(), (int16_t*)decoded.getData(), size);
+  vial::utils::pcmToFloatData(float_data.get(), (int16_t*)decoded.getData(), size);
   loadBuffer(float_data.get(), size, sample_rate);
 }
 
@@ -339,14 +339,14 @@ void FileSource::setPhaseStyle(PhaseStyle phase_style) {
 
 void FileSource::writePhaseOverrideBuffer() {
   if (phase_style_ == kClear) {
-    for (int i = 0; i < vital::WaveFrame::kWaveformSize / 2; ++i) {
-      overridden_phase_[2 * i] = -0.5f * vital::kPi;
-      overridden_phase_[2 * i + 1] = 0.5f * vital::kPi;
+    for (int i = 0; i < vial::WaveFrame::kWaveformSize / 2; ++i) {
+      overridden_phase_[2 * i] = -0.5f * vial::kPi;
+      overridden_phase_[2 * i + 1] = 0.5f * vial::kPi;
     }
   }
   else if (phase_style_ == kVocode) {
     random_generator_.seed(random_seed_);
-    for (int i = 0; i < vital::WaveFrame::kWaveformSize; ++i)
+    for (int i = 0; i < vial::WaveFrame::kWaveformSize; ++i)
       overridden_phase_[i] = random_generator_.next();
   }
 }
@@ -377,14 +377,14 @@ void FileSource::detectWaveEditTable() {
   if (sample_buffer_.size != kWaveEditFrameLength * kWaveEditNumFrames)
     return;
 
-  vital::WaveFrame wave_frame;
+  vial::WaveFrame wave_frame;
   const float* buffer = getDataBuffer();
-  for (int i = 0; i < vital::WaveFrame::kWaveformSize; ++i)
+  for (int i = 0; i < vial::WaveFrame::kWaveformSize; ++i)
     wave_frame.time_domain[i] = buffer[i];
 
   wave_frame.toFrequencyDomain();
 
-  int size_mult = vital::WaveFrame::kWaveformSize / kWaveEditFrameLength;
+  int size_mult = vial::WaveFrame::kWaveformSize / kWaveEditFrameLength;
   std::unique_ptr<float[]> totals = std::make_unique<float[]>(size_mult);
   for (int i = 0; i < size_mult; ++i) {
     for (int j = 0; j < kFrequencyDomainTotals; ++j)

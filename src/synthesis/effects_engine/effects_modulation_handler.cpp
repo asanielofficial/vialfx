@@ -1,17 +1,17 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "effects_modulation_handler.h"
@@ -29,7 +29,7 @@
 #include "value_switch.h"
 #include "modulation_connection_processor.h"
 
-namespace vital {
+namespace vial {
 
   EffectsModulationHandler::EffectsModulationHandler(Output* beats_per_second) :
       VoiceHandler(0, 1, true), beats_per_second_(beats_per_second),
@@ -53,7 +53,7 @@ namespace vital {
     for (int i = 0; i < kNumMacros; ++i)
       macros[i] = createMonoModControl("macro_control_" + std::to_string(i + 1));
 
-    for (int i = 0; i < vital::kMaxModulationConnections; ++i) {
+    for (int i = 0; i < vial::kMaxModulationConnections; ++i) {
       ModulationConnectionProcessor* processor = modulation_bank_.atIndex(i)->modulation_processor.get();
 
       processor->plug(reset(), ModulationConnectionProcessor::kReset);
@@ -95,7 +95,7 @@ namespace vital {
 
     std::string modulation_source_prefix = "modulation_source_";
     std::string modulation_amount_prefix = "modulation_amount_";
-    for (int i = 0; i < vital::kMaxModulationConnections; ++i) {
+    for (int i = 0; i < vial::kMaxModulationConnections; ++i) {
       ModulationConnectionProcessor* processor = modulation_bank_.atIndex(i)->modulation_processor.get();
       std::string number = std::to_string(i + 1);
       Output* source_output = processor->output(ModulationConnectionProcessor::kModulationSource);
@@ -106,7 +106,7 @@ namespace vital {
   }
 
   void EffectsModulationHandler::prepareDestroy() {
-    for (int i = 0; i < vital::kMaxModulationConnections; ++i) {
+    for (int i = 0; i < vial::kMaxModulationConnections; ++i) {
       ModulationConnectionProcessor* processor = modulation_bank_.atIndex(i)->modulation_processor.get();
       removeProcessor(processor);
     }
@@ -254,7 +254,7 @@ namespace vital {
     }
     else {
       poly_mask voice_mask = getCurrentVoiceMask();
-      for (int i = 0; i < vital::kMaxModulationConnections; ++i) {
+      for (int i = 0; i < vial::kMaxModulationConnections; ++i) {
         ModulationConnectionProcessor* processor = modulation_bank_.atIndex(i)->modulation_processor.get();
         if (processor->enabled()) {
           poly_float* buffer = processor->output()->buffer;
@@ -310,4 +310,12 @@ namespace vital {
   output_map& EffectsModulationHandler::getPolyModulations() {
     return poly_readouts_;
   }
-} // namespace vital
+
+  void EffectsModulationHandler::setPitchWheelControl(Value* pitch_wheel) {
+    pitch_wheel_mapping_->plug(pitch_wheel);
+  }
+
+  void EffectsModulationHandler::setModWheelControl(Value* mod_wheel) {
+    mod_wheel_mapping_->plug(mod_wheel);
+  }
+} // namespace vial

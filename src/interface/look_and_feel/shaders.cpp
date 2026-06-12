@@ -1,22 +1,22 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "shaders.h"
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
 
 #include "open_gl_component.h"
 #include "synth_constants.h"
@@ -978,7 +978,7 @@ OpenGLShaderProgram* Shaders::getShaderProgram(VertexShader vertex_shader, Fragm
   open_gl_context_->extensions.glAttachShader(program_id, getVertexShaderId(vertex_shader));
   open_gl_context_->extensions.glAttachShader(program_id, getFragmentShaderId(fragment_shader));
   if (varyings)
-    open_gl_context_->extensions.glTransformFeedbackVaryings(program_id, 1, varyings, GL_INTERLEAVED_ATTRIBS);
+    glTransformFeedbackVaryings(program_id, 1, varyings, GL_INTERLEAVED_ATTRIBS);
 
   result->link();
   return result;

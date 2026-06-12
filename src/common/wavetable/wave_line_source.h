@@ -1,22 +1,23 @@
 /* Copyright 2013-2019 Matt Tytel
  *
- * vital is free software: you can redistribute it and/or modify
+ * vial is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * vital is distributed in the hope that it will be useful,
+ * vial is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ * along with vial.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include "JuceHeader.h"
+#include <JuceHeader.h>
+#include "line_generator.h"
 #include "wavetable_component.h"
 
 class WaveLineSource : public WavetableComponent {
@@ -31,7 +32,7 @@ class WaveLineSource : public WavetableComponent {
         void copy(const WavetableKeyframe* keyframe) override;
         void interpolate(const WavetableKeyframe* from_keyframe,
                          const WavetableKeyframe* to_keyframe, float t) override;
-        void render(vital::WaveFrame* wave_frame) override;
+        void render(vial::WaveFrame* wave_frame) override;
         json stateToJson() override;
         void jsonToState(json data) override;
 
@@ -60,7 +61,7 @@ class WaveLineSource : public WavetableComponent {
     virtual ~WaveLineSource() = default;
 
     virtual WavetableKeyframe* createKeyframe(int position) override;
-    virtual void render(vital::WaveFrame* wave_frame, float position) override;
+    virtual void render(vial::WaveFrame* wave_frame, float position) override;
     virtual WavetableComponentFactory::ComponentType getType() override;
     virtual json stateToJson() override;
     virtual void jsonToState(json data) override;
