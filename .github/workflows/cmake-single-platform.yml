@@ -48,7 +48,12 @@ jobs:
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
     - name: Build
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel
+      # GitHub's ubuntu-latest has 4 cores but JUCE + Vial compile units are
+      # memory-heavy (juce_graphics, juce_audio_processors, juce_gui_basics
+      # each parse huge header trees). Running 4 in parallel + LTO at link
+      # time OOMs the 16GB runner. Capping at 2 keeps peak memory bounded
+      # at a ~2x build-time cost.
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel 2
 
     - name: Test
       working-directory: ${{github.workspace}}/build
