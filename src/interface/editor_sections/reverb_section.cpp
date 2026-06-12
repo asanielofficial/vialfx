@@ -108,7 +108,7 @@ void ReverbSection::paintBackground(Graphics& g) {
   SynthSection::paintBackground(g);
 
   g.setColour(findColour(Skin::kBodyText, true));
-  g.setFont(Fonts::instance()->proportional_regular().withPointHeight(size_ratio_ * 10.0f));
+  g.setFont(Fonts::instance()->proportional_regular().withHeight(size_ratio_ * 10.0f));
   
   drawLabelForComponent(g, TRANS("TIME"), decay_time_.get());
   drawLabelForComponent(g, TRANS("PRE LOW CUT"), low_pre_cutoff_.get());

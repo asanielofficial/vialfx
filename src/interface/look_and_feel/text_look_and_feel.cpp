@@ -51,8 +51,8 @@ void TextLookAndFeel::drawRotarySlider(Graphics& g, int x, int y, int width, int
     text_color = text_color.withMultipliedAlpha(0.5f);
 
   g.setColour(text_color);
-  g.setFont(Fonts::instance()->proportional_light().withPointHeight(font_size));
-  g.drawText(text, x, y + std::round(offset), width, height, Justification::centred, false);
+  g.setFont(Fonts::instance()->proportional_light().withHeight(font_size));
+  g.drawText(text, x, y + std::round(offset), width, height, Justification::centred, true);
 }
 
 void TextLookAndFeel::drawToggleButton(Graphics& g, ToggleButton& button, bool hover, bool is_down) {
@@ -104,8 +104,8 @@ void TextLookAndFeel::drawToggleButton(Graphics& g, ToggleButton& button, bool h
   if (text.isEmpty())
     g.fillRoundedRectangle(button.getLocalBounds().toFloat(), rounding);
   else {
-    g.setFont(Fonts::instance()->monospace().withPointHeight(font_size));
-    g.drawText(text, 0, 0, button.getWidth(), button.getHeight(), Justification::centred, false);
+    g.setFont(Fonts::instance()->monospace().withHeight(font_size));
+    g.drawText(text, 0, 0, button.getWidth(), button.getHeight(), Justification::centred, true);
   }
 }
 

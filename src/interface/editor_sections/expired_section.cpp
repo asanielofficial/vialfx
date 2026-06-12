@@ -30,7 +30,7 @@ ExpiredSection::ExpiredSection(String name) : Overlay(name), body_(Shaders::kRou
   addOpenGlComponent(text_.get());
 
   link_ = std::make_unique<OpenGlHyperlink>("Download a new version", URL(""));
-  link_->setFont(Fonts::instance()->proportional_light().withPointHeight(14.0f),
+  link_->setFont(Fonts::instance()->proportional_light().withHeight(14.0f),
                  false, Justification::centred);
   addAndMakeVisible(link_.get());
   addOpenGlComponent(link_->getImageComponent());

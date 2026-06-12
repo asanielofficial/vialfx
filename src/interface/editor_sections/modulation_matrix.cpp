@@ -737,8 +737,8 @@ void ModulationMatrix::paintBackground(Graphics& g) {
   g.fillRect(destination_x, 0, 1, title_width);
 
   g.setColour(findColour(Skin::kTextComponentText, true));
-  Font regular = Fonts::instance()->proportional_light().withPointHeight(title_width * 0.4f);
-  Font sorted = Fonts::instance()->proportional_regular().withPointHeight(title_width * 0.4f);
+  Font regular = Fonts::instance()->proportional_light().withHeight(title_width * 0.4f);
+  Font sorted = Fonts::instance()->proportional_regular().withHeight(title_width * 0.4f);
   g.setFont(sort_column_ == kNumber ? sorted : regular);
   g.drawText("#", 0, 0, row_height, title_width, Justification::centred);
   g.setFont(sort_column_ == kSource ? sorted : regular);

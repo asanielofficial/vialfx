@@ -126,7 +126,7 @@ void HeaderSection::paintBackground(Graphics& g) {
   if (LoadSave::doesExpire()) {
     String countdown = "Beta expires in: " + String(LoadSave::getDaysToExpire()) + " days";
     int countdown_height = volume_section_->getY() + volume_section_->getBuffer();
-    g.setFont(Fonts::instance()->proportional_regular().withPointHeight(countdown_height / 2.0f));
+    g.setFont(Fonts::instance()->proportional_regular().withHeight(countdown_height / 2.0f));
     g.setColour(findColour(Skin::kTextComponentText, true));
     g.drawText(countdown, volume_section_->getX(), 0,
                volume_section_->getWidth(), countdown_height, Justification::centred);

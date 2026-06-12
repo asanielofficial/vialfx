@@ -86,7 +86,7 @@ void ContentList::paintBackground(Graphics& g) {
   g.fillRect(selected_width + name_width, 0, 1, title_width);
 
   g.setColour(findColour(Skin::kTextComponentText, true));
-  g.setFont(Fonts::instance()->proportional_regular().withPointHeight(title_width * 0.5f));
+  g.setFont(Fonts::instance()->proportional_regular().withHeight(title_width * 0.5f));
 
   String name = getName() + " Name";
   g.drawText(name, selected_width + text_padding, 0, name_width, title_width, Justification::centredLeft);
@@ -325,7 +325,7 @@ void ContentList::loadBrowserCache(int start_index, int end_index) {
   int date_x = image_width - date_width + text_padding;
 
   end_index = std::min(static_cast<int>(contents_.size()), end_index);
-  Font font = Fonts::instance()->proportional_light().withPointHeight(row_height * 0.5f);
+  Font font = Fonts::instance()->proportional_light().withHeight(row_height * 0.5f);
 
   Path icon;
   icon.addRoundedRectangle(0.0f, 0.0f, 1.0f, 1.0f, 0.1f, 0.1f);

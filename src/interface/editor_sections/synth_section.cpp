@@ -67,7 +67,7 @@ void SynthSection::paint(Graphics& g) { }
 void SynthSection::paintSidewaysHeadingText(Graphics& g) {
   int title_width = findValue(Skin::kTitleWidth);
   g.setColour(findColour(Skin::kHeadingText, true));
-  g.setFont(Fonts::instance()->proportional_light().withPointHeight(size_ratio_ * 12.5f));
+  g.setFont(Fonts::instance()->proportional_light().withHeight(size_ratio_ * 12.5f));
   g.saveState();
   g.setOrigin(Point<int>(0, getHeight()));
   g.addTransform(AffineTransform::rotation(-vial::kPi / 2.0f));
@@ -86,7 +86,7 @@ void SynthSection::paintHeadingText(Graphics& g) {
   }
 
   g.setColour(findColour(Skin::kHeadingText, true));
-  g.setFont(Fonts::instance()->proportional_light().withPointHeight(size_ratio_ * 12.5f));
+  g.setFont(Fonts::instance()->proportional_light().withHeight(size_ratio_ * 12.5f));
   g.drawText(TRANS(getName()), getTitleBounds(), Justification::centred, false);
 }
 
@@ -582,7 +582,7 @@ void SynthSection::paintJointControl(Graphics& g, int x, int y, int width, int h
 
   setLabelFont(g);
   g.setColour(findColour(Skin::kBodyText, true));
-  g.drawText(name, x, y, width, findValue(Skin::kLabelBackgroundHeight), Justification::centred, false);
+  g.drawText(name, x, y, width, findValue(Skin::kLabelBackgroundHeight), Justification::centred, true);
 }
 
 void SynthSection::placeJointControls(int x, int y, int width, int height,
@@ -750,7 +750,7 @@ int SynthSection::getPixelMultiple() const {
 
 Font SynthSection::getLabelFont() {
   float height = findValue(Skin::kLabelHeight) * 0.9f;
-  return Fonts::instance()->proportional_regular().withPointHeight(height);
+  return Fonts::instance()->proportional_regular().withHeight(height);
 }
 
 void SynthSection::setLabelFont(Graphics& g) {
@@ -810,7 +810,7 @@ void SynthSection::drawLabel(Graphics& g, String text, Rectangle<int> component_
   g.setColour(findColour(Skin::kBodyText, true));
   Rectangle<int> background_bounds = getLabelBackgroundBounds(component_bounds, text_component);
   g.drawText(text, component_bounds.getX(), background_bounds.getY(),
-                   component_bounds.getWidth(), background_bounds.getHeight(), Justification::centred, false);
+                   component_bounds.getWidth(), background_bounds.getHeight(), Justification::centred, true);
 }
 
 void SynthSection::drawTextBelowComponent(Graphics& g, String text, Component* component, int space, int padding) {

@@ -107,7 +107,7 @@ void PopupDisplay::setContent(const std::string& text, Rectangle<int> bounds,
 
   int height = kHeight * size_ratio_;
   int mult = getPixelMultiple();
-  Font font = Fonts::instance()->proportional_light().withPointHeight(height * 0.5f * mult);
+  Font font = Fonts::instance()->proportional_light().withHeight(height * 0.5f * mult);
   int padding = height / 4;
   int buffer = padding * 2 + 2;
   int width = (font.getStringWidth(text) / getPixelMultiple()) + buffer;
@@ -793,7 +793,7 @@ void SelectionList::loadBrowserCache(int start_index, int end_index) {
   int name_width = image_width - name_x;
 
   end_index = std::min(static_cast<int>(filtered_selections_.size()), end_index);
-  Font font = Fonts::instance()->proportional_light().withPointHeight(row_height * 0.55f);
+  Font font = Fonts::instance()->proportional_light().withHeight(row_height * 0.55f);
 
   Path star = Paths::star();
   Path folder = Paths::folder();

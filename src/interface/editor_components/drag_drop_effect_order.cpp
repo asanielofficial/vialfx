@@ -88,7 +88,7 @@ void DraggableEffect::paint(Graphics& g) {
     g.setColour(findColour(Skin::kPowerButtonOff, true));
   g.drawRoundedRectangle(0.5f, 0.5f, getWidth() - 1.0f, getHeight() - 1.0f, round_amount, 1.0f);
 
-  g.setFont(Fonts::instance()->proportional_regular().withPointHeight(size_ratio_ * 12.0f));
+  g.setFont(Fonts::instance()->proportional_regular().withHeight(size_ratio_ * 12.0f));
   float text_x = getWidth() * kLeftPadding;
   StringArray tokens;
   tokens.addTokens(getName(), "_", "");

@@ -81,7 +81,7 @@ class SingleMacroSection : public SynthSection, public TextEditor::Listener {
 
       drawLabelBackgroundForComponent(g, macro_knob_.get());
       g.setColour(findColour(Skin::kBodyText, true));
-      g.setFont(Fonts::instance()->proportional_regular().withPointHeight(text_size_));
+      g.setFont(Fonts::instance()->proportional_regular().withHeight(text_size_));
       g.drawText(macro_text_, getLabelBackgroundBounds(macro_knob_.get()), Justification::centred, false);
       paintKnobShadows(g);
       paintChildrenBackgrounds(g);
@@ -108,7 +108,7 @@ class SingleMacroSection : public SynthSection, public TextEditor::Listener {
 
         Rectangle<int> bounds = getLabelBackgroundBounds(macro_knob_.get());
         float text_height = findValue(Skin::kLabelHeight);
-        macro_label_editor_->setFont(Fonts::instance()->proportional_regular().withPointHeight(text_height));
+        macro_label_editor_->setFont(Fonts::instance()->proportional_regular().withHeight(text_height));
         macro_label_editor_->setText(macro_text_);
         macro_label_editor_->setBounds(bounds.translated(0, -1));
         macro_label_editor_->setVisible(true);

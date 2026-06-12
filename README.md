@@ -22,6 +22,24 @@ This is an unofficial fork of the [mtytel/vital](https://github.com/mtytel/vital
 **Other**:
 - Skin file renamed from `default.vitalskin` → `default.vialskin`
 - Commercial branding removal (WIP)
+- JUCE 6 → JUCE 8 port (in progress — see [JUCE 8 Migration](#juce-8-migration) below)
+
+## JUCE 8 Migration
+
+This fork is in the middle of a JUCE 6.0.5 → 8.0.8 port. The codebase **builds and runs**, but several UI text-rendering regressions remain. See `docs/screenshots/` for current-state examples (`text-rendering-default-size.png`, `text-rendering-maximized.png`).
+
+### What's working
+- Clean compile on Windows (MSVC) and JUCE 8.0.8
+- Standalone, VST3, and AU targets all build from a single CMake configuration
+- All audio engine code unchanged — only UI/rendering touched
+
+### Known issues
+- Some text labels clip at large window sizes (e.g. `OCTAVE SCALE` → `OCTAVE`, `Trigger` → `Trigg` at maximized)
+- Sideways section headings (`VOICE`, `EFFECTS`) render with vertical clipping and occasional doubled glyphs (`EFFFECTS`)
+- Tab row (`VOICE / EFFECTS / MATRIX / ADVANCED`) can clip at the top of the window
+- Some inactive OSC/FILTER rows render at lower opacity than intended at maximized window scale
+
+In-progress fixes live on the `fix/juce8-text-rendering` branch — see that branch's PR for diagnostic notes.
 
 ## Building
 
