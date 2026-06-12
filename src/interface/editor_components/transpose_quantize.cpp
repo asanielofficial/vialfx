@@ -76,7 +76,7 @@ void TransposeQuantizeCallOut::paint(Graphics& g) {
   int text_height = title_height * kTitleTextRatio;
 
   g.setColour(parent_->findColour(Skin::kBodyText, true));
-  g.setFont(Fonts::instance()->proportional_light().withPointHeight(text_height));
+  g.setFont(Fonts::instance()->proportional_light().withHeight(text_height));
   g.drawText("TRANSPOSE SNAP", 0, 0, getWidth(), title_height, Justification::centred);
 
   g.setColour(parent_->findColour(Skin::kLabelBackground, true));

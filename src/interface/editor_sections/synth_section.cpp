@@ -67,7 +67,7 @@ void SynthSection::paint(Graphics& g) { }
 void SynthSection::paintSidewaysHeadingText(Graphics& g) {
   int title_width = findValue(Skin::kTitleWidth);
   g.setColour(findColour(Skin::kHeadingText, true));
-  g.setFont(Fonts::instance()->proportional_light().withPointHeight(size_ratio_ * 12.5f));
+  g.setFont(Fonts::instance()->proportional_light().withHeight(size_ratio_ * 12.5f));
   g.saveState();
   g.setOrigin(Point<int>(0, getHeight()));
   g.addTransform(AffineTransform::rotation(-vial::kPi / 2.0f));
@@ -86,7 +86,7 @@ void SynthSection::paintHeadingText(Graphics& g) {
   }
 
   g.setColour(findColour(Skin::kHeadingText, true));
-  g.setFont(Fonts::instance()->proportional_light().withPointHeight(size_ratio_ * 12.5f));
+  g.setFont(Fonts::instance()->proportional_light().withHeight(size_ratio_ * 12.5f));
   g.drawText(TRANS(getName()), getTitleBounds(), Justification::centred, false);
 }
 
@@ -750,7 +750,7 @@ int SynthSection::getPixelMultiple() const {
 
 Font SynthSection::getLabelFont() {
   float height = findValue(Skin::kLabelHeight) * 0.9f;
-  return Fonts::instance()->proportional_regular().withPointHeight(height);
+  return Fonts::instance()->proportional_regular().withHeight(height);
 }
 
 void SynthSection::setLabelFont(Graphics& g) {

@@ -71,7 +71,7 @@ class PopupList : public SynthSection, ScrollBar::Listener {
     int getBrowseWidth();
     int getBrowseHeight() { return getRowHeight() * selections_.size(); }
     Font getFont() {
-      return Fonts::instance()->proportional_light().withPointHeight(getRowHeight() * 0.55f * getPixelMultiple());
+      return Fonts::instance()->proportional_light().withHeight(getRowHeight() * 0.55f * getPixelMultiple());
     }
     void mouseMove(const MouseEvent& e) override;
     void mouseDrag(const MouseEvent& e) override;

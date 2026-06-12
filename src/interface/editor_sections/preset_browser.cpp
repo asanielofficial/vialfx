@@ -112,7 +112,7 @@ void PresetList::paintBackground(Graphics& g) {
   g.fillRect(getWidth() - date_width, 0, 1, title_width);
 
   g.setColour(findColour(Skin::kTextComponentText, true));
-  g.setFont(Fonts::instance()->proportional_regular().withPointHeight(title_width * 0.5f));
+  g.setFont(Fonts::instance()->proportional_regular().withHeight(title_width * 0.5f));
 
   Path star = Paths::star();
   float star_draw_width = title_width * 0.8f;
@@ -477,7 +477,7 @@ void PresetList::loadBrowserCache(int start_index, int end_index) {
   int date_x = image_width - date_width + text_padding;
 
   end_index = std::min(static_cast<int>(filtered_presets_.size()), end_index);
-  Font font = Fonts::instance()->proportional_light().withPointHeight(row_height * 0.5f);
+  Font font = Fonts::instance()->proportional_light().withHeight(row_height * 0.5f);
 
   Path star = Paths::star();
   float star_draw_width = row_height * 0.8f;
@@ -976,7 +976,7 @@ bool PresetBrowser::loadFromFile(File& preset) {
     int comments_font_size = kCommentsFontHeight * size_ratio_;
     if (comments_) {
       comments_->setText(comments);
-      comments_->setFont(Fonts::instance()->proportional_light().withPointHeight(comments_font_size));
+      comments_->setFont(Fonts::instance()->proportional_light().withHeight(comments_font_size));
       comments_->redoImage();
     }
     return true;
@@ -1018,7 +1018,7 @@ void PresetBrowser::loadPresetInfo() {
   int comments_font_size = kCommentsFontHeight * size_ratio_;
   if (comments_) {
     comments_->setText(comments);
-    comments_->setFont(Fonts::instance()->proportional_light().withPointHeight(comments_font_size));
+    comments_->setFont(Fonts::instance()->proportional_light().withHeight(comments_font_size));
     comments_->redoImage();
   }
 }

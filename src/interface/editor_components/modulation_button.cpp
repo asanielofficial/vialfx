@@ -132,7 +132,7 @@ void ModulationButton::paintBackground(Graphics& g) {
 
   int height = getHeight();
   g.setColour(findColour(Skin::kBodyText, true));
-  g.setFont(Fonts::instance()->proportional_regular().withPointHeight(font_size_));
+  g.setFont(Fonts::instance()->proportional_regular().withHeight(font_size_));
   String text = text_override_;
   if (text.isEmpty())
     text = ModulationMatrix::getUiSourceDisplayName(getName());

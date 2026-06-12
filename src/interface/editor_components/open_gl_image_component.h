@@ -138,8 +138,8 @@ class OpenGlTextEditor : public OpenGlAutoImageComponent<TextEditor>, public Tex
 
     void applyFont() {
       Font font = monospace_ 
-        ? Fonts::instance()->monospace().withPointHeight(getHeight() / 2.0f)
-        : Fonts::instance()->proportional_light().withPointHeight(getHeight() / 2.0f);
+        ? Fonts::instance()->monospace().withHeight(getHeight() / 2.0f)
+        : Fonts::instance()->proportional_light().withHeight(getHeight() / 2.0f);
 
       applyFontToAllText(font);
       redoImage();
@@ -214,13 +214,13 @@ class PlainTextComponent : public OpenGlImageComponent {
       g.setColour(Colours::white);
 
       if (font_type_ == kTitle)
-        g.setFont(Fonts::instance()->proportional_title().withPointHeight(text_size_));
+        g.setFont(Fonts::instance()->proportional_title().withHeight(text_size_));
       else if (font_type_ == kLight)
-        g.setFont(Fonts::instance()->proportional_light().withPointHeight(text_size_));
+        g.setFont(Fonts::instance()->proportional_light().withHeight(text_size_));
       else if (font_type_ == kRegular)
-        g.setFont(Fonts::instance()->proportional_regular().withPointHeight(text_size_));
+        g.setFont(Fonts::instance()->proportional_regular().withHeight(text_size_));
       else
-        g.setFont(Fonts::instance()->monospace().withPointHeight(text_size_));
+        g.setFont(Fonts::instance()->monospace().withHeight(text_size_));
 
       Component* component = component_ ? component_ : this;
 

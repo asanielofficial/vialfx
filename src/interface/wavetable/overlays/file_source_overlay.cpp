@@ -505,7 +505,7 @@ void FileSourceOverlay::setTextEditorVisuals(TextEditor* text_editor, float heig
   text_editor->setColour(TextEditor::highlightedTextColourId, findColour(Skin::kBodyText, true));
   text_editor->setColour(TextEditor::highlightColourId, findColour(Skin::kTextEditorSelection, true));
 
-  Font font = Fonts::instance()->monospace().withPointHeight(height * 0.6f);
+  Font font = Fonts::instance()->monospace().withHeight(height * 0.6f);
   text_editor->setFont(font);
   text_editor->applyFontToAllText(font);
   text_editor->resized();

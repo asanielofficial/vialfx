@@ -223,7 +223,7 @@ void SaveSection::setSaveBounds() {
   comments_text_->setBounds(text_x, text_y + 4 * padding_y + style_height + 2 * name_->getHeight(),
                             text_width, author_->getHeight());
 
-  Font editor_font = Fonts::instance()->proportional_light().withPointHeight(editor_height * 0.6f);
+  Font editor_font = Fonts::instance()->proportional_light().withHeight(editor_height * 0.6f);
   setTextColors(name_.get(), file_type_ + " " + TRANS("Name"));
   setTextColors(author_.get(), TRANS("Author"));
   setTextColors(comments_.get(), TRANS("Comments"));

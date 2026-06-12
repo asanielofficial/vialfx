@@ -71,10 +71,10 @@ void PresetSelector::paintBackground(Graphics& g) {
     int button_height = parent->findValue(Skin::kTextComponentFontSize);
     int offset = parent->findValue(Skin::kTextComponentOffset);
     text_bounds = getLocalBounds().translated(0, offset);
-    g.setFont(Fonts::instance()->proportional_regular().withPointHeight(button_height));
+    g.setFont(Fonts::instance()->proportional_regular().withHeight(button_height));
   }
   else {
-    g.setFont(Fonts::instance()->proportional_title().withPointHeight(height * font_height_ratio_));
+    g.setFont(Fonts::instance()->proportional_title().withHeight(height * font_height_ratio_));
   }
   g.drawText(text_value_, text_bounds, Justification::centred, true);
 }

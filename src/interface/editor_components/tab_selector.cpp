@@ -47,7 +47,7 @@ void TabSelector::paint(Graphics& g) {
   g.setColour(highlight_color);
   g.fillRect(from_highlight, 0, to_highlight - from_highlight, light_height);
 
-  g.setFont(Fonts::instance()->proportional_light().withPointHeight(getHeight() * font_height_percent_));
+  g.setFont(Fonts::instance()->proportional_light().withHeight(getHeight() * font_height_percent_));
   for (int i = 0; i < num_types && i < names_.size(); ++i) {
     std::string name = names_[i];
     int from_x = getTabX(i);
