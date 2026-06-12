@@ -17,16 +17,16 @@
 #include "fonts.h"
 
 Fonts::Fonts() :
-    proportional_regular_(Typeface::createSystemTypefaceFor(
-        BinaryData::LatoRegular_ttf, BinaryData::LatoRegular_ttfSize)),
-    proportional_light_(Typeface::createSystemTypefaceFor(
-        BinaryData::LatoLight_ttf, BinaryData::LatoLight_ttfSize)),
-    proportional_title_(Typeface::createSystemTypefaceFor(
-        BinaryData::MontserratLight_otf, BinaryData::MontserratLight_otfSize)),
-    proportional_title_regular_(Typeface::createSystemTypefaceFor(
-        BinaryData::MontserratRegular_ttf, BinaryData::MontserratRegular_ttfSize)),
-    monospace_(Typeface::createSystemTypefaceFor(
-        BinaryData::DroidSansMono_ttf, BinaryData::DroidSansMono_ttfSize)) {
+    proportional_regular_(FontOptions(Typeface::createSystemTypefaceFor(
+        BinaryData::LatoRegular_ttf, BinaryData::LatoRegular_ttfSize))),
+    proportional_light_(FontOptions(Typeface::createSystemTypefaceFor(
+        BinaryData::LatoLight_ttf, BinaryData::LatoLight_ttfSize))),
+    proportional_title_(FontOptions(Typeface::createSystemTypefaceFor(
+        BinaryData::MontserratLight_otf, BinaryData::MontserratLight_otfSize))),
+    proportional_title_regular_(FontOptions(Typeface::createSystemTypefaceFor(
+        BinaryData::MontserratRegular_ttf, BinaryData::MontserratRegular_ttfSize))),
+    monospace_(FontOptions(Typeface::createSystemTypefaceFor(
+        BinaryData::DroidSansMono_ttf, BinaryData::DroidSansMono_ttfSize))) {
 
   proportional_regular_.getStringWidthFloat("test");
   proportional_light_.getStringWidthFloat("test");

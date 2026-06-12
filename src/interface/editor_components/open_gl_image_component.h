@@ -137,11 +137,9 @@ class OpenGlTextEditor : public OpenGlAutoImageComponent<TextEditor>, public Tex
     }
 
     void applyFont() {
-      Font font;
-      if (monospace_)
-        font = Fonts::instance()->monospace().withPointHeight(getHeight() / 2.0f);
-      else
-        font = Fonts::instance()->proportional_light().withPointHeight(getHeight() / 2.0f);
+      Font font = monospace_ 
+        ? Fonts::instance()->monospace().withPointHeight(getHeight() / 2.0f)
+        : Fonts::instance()->proportional_light().withPointHeight(getHeight() / 2.0f);
 
       applyFontToAllText(font);
       redoImage();

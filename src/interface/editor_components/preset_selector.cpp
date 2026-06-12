@@ -76,7 +76,7 @@ void PresetSelector::paintBackground(Graphics& g) {
   else {
     g.setFont(Fonts::instance()->proportional_title().withPointHeight(height * font_height_ratio_));
   }
-  g.drawText(text_value_, text_bounds, Justification::centred, false);
+  g.drawText(text_value_, text_bounds, Justification::centred, true);
 }
 
 void PresetSelector::resized() {
