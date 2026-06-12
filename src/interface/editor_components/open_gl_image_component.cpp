@@ -35,9 +35,9 @@ void OpenGlImageComponent::redrawImage(bool force) {
 
   Component* component = component_ ? component_ : this;
 
-  int pixel_scale = Desktop::getInstance().getDisplays().findDisplayForPoint(getScreenPosition()).scale;
-  int width = component->getWidth() * pixel_scale;
-  int height = component->getHeight() * pixel_scale;
+  float pixel_scale = Desktop::getInstance().getDisplays().findDisplayForPoint(getScreenPosition()).scale;
+  int width = roundToInt(component->getWidth() * pixel_scale);
+  int height = roundToInt(component->getHeight() * pixel_scale);
   if (width <= 0 || height <= 0)
     return;
 
