@@ -38,9 +38,14 @@ Release
 **/JuceLibraryCode
 .vscode
 VST2_SDK
+<<<<<<< HEAD
 build/
 
 CMakeFiles/
 CMakeCache.txt
 *.cmake
 Makefile
+=======
+
+.hermes/
+>>>>>>> 55a36a5 (chore: add .hermes/ to gitignore)
