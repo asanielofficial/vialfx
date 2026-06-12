@@ -68,10 +68,9 @@ void PresetSelector::paintBackground(Graphics& g) {
   Rectangle<int> text_bounds(height, 0, getWidth() - 2 * height, height);
   if (text_component_) {
     SynthSection* parent = findParentComponentOfClass<SynthSection>();
-    int button_height = parent->findValue(Skin::kTextComponentFontSize);
     int offset = parent->findValue(Skin::kTextComponentOffset);
-    text_bounds = getLocalBounds().translated(0, offset);
-    g.setFont(Fonts::instance()->proportional_regular().withHeight(button_height));
+    text_bounds = text_bounds.translated(0, offset);
+    g.setFont(Fonts::instance()->proportional_regular().withHeight(height * font_height_ratio_));
   }
   else {
     g.setFont(Fonts::instance()->proportional_title().withHeight(height * font_height_ratio_));
@@ -84,9 +83,9 @@ void PresetSelector::resized() {
 
   if (text_component_) {
     SynthSection* parent = findParentComponentOfClass<SynthSection>();
-    int button_height = parent->findValue(Skin::kTextComponentFontSize);
     int offset = parent->findValue(Skin::kTextComponentOffset);
-    int button_y = (getHeight() - button_height) / 2 + offset;
+    int button_height = getHeight();
+    int button_y = offset;
     prev_preset_->setBounds(0, button_y, button_height, button_height);
     next_preset_->setBounds(getWidth() - button_height, button_y, button_height, button_height);
   }
