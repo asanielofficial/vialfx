@@ -74,7 +74,7 @@ class SampleSection : public SynthSection, public SampleViewer::Listener, public
 
     int current_destination_;
     std::string destination_control_name_;
-    std::unique_ptr<PlainTextComponent> destination_text_;
+
     std::unique_ptr<ShapeButton> destination_selector_;
     std::unique_ptr<OpenGlShapeButton> prev_destination_;
     std::unique_ptr<OpenGlShapeButton> next_destination_;

@@ -51,6 +51,11 @@ file(GLOB_RECURSE SOURCE_FILES
     "src/synthesis/*.h"
 )
 
+# Exclude the duplicative effects_engine SoundEngine — it defines the same class
+# as synth_engine/sound_engine.cpp (ODR violation) and has an incomplete
+# EffectsModulationHandler-based init that crashes at runtime.
+list(FILTER SOURCE_FILES EXCLUDE REGEX "effects_engine/sound_engine\\.")
+
 # Embedded binary resources
 juce_add_binary_data(VialBinaryData
     SOURCES

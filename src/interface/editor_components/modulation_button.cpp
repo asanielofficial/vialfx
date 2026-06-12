@@ -138,6 +138,11 @@ void ModulationButton::paintBackground(Graphics& g) {
     text = ModulationMatrix::getUiSourceDisplayName(getName());
 
   int font_area_height = kFontAreaHeightRatio * width;
+  // Clamp font area to actual button height so text doesn't clip outside bounds,
+  // and for tall-but-narrow buttons use height-based ratio instead.
+  if (height > width)
+    font_area_height = std::max(font_area_height, (int)(kFontAreaHeightRatio * height));
+  font_area_height = std::min(font_area_height, height);
   g.drawText(text, meter_bounds.getRight(), 0, width - meter_bounds.getRight(),
              font_area_height, Justification::centred);
 

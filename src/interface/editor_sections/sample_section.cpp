@@ -75,8 +75,6 @@ SampleSection::SampleSection(String name) : SynthSection(std::move(name)), sampl
 
   current_destination_ = 0;
   destination_control_name_ = "sample_destination";
-  destination_text_ = std::make_unique<PlainTextComponent>("Destination Text", "---");
-  addOpenGlComponent(destination_text_.get());
 
   addAndMakeVisible(destination_selector_.get());
   destination_selector_->addListener(this);
@@ -174,6 +172,8 @@ void SampleSection::paintBackground(Graphics& g) {
   g.setColour(findColour(Skin::kTextComponentBackground, true));
 
   g.fillRoundedRectangle(destination_selector_->getBounds().toFloat(), label_rounding);
+  setLabelFont(g);
+  drawLabel(g, TRANS(strings::kDestinationNames[current_destination_]), destination_selector_->getBounds(), true);
 
   int buttons_x = section2_x + section_width;
   g.fillRoundedRectangle(buttons_x, widget_margin, component_width, getHeight() - 2 * widget_margin, label_rounding);
@@ -199,7 +199,6 @@ void SampleSection::resized() {
   preset_selector_->setColour(Skin::kIconButtonOffHover, findColour(Skin::kUiButtonHover, true));
   preset_selector_->setColour(Skin::kIconButtonOffPressed, findColour(Skin::kUiButtonPressed, true));
 
-  destination_text_->setColor(findColour(Skin::kBodyText, true));
 
   int title_width = getTitleWidth();
   int widget_margin = findValue(Skin::kWidgetMargin);
@@ -217,8 +216,6 @@ void SampleSection::resized() {
   int destination_x = pitch_x + widget_margin;
   int destination_y = getHeight() - label_height - widget_margin;
   destination_selector_->setBounds(destination_x, destination_y, pitch_width - 2 * widget_margin, label_height);
-  destination_text_->setBounds(destination_selector_->getBounds());
-  destination_text_->setTextSize(findValue(Skin::kLabelHeight));
 
   prev_destination_->setBounds(destination_x, destination_y, label_height, label_height);
   next_destination_->setBounds(destination_selector_->getRight() - label_height, destination_y,
@@ -233,8 +230,6 @@ void SampleSection::resized() {
   sample_viewer_->setBounds(sample_x, title_width - widget_margin, sample_width, getHeight() - title_width);
   preset_selector_->setBounds(sample_x, widget_margin, sample_width, title_width - 2 * widget_margin);
 
-  destination_text_->setBounds(destination_selector_->getBounds());
-  destination_text_->setTextSize(findValue(Skin::kLabelHeight));
 
   int buttons_x = section2_x + level_pan_width;
   int buttons_width = getWidth() - buttons_x - widget_margin;
@@ -324,7 +319,7 @@ void SampleSection::setupDestination() {
   for (Listener* listener : listeners_)
     listener->sampleDestinationChanged(this, current_destination_);
 
-  destination_text_->setText(strings::kDestinationNames[current_destination_]);
+  repaintBackground();
 }
 
 void SampleSection::toggleFilterInput(int filter_index, bool on) {

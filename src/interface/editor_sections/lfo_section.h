@@ -118,7 +118,7 @@ class LfoSection : public SynthSection, public PresetSelector::Listener, public 
     std::unique_ptr<SynthSlider> fade_;
     std::unique_ptr<SynthSlider> smooth_;
     std::string smooth_mode_control_name_;
-    std::unique_ptr<PlainTextComponent> smooth_mode_text_;
+    int smooth_mode_{0};
     std::unique_ptr<ShapeButton> smooth_mode_type_selector_;
 
     std::unique_ptr<SynthSlider> delay_;

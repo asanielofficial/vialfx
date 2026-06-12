@@ -105,8 +105,8 @@ class FilterSection : public SynthSection, public PresetSelector::Listener {
     std::unique_ptr<OpenGlToggleButton> sample_input_;
     std::unique_ptr<SynthButton> filter_input_;
 
-    std::unique_ptr<PlainTextComponent> filter_label_1_;
-    std::unique_ptr<PlainTextComponent> filter_label_2_;
+    std::string filter_text_1_{"DRIVE"};
+    std::string filter_text_2_{"KEY TRK"};
 
     std::unique_ptr<SynthSlider> blend_transpose_;
 

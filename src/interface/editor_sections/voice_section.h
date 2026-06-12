@@ -40,7 +40,7 @@ class VoiceSection : public SynthSection {
     std::unique_ptr<SynthSlider> pitch_bend_range_;
     std::unique_ptr<SynthSlider> stereo_routing_;
 
-    std::unique_ptr<PlainTextComponent> stereo_mode_text_;
+    int stereo_mode_{0};
     std::unique_ptr<ShapeButton> stereo_mode_type_selector_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(VoiceSection)

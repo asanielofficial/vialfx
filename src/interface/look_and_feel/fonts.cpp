@@ -28,10 +28,8 @@ Fonts::Fonts() :
     monospace_(Typeface::createSystemTypefaceFor(
         BinaryData::DroidSansMono_ttf, BinaryData::DroidSansMono_ttfSize)) {
 
-  Array<int> glyphs;
-  Array<float> x_offsets;
-  proportional_regular_.getStringWidth("test");
-  proportional_light_.getStringWidth("test");
-  proportional_title_.getStringWidth("test");
-  monospace_.getStringWidth("test");
+  proportional_regular_.getStringWidthFloat("test");
+  proportional_light_.getStringWidthFloat("test");
+  proportional_title_.getStringWidthFloat("test");
+  monospace_.getStringWidthFloat("test");
 }

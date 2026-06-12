@@ -226,8 +226,8 @@ class PlainTextComponent : public OpenGlImageComponent {
 
       Component* component = component_ ? component_ : this;
 
-      g.drawFittedText(text_, buffer_, 0, component->getWidth() - 2 * buffer_,
-                       component->getHeight(), justification_, false);
+      g.drawText(text_, buffer_, 0, component->getWidth() - 2 * buffer_,
+                 component->getHeight(), justification_, false);
     }
 
     void setTextSize(float size) {

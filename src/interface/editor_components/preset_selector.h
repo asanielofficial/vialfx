@@ -47,7 +47,7 @@ class PresetSelector : public SynthSection {
 
     void setText(String text);
     void setText(String left, String center, String right);
-    String getText() { return text_->getText(); }
+    String getText() { return text_value_; }
     void setFontRatio(float ratio) { font_height_ratio_ = ratio; }
     void setRoundAmount(float round_amount) { round_amount_ = round_amount; }
 
@@ -68,7 +68,7 @@ class PresetSelector : public SynthSection {
     bool hover_;
     bool text_component_;
 
-    std::unique_ptr<PlainTextComponent> text_;
+    String text_value_;
     std::unique_ptr<OpenGlShapeButton> prev_preset_;
     std::unique_ptr<OpenGlShapeButton> next_preset_;
 

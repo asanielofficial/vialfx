@@ -51,9 +51,6 @@ VoiceSection::VoiceSection(String name) : SynthSection(name) {
   stereo_routing_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   addSlider(stereo_routing_.get());
 
-  stereo_mode_text_ = std::make_unique<PlainTextComponent>("Stereo Mode Text", "---");
-  addOpenGlComponent(stereo_mode_text_.get());
-  stereo_mode_text_->setText(strings::kStereoModeNames[0]);
 
   stereo_mode_type_selector_ = std::make_unique<ShapeButton>("Stereo Mode", Colours::black,
                                                              Colours::black, Colours::black);
@@ -76,14 +73,13 @@ void VoiceSection::paintBackground(Graphics& g) {
   setLabelFont(g);
   drawLabelForComponent(g, TRANS("VOICES"), polyphony_.get(), true);
   drawLabelForComponent(g, TRANS("VEL TRK"), velocity_track_.get());
-  drawLabelForComponent(g, TRANS(""), stereo_routing_.get());
+  drawLabelForComponent(g, TRANS(strings::kStereoModeNames[stereo_mode_]), stereo_routing_.get());
 
   drawTextComponentBackground(g, pitch_bend_range_->getBounds(), true);
   drawLabelForComponent(g, TRANS("BEND"), pitch_bend_range_.get(), true);
 }
 
 void VoiceSection::resized() {
-  stereo_mode_text_->setColor(findColour(Skin::kBodyText, true)); 
   int widget_margin = findValue(Skin::kWidgetMargin);
   int text_width = findValue(Skin::kModulationButtonWidth) - widget_margin;
   int text_height = getHeight() - 2 * widget_margin;
@@ -95,8 +91,6 @@ void VoiceSection::resized() {
   placeKnobsInArea(knob_bounds, { velocity_track_.get(), stereo_routing_.get() });
 
   Rectangle<int> stereo_label_bounds = getLabelBackgroundBounds(stereo_routing_->getBounds());
-  stereo_mode_text_->setBounds(stereo_label_bounds);
-  stereo_mode_text_->setTextSize(findValue(Skin::kLabelHeight));
   stereo_mode_type_selector_->setBounds(stereo_label_bounds);
 
   SynthSection::resized();
@@ -104,8 +98,7 @@ void VoiceSection::resized() {
 
 void VoiceSection::setAllValues(vial::control_map& controls) {
   SynthSection::setAllValues(controls);
-  int stereo_mode = controls["stereo_mode"]->value();
-  stereo_mode_text_->setText(strings::kStereoModeNames[stereo_mode]);
+  stereo_mode_ = controls["stereo_mode"]->value();
 }
 
 void VoiceSection::buttonClicked(Button* clicked_button) {
@@ -124,7 +117,8 @@ void VoiceSection::buttonClicked(Button* clicked_button) {
 }
 
 void VoiceSection::setStereoModeSelected(int selection) {
-  stereo_mode_text_->setText(strings::kStereoModeNames[selection]);
+  stereo_mode_ = selection;
+  repaintBackground();
 
   SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
   if (parent)

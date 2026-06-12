@@ -67,7 +67,7 @@ void SynthSection::paint(Graphics& g) { }
 void SynthSection::paintSidewaysHeadingText(Graphics& g) {
   int title_width = findValue(Skin::kTitleWidth);
   g.setColour(findColour(Skin::kHeadingText, true));
-  g.setFont(Fonts::instance()->proportional_light().withPointHeight(size_ratio_ * 14.0f));
+  g.setFont(Fonts::instance()->proportional_light().withPointHeight(size_ratio_ * 12.5f));
   g.saveState();
   g.setOrigin(Point<int>(0, getHeight()));
   g.addTransform(AffineTransform::rotation(-vial::kPi / 2.0f));
@@ -86,7 +86,7 @@ void SynthSection::paintHeadingText(Graphics& g) {
   }
 
   g.setColour(findColour(Skin::kHeadingText, true));
-  g.setFont(Fonts::instance()->proportional_light().withPointHeight(size_ratio_ * 14.0f));
+  g.setFont(Fonts::instance()->proportional_light().withPointHeight(size_ratio_ * 12.5f));
   g.drawText(TRANS(getName()), getTitleBounds(), Justification::centred, false);
 }
 
@@ -749,7 +749,7 @@ int SynthSection::getPixelMultiple() const {
 }
 
 Font SynthSection::getLabelFont() {
-  float height = findValue(Skin::kLabelHeight);
+  float height = findValue(Skin::kLabelHeight) * 0.9f;
   return Fonts::instance()->proportional_regular().withPointHeight(height);
 }
 
@@ -816,7 +816,7 @@ void SynthSection::drawLabel(Graphics& g, String text, Rectangle<int> component_
 void SynthSection::drawTextBelowComponent(Graphics& g, String text, Component* component, int space, int padding) {
   int height = findValue(Skin::kLabelBackgroundHeight);
   g.drawText(text, component->getX() - padding, component->getBottom() + space,
-             component->getWidth() + 2 * padding, height, Justification::centred, false);
+             component->getWidth() + 2 * padding, getTextComponentHeight(), Justification::centred, false);
 }
 
 void SynthSection::setActive(bool active) {

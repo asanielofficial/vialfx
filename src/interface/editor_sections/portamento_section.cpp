@@ -73,8 +73,8 @@ void PortamentoSection::resized() {
   int buttons_width = 3 * getWidth() / 8;
   int buttons_x = getWidth() - buttons_width;
   int widget_margin = findValue(Skin::kWidgetMargin);
-  int internal_margin = widget_margin / 2;
-  float button_height = (height - 2 * (widget_margin + internal_margin)) / 3.0f;
+  int internal_margin = std::max(1, widget_margin / 4);
+  float button_height = (height - 2 * widget_margin - 2 * internal_margin) / 3.0f;
   portamento_force_->setBounds(buttons_x, widget_margin, buttons_width - widget_margin, button_height);
   legato_->setBounds(buttons_x, height - widget_margin - button_height,
                      buttons_width - widget_margin, button_height);

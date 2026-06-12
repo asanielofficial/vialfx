@@ -174,11 +174,6 @@ FilterSection::FilterSection(String name, String suffix) :
   addButton(filter_on_.get());
   setActivator(filter_on_.get());
 
-  filter_label_1_ = std::make_unique<PlainTextComponent>("label1", "DRIVE");
-  addOpenGlComponent(filter_label_1_.get());
-
-  filter_label_2_ = std::make_unique<PlainTextComponent>("label2", "KEY TRK");
-  addOpenGlComponent(filter_label_2_.get());
 
   formant_x_->setVisible(false);
   formant_y_->setVisible(false);
@@ -275,8 +270,8 @@ void FilterSection::paintBackground(Graphics& g) {
   int title_width = getTitleWidth();
   int blend_label_padding_y = size_ratio_ * kBlendLabelPaddingY;
 
-  drawLabelBackgroundForComponent(g, drive_.get());
-  drawLabelBackgroundForComponent(g, keytrack_.get());
+  drawLabelForComponent(g, TRANS(filter_text_1_), drive_.get());
+  drawLabelForComponent(g, TRANS(filter_text_2_), keytrack_.get());
 
   int widget_margin = findValue(Skin::kWidgetMargin);
   int blend_height = filter_response_->getY() - title_width + widget_margin;
@@ -403,18 +398,7 @@ void FilterSection::resized() {
   formant_spread_->setBounds(keytrack_->getBounds());
   blend_transpose_->setBounds(drive_->getBounds());
 
-  filter_label_1_->setFontType(PlainTextComponent::kRegular);
-  filter_label_2_->setFontType(PlainTextComponent::kRegular);
-  float label_height = findValue(Skin::kLabelHeight);
-  filter_label_1_->setTextSize(label_height);
-  filter_label_2_->setTextSize(label_height);
 
-  filter_label_1_->setBounds(getLabelBackgroundBounds(drive_.get()));
-  filter_label_2_->setBounds(getLabelBackgroundBounds(keytrack_.get()));
-
-  Colour body_text = findColour(Skin::kBodyText, true);
-  filter_label_1_->setColor(body_text);
-  filter_label_2_->setColor(body_text);
 }
 
 void FilterSection::buttonClicked(Button* clicked_button) {
@@ -455,6 +439,7 @@ void FilterSection::setAllValues(vial::control_map& controls) {
   filter_response_->setStyle(current_style_);
   showModelKnobs();
   setLabelText();
+  repaintBackground();
 }
 
 void FilterSection::prevClicked() {
@@ -557,15 +542,15 @@ void FilterSection::setFilterText() {
 
 void FilterSection::setLabelText() {
   if (current_model_ == vial::constants::kFormant) {
-    filter_label_1_->setText("PEAK");
-    filter_label_2_->setText("SPREAD");
+    filter_text_1_ = "PEAK";
+    filter_text_2_ = "SPREAD";
   }
   else {
-    filter_label_2_->setText("KEY TRK");
+    filter_text_2_ = "KEY TRK";
     if (current_model_ == vial::constants::kComb)
-      filter_label_1_->setText("CUT");
+      filter_text_1_ = "CUT";
     else
-      filter_label_1_->setText("DRIVE");
+      filter_text_1_ = "DRIVE";
   }
 }
 
@@ -574,6 +559,7 @@ void FilterSection::notifyFilterChange() {
   filter_response_->setModel(static_cast<vial::constants::FilterModel>(current_model_));
   setFilterText();
   setLabelText();
+  repaintBackground();
 
   SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
   if (parent) {

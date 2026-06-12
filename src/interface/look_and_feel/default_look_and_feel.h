@@ -57,6 +57,8 @@ class DefaultLookAndFeel : public juce::LookAndFeel_V4 {
 
     Font getPopupMenuFont() override;
     Font getSliderPopupFont(Slider& slider) override;
+
+    juce::TypefaceMetricsKind getDefaultMetricsKind() const override { return juce::TypefaceMetricsKind::portable; }
   
     int getMenuWindowFlags() override { return 0; }
 

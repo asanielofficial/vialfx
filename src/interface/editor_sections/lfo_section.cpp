@@ -108,9 +108,6 @@ LfoSection::LfoSection(String name, std::string value_prepend, LineGenerator* lf
   smooth_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   smooth_->setPopupPlacement(BubbleComponent::below);
 
-  smooth_mode_text_ = std::make_unique<PlainTextComponent>("Smooth Mode Text", "---");
-  addOpenGlComponent(smooth_mode_text_.get());
-  smooth_mode_text_->setText(strings::kSmoothModeNames[0]);
 
   smooth_mode_type_selector_ = std::make_unique<ShapeButton>("Smooth Mode", Colours::black,
                                                              Colours::black, Colours::black);
@@ -208,9 +205,9 @@ void LfoSection::paintBackground(Graphics& g) {
   drawLabel(g, TRANS("MODE"), sync_type_->getBounds(), true);
   drawLabel(g, TRANS("FREQUENCY"), frequency_bounds, true);
 
-  drawLabelForComponent(g, "DELAY", delay_.get());
-  drawLabelForComponent(g, "STEREO", stereo_.get());
-  drawLabelForComponent(g, TRANS(""), fade_.get());
+  drawLabelForComponent(g, TRANS("DELAY"), delay_.get());
+  drawLabelForComponent(g, TRANS("STEREO"), stereo_.get());
+  drawLabelForComponent(g, TRANS(strings::kSmoothModeNames[smooth_mode_]), fade_.get());
   int title_width = getTitleWidth();
 
   int widget_margin = getWidgetMargin();
@@ -228,7 +225,6 @@ void LfoSection::paintBackground(Graphics& g) {
              Justification::centred, false);
 
   transpose_tune_divider_->setColor(findColour(Skin::kLightenScreen, true));
-  smooth_mode_text_->setColor(body_text);
   paintKnobShadows(g);
   paintChildrenBackgrounds(g);
 }
@@ -276,8 +272,6 @@ void LfoSection::resized() {
   smooth_->setBounds(fade_->getBounds());
 
   Rectangle<int> smooth_label_bounds = getLabelBackgroundBounds(fade_->getBounds());
-  smooth_mode_text_->setBounds(smooth_label_bounds);
-  smooth_mode_text_->setTextSize(findValue(Skin::kLabelHeight));
   smooth_mode_type_selector_->setBounds(smooth_label_bounds);
 
   Rectangle<int> browser_bounds = getPresetBrowserBounds();
@@ -307,10 +301,9 @@ void LfoSection::setAllValues(vial::control_map& controls) {
   lfo_smooth_->setToggleState(editor_->getSmooth(), dontSendNotification);
   transpose_tune_divider_->setVisible(sync_->isKeytrack());
 
-  int smooth_mode = controls[smooth_mode_control_name_]->value();
-  smooth_mode_text_->setText(strings::kSmoothModeNames[smooth_mode]);
-  smooth_->setVisible(smooth_mode);
-  fade_->setVisible(smooth_mode == 0);
+  smooth_mode_ = controls[smooth_mode_control_name_]->value();
+  smooth_->setVisible(smooth_mode_);
+  fade_->setVisible(smooth_mode_ == 0);
 }
 
 void LfoSection::sliderValueChanged(Slider* changed_slider) {
@@ -419,7 +412,8 @@ void LfoSection::textMouseDown(const MouseEvent& e) {
 }
 
 void LfoSection::setSmoothModeSelected(int result) {
-  smooth_mode_text_->setText(strings::kSmoothModeNames[result]);
+  smooth_mode_ = result;
+  repaintBackground();
   smooth_->setVisible(result);
   fade_->setVisible(result == 0);
 
