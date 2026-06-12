@@ -280,8 +280,10 @@ void FullInterface::repaintChildBackground(SynthSection* child) {
   if (effects_interface_ != nullptr && effects_interface_->isParentOf(child))
     child = effects_interface_.get();
 
+  float pixel_scale = Desktop::getInstance().getDisplays().getDisplayForRect(getScreenBounds())->scale;
   background_.lock();
   Graphics g(background_image_);
+  g.addTransform(AffineTransform::scale(pixel_scale));
   paintChildBackground(g, child);
   background_.updateBackgroundImage(background_image_);
   background_.unlock();
@@ -291,8 +293,10 @@ void FullInterface::repaintSynthesisSection() {
   if (synthesis_interface_ == nullptr || !synthesis_interface_->isVisible() || !background_image_.isValid())
     return;
 
+  float pixel_scale = Desktop::getInstance().getDisplays().getDisplayForRect(getScreenBounds())->scale;
   background_.lock();
   Graphics g(background_image_);
+  g.addTransform(AffineTransform::scale(pixel_scale));
   int padding = findValue(Skin::kPadding);
   g.setColour(findColour(Skin::kBackground, true));
   g.fillRect(synthesis_interface_->getBounds().expanded(padding));
@@ -307,16 +311,19 @@ void FullInterface::repaintOpenGlBackground(OpenGlComponent* component) {
   if (!background_image_.isValid())
     return;
 
+  float pixel_scale = Desktop::getInstance().getDisplays().getDisplayForRect(getScreenBounds())->scale;
   background_.lock();
   Graphics g(background_image_);
+  g.addTransform(AffineTransform::scale(pixel_scale));
   paintOpenGlBackground(g, component);
   background_.updateBackgroundImage(background_image_);
   background_.unlock();
 }
 
 void FullInterface::redoBackground() {
-  int width = std::ceil(display_scale_ * getWidth());
-  int height = std::ceil(display_scale_ * getHeight());
+  float pixel_scale = Desktop::getInstance().getDisplays().getDisplayForRect(getScreenBounds())->scale;
+  int width = std::ceil(pixel_scale * getWidth());
+  int height = std::ceil(pixel_scale * getHeight());
   if (width < vial::kMinWindowWidth || height < vial::kMinWindowHeight)
     return;
 
@@ -325,6 +332,7 @@ void FullInterface::redoBackground() {
   background_.lock();
   background_image_ = Image(Image::RGB, width, height, true);
   Graphics g(background_image_);
+  g.addTransform(AffineTransform::scale(pixel_scale));
   paintBackground(g);
   background_.updateBackgroundImage(background_image_);
   background_.unlock();
@@ -333,8 +341,8 @@ void FullInterface::redoBackground() {
 void FullInterface::checkShouldReposition(bool resize) {
   float old_scale = display_scale_;
   int old_pixel_multiple = pixel_multiple_;
-  display_scale_ = getDisplayScale();
-  pixel_multiple_ = std::max<int>(1, display_scale_);
+  display_scale_ = 1.0f;
+  pixel_multiple_ = 1;
 
   if (resize && (old_scale != display_scale_ || old_pixel_multiple != pixel_multiple_))
     resized();
@@ -366,12 +374,12 @@ void FullInterface::resized() {
   float height_ratio = getHeight() / (1.0f * vial::kDefaultWindowHeight);
   if (width_ratio > height_ratio + 1.0f / vial::kDefaultWindowHeight) {
     ratio = height_ratio;
-    width = height_ratio * vial::kDefaultWindowWidth * display_scale_;
+    width = height_ratio * vial::kDefaultWindowWidth;
     left = (getWidth() - width) / 2;
   }
   if (height_ratio > width_ratio + 1.0f / vial::kDefaultWindowHeight) {
     ratio = width_ratio;
-    height = ratio * vial::kDefaultWindowHeight * display_scale_;
+    height = ratio * vial::kDefaultWindowHeight;
     top = (getHeight() - height) / 2;
   }
 
