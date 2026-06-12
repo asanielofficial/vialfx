@@ -22,6 +22,7 @@
 #include "overlay.h"
 #include "preset_selector.h"
 #include "synth_section.h"
+#include "synth_slider.h"
 #include "synth_constants.h"
 
 class ModulationMatrixRow;

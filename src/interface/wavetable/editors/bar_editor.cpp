@@ -15,8 +15,8 @@
  */
 
 #include "bar_editor.h"
-
 #include "default_look_and_feel.h"
+#include "synth_slider.h"
 #include "utils.h"
 
 namespace {

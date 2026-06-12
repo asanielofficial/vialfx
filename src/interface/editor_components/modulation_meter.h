@@ -19,6 +19,7 @@
 #include <JuceHeader.h>
 
 #include "common.h"
+#include "open_gl_multi_quad.h"
 
 class OpenGlMultiQuad;
 class SynthSlider;

@@ -18,6 +18,7 @@
 
 #include "skin.h"
 #include "synth_gui_interface.h"
+#include "synth_section.h"
 
 SampleViewer::SampleViewer() : OpenGlLineRenderer(kResolution), bottom_(kResolution),
                                dragging_overlay_(Shaders::kColorFragment) {

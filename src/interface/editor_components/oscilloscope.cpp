@@ -18,6 +18,8 @@
 
 #include "fourier_transform.h"
 #include "synth_constants.h"
+#include "synth_gui_interface.h"
+#include "synth_section.h"
 #include "skin.h"
 #include "shaders.h"
 #include "utils.h"

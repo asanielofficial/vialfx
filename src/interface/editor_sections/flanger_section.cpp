@@ -159,24 +159,24 @@ void FlangerResponse::bind(OpenGLContext& open_gl_context) {
                                                    GL_FALSE, 2 * sizeof(float), nullptr);
   open_gl_context.extensions.glEnableVertexAttribArray(position->attributeID);
 
-  open_gl_context.extensions.glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, response_buffer_);
+  glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, response_buffer_);
 }
 
 void FlangerResponse::unbind(OpenGLContext& open_gl_context) {
   OpenGLShaderProgram::Attribute* position = response_shader_.position.get();
   open_gl_context.extensions.glDisableVertexAttribArray(position->attributeID);
   open_gl_context.extensions.glBindBuffer(GL_ARRAY_BUFFER, 0);
-  open_gl_context.extensions.glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0);
+  glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0);
 }
 
 void FlangerResponse::renderLineResponse(OpenGlWrapper& open_gl, int index) {
   static constexpr float kMaxMidi = 128.0f;
 
-  open_gl.context.extensions.glBeginTransformFeedback(GL_POINTS);
+  glBeginTransformFeedback(GL_POINTS);
   glDrawArrays(GL_POINTS, 0, kResolution);
-  open_gl.context.extensions.glEndTransformFeedback();
+  glEndTransformFeedback();
 
-  void* buffer = open_gl.context.extensions.glMapBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, 0,
+  void* buffer = glMapBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, 0,
                                                              kResolution * sizeof(float), GL_MAP_READ_BIT);
   vial::poly_float midi = vial::utils::frequencyToMidiNote(flanger_frequency_->value());
   float offset = midi[index] * (getWidth() / kMaxMidi) - getWidth() * 1.5f;
@@ -188,7 +188,7 @@ void FlangerResponse::renderLineResponse(OpenGlWrapper& open_gl, int index) {
     setYAt(i, y_adjust * (1.0 - response_data[i]));
   }
 
-  open_gl.context.extensions.glUnmapBuffer(GL_TRANSFORM_FEEDBACK_BUFFER);
+  glUnmapBuffer(GL_TRANSFORM_FEEDBACK_BUFFER);
 }
 
 void FlangerResponse::drawFilterResponse(OpenGlWrapper& open_gl, bool animate) {

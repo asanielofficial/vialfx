@@ -20,14 +20,17 @@
 #include "oscilloscope.h"
 #include "fonts.h"
 #include "full_interface.h"
+#include "header_section.h"
 #include "skin.h"
 #include "load_save.h"
 #include "synth_gui_interface.h"
 #include "synth_button.h"
 #include "synth_slider.h"
 #include "synth_strings.h"
+#include "tab_selector.h"
 #include "text_look_and_feel.h"
 #include "text_selector.h"
+#include "volume_section.h"
 
 namespace {
   const std::string kTuningNames[] = {

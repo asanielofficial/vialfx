@@ -135,7 +135,7 @@ void SynthPresetSelector::newPresetSelected(File preset) {
     resetText();
   else {
     error = "There was an error open the preset. " + error;
-    AlertWindow::showNativeDialogBox("Error opening preset", error, false);
+    AlertWindow::showMessageBox(AlertWindow::WarningIcon, "Error opening preset", error);
   }
 }
 
@@ -274,21 +274,21 @@ void SynthPresetSelector::importPreset() {
   SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
   File active_file = parent->getSynth()->getActiveFile();
   FileChooser open_box("Open Preset", active_file, String("*.") + vial::kPresetExtension);
-  if (!open_box.browseForFileToOpen())
-    return;
-  
-  File choice = open_box.getResult();
-  if (!choice.exists())
-    return;
-  
-  std::string error;
-  if (!parent->getSynth()->loadFromFile(choice, error)) {
-    std::string name = ProjectInfo::projectName;
-    error = "There was an error open the preset. " + error;
-    AlertWindow::showNativeDialogBox("Error opening preset", error, false);
-  }
-  else
-    parent->externalPresetLoaded(choice);
+  open_box.launchAsync(FileBrowserComponent::openMode | FileBrowserComponent::canSelectFiles,
+    [this](const FileChooser& chooser) {
+      File choice = chooser.getResult();
+      if (!choice.exists())
+        return;
+      
+      SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
+      std::string error;
+      if (!parent->getSynth()->loadFromFile(choice, error)) {
+        error = "There was an error open the preset. " + error;
+        AlertWindow::showMessageBox(AlertWindow::WarningIcon, "Error opening preset", error);
+      }
+      else
+        parent->externalPresetLoaded(choice);
+    });
 }
 
 void SynthPresetSelector::exportPreset() {
@@ -299,37 +299,39 @@ void SynthPresetSelector::exportPreset() {
   SynthBase* synth = parent->getSynth();
   File active_file = synth->getActiveFile();
   FileChooser save_box("Export Preset", File(), String("*.") + vial::kPresetExtension);
-  if (!save_box.browseForFileToSave(true))
-    return;
-  
-  synth->saveToFile(save_box.getResult().withFileExtension(vial::kPresetExtension));
-  parent->externalPresetLoaded(synth->getActiveFile());
+  save_box.launchAsync(FileBrowserComponent::saveMode | FileBrowserComponent::canSelectFiles,
+    [this, synth](const FileChooser& chooser) {
+      synth->saveToFile(chooser.getResult().withFileExtension(vial::kPresetExtension));
+      SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
+      parent->externalPresetLoaded(synth->getActiveFile());
+    });
 }
 
 void SynthPresetSelector::importBank() {
   FileChooser import_box("Import Bank", File(), String("*.") + vial::kBankExtension);
-  if (import_box.browseForFileToOpen()) {
-    File result = import_box.getResult();
-    FileInputStream input_stream(result);
-    if (input_stream.openedOk()) {
-      File data_directory = LoadSave::getDataDirectory();
-      data_directory.createDirectory();
-      if (!LoadSave::hasDataDirectory())
-        LoadSave::saveDataDirectory(data_directory);
+  import_box.launchAsync(FileBrowserComponent::openMode | FileBrowserComponent::canSelectFiles,
+    [this](const FileChooser& chooser) {
+      File result = chooser.getResult();
+      FileInputStream input_stream(result);
+      if (input_stream.openedOk()) {
+        File data_directory = LoadSave::getDataDirectory();
+        data_directory.createDirectory();
+        if (!LoadSave::hasDataDirectory())
+          LoadSave::saveDataDirectory(data_directory);
 
-      ZipFile import_zip(input_stream);
-      Result unzip_result = import_zip.uncompressTo(data_directory);
-      if (unzip_result == Result::ok())
-        LoadSave::markPackInstalled(result.getFileNameWithoutExtension().toStdString());
+        ZipFile import_zip(input_stream);
+        Result unzip_result = import_zip.uncompressTo(data_directory);
+        if (unzip_result == Result::ok())
+          LoadSave::markPackInstalled(result.getFileNameWithoutExtension().toStdString());
+        else
+          LoadSave::writeErrorLog("Unzipping bank failed!");
+
+        for (Listener* listener : listeners_)
+          listener->bankImported();
+      }
       else
-        LoadSave::writeErrorLog("Unzipping bank failed!");
-
-      for (Listener* listener : listeners_)
-        listener->bankImported();
-    }
-    else
-      LoadSave::writeErrorLog("Opening file stream to bank failed!");
-  }
+        LoadSave::writeErrorLog("Opening file stream to bank failed!");
+    });
 }
 
 void SynthPresetSelector::exportBank() {
@@ -339,8 +341,11 @@ void SynthPresetSelector::exportBank() {
 void SynthPresetSelector::loadTuningFile() {
   SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
   FileChooser load_box("Load Tuning", File(), Tuning::allFileExtensions());
-  if (load_box.browseForFileToOpen())
-    parent->getSynth()->loadTuningFile(load_box.getResult());
+  load_box.launchAsync(FileBrowserComponent::openMode | FileBrowserComponent::canSelectFiles,
+    [this](const FileChooser& chooser) {
+      SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
+      parent->getSynth()->loadTuningFile(chooser.getResult());
+    });
 }
 
 void SynthPresetSelector::clearTuning() {
@@ -380,12 +385,13 @@ void SynthPresetSelector::openSkinDesigner() {
 
 void SynthPresetSelector::loadSkin() {
   FileChooser open_box("Open Skin", File(), String("*.") + vial::kSkinExtension);
-  if (open_box.browseForFileToOpen()) {
-    File loaded = open_box.getResult();
-    loaded.copyFileTo(LoadSave::getDefaultSkin());
-    full_skin_->loadFromFile(loaded);
-    repaintWithSkin();
-  }
+  open_box.launchAsync(FileBrowserComponent::openMode | FileBrowserComponent::canSelectFiles,
+    [this](const FileChooser& chooser) {
+      File loaded = chooser.getResult();
+      loaded.copyFileTo(LoadSave::getDefaultSkin());
+      full_skin_->loadFromFile(loaded);
+      repaintWithSkin();
+    });
 }
 
 void SynthPresetSelector::clearSkin() {

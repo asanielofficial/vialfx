@@ -40,12 +40,7 @@ public:
 
   void prepareToPlay(double sample_rate, int buffer_size) override;
   void releaseResources() override;
-  void processBlock(juce::AudioBuffer<float> &buffer, juce::MidiBuffer &midiMessages) override
-  {
-    juce::ScopedNoDenormals noDenormals;
-    auto totalNumInputChannels = getTotalNumInputChannels();
-    auto totalNumOutputChannels = getTotalNumOutputChannels();
-  }
+  void processBlock(juce::AudioBuffer<float> &buffer, juce::MidiBuffer &midiMessages) override;
 
   AudioProcessorEditor *createEditor() override;
   bool hasEditor() const override;

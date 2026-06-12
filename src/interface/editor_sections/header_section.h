@@ -20,15 +20,109 @@
 
 #include "synth_section.h"
 #include "bank_exporter.h"
+#include "oscilloscope.h"
 #include "synth_preset_selector.h"
+#include "tab_selector.h"
+#include "volume_section.h"
 
 class BankExporter;
-class LogoButton;
-class TabSelector;
-class Oscilloscope;
-class Spectrogram;
 class PresetBrowser;
-class VolumeSection;
+
+class LogoButton : public Button {
+  public:
+    LogoButton(const String& name) : Button(name) {
+      image_component_.setComponent(this);
+    }
+
+    void setPaths(const Path& letter, const Path& ring) {
+      letter_ = letter;
+      ring_ = ring;
+    }
+
+    void resized() override {
+      const DropShadow shadow(Colours::white, 5, Point<int>(0, 0));
+
+      if (shadow_.getWidth() == getWidth() && shadow_.getHeight() == getHeight())
+        return;
+
+      Rectangle<float> bounds = getLocalBounds().toFloat();
+      letter_.applyTransform(letter_.getTransformToScaleToFit(bounds, true));
+      ring_.applyTransform(ring_.getTransformToScaleToFit(bounds, true));
+
+      shadow_ = Image(Image::SingleChannel, getWidth(), getHeight(), true);
+
+      Graphics shadow_g(shadow_);
+      shadow.drawForPath(shadow_g, letter_);
+      shadow.drawForPath(shadow_g, ring_);
+
+      redoImage();
+    }
+
+    void paintButton(Graphics& g, bool hover, bool down) override {
+      Rectangle<float> bounds = getLocalBounds().toFloat();
+      letter_.applyTransform(letter_.getTransformToScaleToFit(bounds, true));
+      ring_.applyTransform(ring_.getTransformToScaleToFit(bounds, true));
+
+      g.setColour(findColour(Skin::kShadow, true));
+      g.drawImageAt(shadow_, 0, 0, true);
+
+      ColourGradient letter_gradient(letter_top_color_, 0.0f, 0.0f, letter_bottom_color_, 0.0f, getHeight(), false);
+      ColourGradient ring_gradient(ring_top_color_, 0.0f, 0.0f, ring_bottom_color_, 0.0f, getHeight(), false);
+      g.setGradientFill(letter_gradient);
+      g.fillPath(letter_);
+
+      g.setGradientFill(ring_gradient);
+      g.fillPath(ring_);
+
+      if (hover) {
+        g.setColour(findColour(Skin::kLightenScreen, true));
+        g.fillEllipse(getLocalBounds().toFloat());
+      }
+      else if (down) {
+        g.setColour(findColour(Skin::kOverlayScreen, true));
+        g.fillEllipse(getLocalBounds().toFloat());
+      }
+    }
+
+    void setLetterColors(Colour top, Colour bottom) {
+      letter_top_color_ = top;
+      letter_bottom_color_ = bottom;
+      redoImage();
+    }
+
+    void setRingColors(Colour top, Colour bottom) {
+      ring_top_color_ = top;
+      ring_bottom_color_ = bottom;
+      redoImage();
+    }
+
+    void mouseEnter(const MouseEvent& e) override {
+      Button::mouseEnter(e);
+      image_component_.setColor(Colour(0xffdddddd));
+    }
+
+    void mouseExit(const MouseEvent& e) override {
+      Button::mouseExit(e);
+      image_component_.setColor(Colours::white);
+    }
+
+    OpenGlImageComponent* getImageComponent() { return &image_component_; }
+    void redoImage() { image_component_.redrawImage(true); }
+
+  private:
+    OpenGlImageComponent image_component_;
+
+    Path letter_;
+    Path ring_;
+
+    Image shadow_;
+
+    Colour letter_top_color_;
+    Colour letter_bottom_color_;
+
+    Colour ring_top_color_;
+    Colour ring_bottom_color_;
+};
 
 class LogoSection : public SynthSection {
   public:

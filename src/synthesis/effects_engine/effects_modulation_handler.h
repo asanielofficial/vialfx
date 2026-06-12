@@ -62,6 +62,9 @@ namespace vial {
 
       Output* midi_offset_output() { return midi_offset_output_; }
 
+      void setPitchWheelControl(Value* pitch_wheel);
+      void setModWheelControl(Value* mod_wheel);
+
     private:
       void createArticulation();
       void createModulators();

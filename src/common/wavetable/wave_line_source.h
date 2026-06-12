@@ -17,6 +17,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "line_generator.h"
 #include "wavetable_component.h"
 
 class WaveLineSource : public WavetableComponent {

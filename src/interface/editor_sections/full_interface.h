@@ -138,7 +138,7 @@ class FullInterface : public SynthSection, public HeaderSection::Listener,
     }
 
     float getResizingScale() const { return width_ * 1.0f / resized_width_; }
-    float getPixelScaling() const override { return display_scale_; }
+    float getPixelScaling() const { return display_scale_; }
     int getPixelMultiple() const override { return pixel_multiple_; }
     void toggleOscillatorZoom(int index);
     void toggleFilter1Zoom();

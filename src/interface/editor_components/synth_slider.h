@@ -19,6 +19,7 @@
 #include <JuceHeader.h>
 
 #include "curve_look_and_feel.h"
+#include "synth_section.h"
 #include "text_look_and_feel.h"
 #include "open_gl_image_component.h"
 #include "open_gl_multi_quad.h"

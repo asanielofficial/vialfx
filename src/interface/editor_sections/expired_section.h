@@ -20,7 +20,12 @@
 #include "overlay.h"
 #include "open_gl_image_component.h"
 
-class OpenGlHyperlink;
+class OpenGlHyperlink : public OpenGlAutoImageComponent<HyperlinkButton> {
+  public:
+    OpenGlHyperlink(String text, URL url) : OpenGlAutoImageComponent(text, url) {
+      image_component_.setComponent(this);
+    }
+};
 
 class ExpiredSection : public Overlay {
   public:

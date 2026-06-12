@@ -17,6 +17,7 @@
 #pragma once
 
 #include "processor.h"
+#include "memory.h"
 #include "one_pole_filter.h"
 
 namespace vial {

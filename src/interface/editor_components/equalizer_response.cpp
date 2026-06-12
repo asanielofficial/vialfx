@@ -162,7 +162,7 @@ void EqualizerResponse::drawResponse(OpenGlWrapper& open_gl, int index) {
   open_gl.context.extensions.glVertexAttribPointer(position_attribute_->attributeID, 1, GL_FLOAT, GL_FALSE,
                                                   sizeof(float), nullptr);
   open_gl.context.extensions.glEnableVertexAttribArray(position_attribute_->attributeID);
-  open_gl.context.extensions.glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, response_buffer_);
+  glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, response_buffer_);
 
   midi_cutoff_uniform_->set(low_filter_.getMidiCutoff()[index],
                             band_filter_.getMidiCutoff()[index],
@@ -181,12 +181,12 @@ void EqualizerResponse::drawResponse(OpenGlWrapper& open_gl, int index) {
                             band_filter_.getHighAmount()[index],
                             high_filter_.getHighAmount()[index]);
 
-  open_gl.context.extensions.glBeginTransformFeedback(GL_POINTS);
+  glBeginTransformFeedback(GL_POINTS);
   glDrawArrays(GL_POINTS, 0, kResolution);
-  open_gl.context.extensions.glEndTransformFeedback();
+  glEndTransformFeedback();
 
-  void* buffer = open_gl.context.extensions.glMapBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, 0,
-                                                             kResolution * sizeof(float), GL_MAP_READ_BIT);
+  void* buffer = glMapBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, 0,
+                                  kResolution * sizeof(float), GL_MAP_READ_BIT);
 
   float* response_data = (float*)buffer;
   float width = getWidth();
@@ -197,7 +197,7 @@ void EqualizerResponse::drawResponse(OpenGlWrapper& open_gl, int index) {
     setYAt(i, (max_db_ - response_data[i]) * y_mult);
   }
 
-  open_gl.context.extensions.glUnmapBuffer(GL_TRANSFORM_FEEDBACK_BUFFER);
+  glUnmapBuffer(GL_TRANSFORM_FEEDBACK_BUFFER);
 
   OpenGlLineRenderer::render(open_gl, animate_);
 }
@@ -211,7 +211,7 @@ void EqualizerResponse::render(OpenGlWrapper& open_gl, bool animate) {
 
   open_gl.context.extensions.glDisableVertexAttribArray(position_attribute_->attributeID);
   open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, 0);
-  open_gl.context.extensions.glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0);
+  glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0);
 
   checkGlError();
 

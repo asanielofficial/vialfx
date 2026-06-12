@@ -19,9 +19,7 @@
 #include <JuceHeader.h>
 
 #include "modulation_button.h"
-#include "modulation_button.h"
-
-class SynthSection;
+#include "synth_section.h"
 
 class ModulationTabSelector : public SynthSection, public ModulationButton::Listener {
   public:

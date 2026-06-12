@@ -17,6 +17,7 @@
 #pragma once
 
 #include "synth_module.h"
+#include "envelope.h"
 
 namespace vial {
   class Envelope;

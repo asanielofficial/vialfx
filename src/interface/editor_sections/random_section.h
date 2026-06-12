@@ -20,6 +20,7 @@
 
 #include "synth_section.h"
 #include "preset_selector.h"
+#include "tempo_selector.h"
 
 class RandomViewer;
 class SynthSlider;

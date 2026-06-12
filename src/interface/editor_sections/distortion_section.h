@@ -19,6 +19,7 @@
 #include <JuceHeader.h>
 #include "open_gl_line_renderer.h"
 #include "synth_section.h"
+#include "synth_slider.h"
 #include "digital_svf.h"
 
 class SynthButton;

@@ -16,6 +16,7 @@
 
 #include "sound_engine.h"
 
+#include "chorus_module.h"
 #include "compressor_module.h"
 #include "flanger_module.h"
 #include "phaser_module.h"
@@ -23,6 +24,7 @@
 #include "modulation_connection_processor.h"
 #include "synth_constants.h"
 #include "effects_modulation_handler.h"
+#include "upsampler.h"
 #include "peak_meter.h"
 #include "operators.h"
 #include "reorderable_effect_chain.h"

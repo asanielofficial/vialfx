@@ -310,4 +310,12 @@ namespace vial {
   output_map& EffectsModulationHandler::getPolyModulations() {
     return poly_readouts_;
   }
+
+  void EffectsModulationHandler::setPitchWheelControl(Value* pitch_wheel) {
+    pitch_wheel_mapping_->plug(pitch_wheel);
+  }
+
+  void EffectsModulationHandler::setModWheelControl(Value* mod_wheel) {
+    mod_wheel_mapping_->plug(mod_wheel);
+  }
 } // namespace vial

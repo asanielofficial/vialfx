@@ -978,7 +978,7 @@ OpenGLShaderProgram* Shaders::getShaderProgram(VertexShader vertex_shader, Fragm
   open_gl_context_->extensions.glAttachShader(program_id, getVertexShaderId(vertex_shader));
   open_gl_context_->extensions.glAttachShader(program_id, getFragmentShaderId(fragment_shader));
   if (varyings)
-    open_gl_context_->extensions.glTransformFeedbackVaryings(program_id, 1, varyings, GL_INTERLEAVED_ATTRIBS);
+    glTransformFeedbackVaryings(program_id, 1, varyings, GL_INTERLEAVED_ATTRIBS);
 
   result->link();
   return result;

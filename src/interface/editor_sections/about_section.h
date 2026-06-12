@@ -18,6 +18,7 @@
 
 #include <JuceHeader.h>
 #include "overlay.h"
+#include "default_look_and_feel.h"
 #include "open_gl_multi_quad.h"
 #include "open_gl_image_component.h"
 

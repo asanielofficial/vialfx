@@ -19,6 +19,7 @@
 #include <JuceHeader.h>
 #include "equalizer_response.h"
 #include "synth_section.h"
+#include "tab_selector.h"
 
 class SynthButton;
 

@@ -30,8 +30,8 @@ Fonts::Fonts() :
 
   Array<int> glyphs;
   Array<float> x_offsets;
-  proportional_regular_.getGlyphPositions("test", glyphs, x_offsets);
-  proportional_light_.getGlyphPositions("test", glyphs, x_offsets);
-  proportional_title_.getGlyphPositions("test", glyphs, x_offsets);
-  monospace_.getGlyphPositions("test", glyphs, x_offsets);
+  proportional_regular_.getStringWidth("test");
+  proportional_light_.getStringWidth("test");
+  proportional_title_.getStringWidth("test");
+  monospace_.getStringWidth("test");
 }

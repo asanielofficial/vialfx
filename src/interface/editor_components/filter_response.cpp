@@ -549,14 +549,14 @@ void FilterResponse::bind(FilterShader shader, OpenGLContext& open_gl_context) {
                                                   GL_FALSE, 2 * sizeof(float), nullptr);
   open_gl_context.extensions.glEnableVertexAttribArray(position->attributeID);
 
-  open_gl_context.extensions.glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, response_buffer_);
+  glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, response_buffer_);
 }
 
 void FilterResponse::unbind(FilterShader shader, OpenGLContext& open_gl_context) {
   OpenGLShaderProgram::Attribute* position = shaders_[shader].position.get();
   open_gl_context.extensions.glDisableVertexAttribArray(position->attributeID);
   open_gl_context.extensions.glBindBuffer(GL_ARRAY_BUFFER, 0);
-  open_gl_context.extensions.glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0);
+  glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0);
 }
 
 void FilterResponse::drawFilterResponse(OpenGlWrapper& open_gl) {
@@ -615,12 +615,12 @@ void FilterResponse::drawFilterResponse(OpenGlWrapper& open_gl) {
 
 void FilterResponse::renderLineResponse(OpenGlWrapper& open_gl) {
   glEnable(GL_BLEND);
-  open_gl.context.extensions.glBeginTransformFeedback(GL_POINTS);
+  glBeginTransformFeedback(GL_POINTS);
   glDrawArrays(GL_POINTS, 0, kResolution);
-  open_gl.context.extensions.glEndTransformFeedback();
+  glEndTransformFeedback();
 
-  void* buffer = open_gl.context.extensions.glMapBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, 0,
-                                                             kResolution * sizeof(float), GL_MAP_READ_BIT);
+  void* buffer = glMapBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, 0,
+                                  kResolution * sizeof(float), GL_MAP_READ_BIT);
 
   float* response_data = (float*)buffer;
   float width = getWidth();
@@ -630,6 +630,6 @@ void FilterResponse::renderLineResponse(OpenGlWrapper& open_gl) {
     setYAt(i, y_adjust * (1.0f - response_data[i]));
   }
 
-  open_gl.context.extensions.glUnmapBuffer(GL_TRANSFORM_FEEDBACK_BUFFER);
+  glUnmapBuffer(GL_TRANSFORM_FEEDBACK_BUFFER);
   glDisable(GL_BLEND);
 }

@@ -17,6 +17,7 @@
 #include "equalizer_module.h"
 
 #include "digital_svf.h"
+#include "memory.h"
 #include "value.h"
 
 namespace vial {

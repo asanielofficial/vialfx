@@ -135,7 +135,7 @@ void SynthPlugin::prepareToPlay(double sample_rate, int buffer_size) {
 void SynthPlugin::releaseResources() {
 }
 
-void SynthPlugin::processBlock(AudioSampleBuffer& buffer, MidiBuffer& midi_messages) {
+void SynthPlugin::processBlock(juce::AudioBuffer<float>& buffer, MidiBuffer& midi_messages) {
   static constexpr double kSecondsPerMinute = 60.0f;
 
   if (bypass_parameter_->getValue()) {

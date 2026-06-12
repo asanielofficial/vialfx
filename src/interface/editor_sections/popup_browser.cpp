@@ -18,6 +18,15 @@
 
 #include "skin.h"
 #include "fonts.h"
+
+namespace {
+  template<class Comparator>
+  void sortFileArray(Array<File>& file_array) {
+    Comparator comparator;
+    file_array.sort(comparator, true);
+  }
+}
+
 #include "load_save.h"
 #include "paths.h"
 #include "open_gl_component.h"

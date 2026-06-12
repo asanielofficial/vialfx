@@ -20,12 +20,6 @@
 #include "fonts.h"
 #include "text_look_and_feel.h"
 
-class OpenGlHyperlink : public OpenGlAutoImageComponent<HyperlinkButton> {
-  public:
-    OpenGlHyperlink(String text, URL url) : OpenGlAutoImageComponent(text, url) {
-      image_component_.setComponent(this);
-    }
-};
 
 ExpiredSection::ExpiredSection(String name) : Overlay(name), body_(Shaders::kRoundedRectangleFragment) {
   addOpenGlComponent(&body_);

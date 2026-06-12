@@ -21,6 +21,7 @@
 #include "oscillator_advanced_section.h"
 #include "synth_constants.h"
 #include "synth_section.h"
+#include "text_selector.h"
 
 class TextSelector;
 class DisplaySettings;

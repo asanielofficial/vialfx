@@ -22,6 +22,7 @@
 #include "fonts.h"
 #include "synth_button.h"
 #include "synth_slider.h"
+#include "synth_strings.h"
 #include "text_look_and_feel.h"
 
 CompressorSection::CompressorSection(const String& name) : SynthSection(name) {

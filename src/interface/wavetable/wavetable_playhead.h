@@ -17,6 +17,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "synth_slider.h"
 
 class WavetablePlayhead : public SynthSection {
   public:

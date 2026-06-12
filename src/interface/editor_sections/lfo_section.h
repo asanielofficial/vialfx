@@ -17,8 +17,8 @@
 #pragma once
 
 #include <JuceHeader.h>
-
 #include "synth_section.h"
+#include "synth_slider.h"
 #include "lfo_editor.h"
 #include "preset_selector.h"
 

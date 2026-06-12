@@ -15,6 +15,7 @@
  */
 
 #include "border_bounds_constrainer.h"
+#include "full_interface.h"
 #include "load_save.h"
 #include "synth_gui_interface.h"
 

@@ -96,7 +96,7 @@ class SynthApplication : public JUCEApplication {
           if (!Startup::isComputerCompatible()) {
             String error = String(ProjectInfo::projectName) +
                            " requires SSE2, NEON or AVX2 compatible processor. Exiting.";
-            AlertWindow::showNativeDialogBox("Computer not supported", error, false);
+            AlertWindow::showMessageBox(AlertWindow::WarningIcon, "Computer not supported", error);
             quit();
           }
 
@@ -204,7 +204,7 @@ class SynthApplication : public JUCEApplication {
             std::string error;
             if (!editor_->loadFromFile(choice, error)) {
               error = "There was an error open the preset. " + error;
-              AlertWindow::showNativeDialogBox("Error opening preset", error, false);
+              AlertWindow::showMessageBox(AlertWindow::WarningIcon, "Error opening preset", error);
             }
             else
               editor_->externalPresetLoaded(choice);

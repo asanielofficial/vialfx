@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "common.h"
 #include <JuceHeader.h>
 #include "json/json.h"
 

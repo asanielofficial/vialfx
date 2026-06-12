@@ -16,6 +16,7 @@
 
 #include "sound_engine.h"
 
+#include "chorus_module.h"
 #include "compressor_module.h"
 #include "flanger_module.h"
 #include "phaser_module.h"

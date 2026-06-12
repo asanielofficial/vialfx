@@ -16,6 +16,7 @@
 
 #include "chorus_section.h"
 
+#include "bar_renderer.h"
 #include "chorus_module.h"
 #include "delay_section.h"
 #include "skin.h"

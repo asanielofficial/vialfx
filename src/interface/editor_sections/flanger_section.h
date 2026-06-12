@@ -18,6 +18,7 @@
 
 #include <JuceHeader.h>
 #include "synth_section.h"
+#include "synth_slider.h"
 #include "open_gl_line_renderer.h"
 #include "comb_filter.h"
 #include "synth_module.h"
