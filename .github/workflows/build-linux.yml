@@ -64,6 +64,16 @@ jobs:
             echo "::error::[nogui] tail: $(tail -n 8 val_nogui.log | tr '\n' '|' | cut -c1-700)"
           fi
 
+          # If pass 1 crashed, rerun under gdb to get a backtrace and the last verbose output.
+          if [ $s1 -ge 128 ]; then
+            sudo apt-get install -y --no-install-recommends gdb
+            xvfb-run -a gdb -batch -ex "set pagination off" -ex run -ex "bt 30" -ex "info sharedlibrary" \
+              --args ./pluginval --strictness-level 5 --validate-in-process --skip-gui-tests --verbose \
+              --output-dir "$PWD" "$PLUGIN" > gdb.log 2>&1
+            grep -n -E "^#[0-9]+" gdb.log | head -30 | cut -c1-330 | while IFS= read -r l; do echo "::error::[bt] $l"; done
+            grep -n -B14 -m1 -E "SIGSEGV|Program received" gdb.log | cut -c1-260 | tr '\n' '|' | cut -c1-1500 | while IFS= read -r l; do echo "::error::[before-crash] $l"; done
+          fi
+
           # Pass 2: with the editor under Xvfb (informational, does not fail the job).
           xvfb-run -a ./pluginval --strictness-level 5 --validate-in-process \
             --output-dir "$PWD" "$PLUGIN" > val_gui.log 2>&1
