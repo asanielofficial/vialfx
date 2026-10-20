@@ -45,3 +45,32 @@ jobs:
         with:
           name: VialFX-linux-vst3
           path: dist
+
+      - name: Validate with pluginval
+        run: |
+          set +e
+          sudo apt-get install -y --no-install-recommends xvfb unzip wget libfreetype6 libasound2 libcurl4 libxrandr2 libxinerama1 libxcursor1
+          wget -q https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Linux.zip
+          unzip -q pluginval_Linux.zip
+          PLUGIN=effects/builds/linux_vst/build/VialFX.vst3
+
+          # Pass 1: everything except the editor (load, bus layouts, audio, state, automation).
+          xvfb-run -a ./pluginval --strictness-level 5 --validate-in-process --skip-gui-tests \
+            --output-dir "$PWD" "$PLUGIN" > val_nogui.log 2>&1
+          s1=$?
+          echo "pass 1 (no GUI) exit=$s1"
+          if [ $s1 -ne 0 ]; then
+            grep -n -i -E "fail|error|crash|assert" val_nogui.log | head -25 | cut -c1-300 | while IFS= read -r l; do echo "::error::[nogui] $l"; done
+            echo "::error::[nogui] tail: $(tail -n 8 val_nogui.log | tr '\n' '|' | cut -c1-700)"
+          fi
+
+          # Pass 2: with the editor under Xvfb (informational, does not fail the job).
+          xvfb-run -a ./pluginval --strictness-level 5 --validate-in-process \
+            --output-dir "$PWD" "$PLUGIN" > val_gui.log 2>&1
+          s2=$?
+          echo "pass 2 (GUI) exit=$s2"
+          if [ $s2 -ne 0 ]; then
+            grep -n -i -E "fail|error|crash|assert" val_gui.log | head -25 | cut -c1-300 | while IFS= read -r l; do echo "::warning::[gui] $l"; done
+            echo "::warning::[gui] tail: $(tail -n 8 val_gui.log | tr '\n' '|' | cut -c1-700)"
+          fi
+          exit $s1
