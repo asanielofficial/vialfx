@@ -49,38 +49,38 @@ jobs:
       - name: Validate with pluginval
         run: |
           set +e
-          sudo apt-get install -y --no-install-recommends xvfb unzip wget libfreetype6 libasound2 libcurl4 libxrandr2 libxinerama1 libxcursor1
+          sudo apt-get install -y --no-install-recommends xvfb unzip wget gdb libfreetype6 libasound2 libcurl4 libxrandr2 libxinerama1 libxcursor1
           wget -q https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Linux.zip
           unzip -q pluginval_Linux.zip
           PLUGIN=effects/builds/linux_vst/build/VialFX.vst3
+          final=0
 
-          # Pass 1: everything except the editor (load, bus layouts, audio, state, automation).
-          xvfb-run -a ./pluginval --strictness-level 5 --validate-in-process --skip-gui-tests \
-            --output-dir "$PWD" "$PLUGIN" > val_nogui.log 2>&1
-          s1=$?
-          echo "pass 1 (no GUI) exit=$s1"
-          if [ $s1 -ne 0 ]; then
-            grep -n -i -E "fail|error|crash|assert" val_nogui.log | head -25 | cut -c1-300 | while IFS= read -r l; do echo "::error::[nogui] $l"; done
-            echo "::error::[nogui] tail: $(tail -n 8 val_nogui.log | tr '\n' '|' | cut -c1-700)"
-          fi
+          # pluginval randomises parameter values, so run several fixed seeds. On a crash, rerun
+          # the same seed under gdb to capture a backtrace and the last verbose output.
+          run_mode() {
+            mode=$1; extra=$2; level=$3
+            for seed in 1 2 3 4 5 6; do
+              xvfb-run -a ./pluginval --strictness-level 5 --validate-in-process $extra --random-seed $seed \
+                --output-dir "$PWD" "$PLUGIN" > val_${mode}_$seed.log 2>&1
+              rc=$?
+              echo "[$mode] seed $seed exit=$rc"
+              if [ $rc -ne 0 ]; then
+                if [ $rc -ge 128 ]; then
+                  xvfb-run -a gdb -batch -ex "set pagination off" -ex run -ex "bt 30" \
+                    --args ./pluginval --strictness-level 5 --validate-in-process $extra --verbose --random-seed $seed \
+                    --output-dir "$PWD" "$PLUGIN" > gdb_${mode}_$seed.log 2>&1
+                  grep -E "^#[0-9]+" gdb_${mode}_$seed.log | head -30 | cut -c1-330 | while IFS= read -r l; do echo "::$level::[$mode seed $seed bt] $l"; done
+                  grep -B16 -m1 -E "SIGSEGV|Program received" gdb_${mode}_$seed.log | cut -c1-240 | tr '\n' '|' | cut -c1-1800 | while IFS= read -r l; do echo "::$level::[$mode seed $seed before-crash] $l"; done
+                else
+                  grep -i -E "fail|error|assert" val_${mode}_$seed.log | head -15 | cut -c1-300 | while IFS= read -r l; do echo "::$level::[$mode seed $seed] $l"; done
+                fi
+                return $rc
+              fi
+            done
+            return 0
+          }
 
-          # If pass 1 crashed, rerun under gdb to get a backtrace and the last verbose output.
-          if [ $s1 -ge 128 ]; then
-            sudo apt-get install -y --no-install-recommends gdb
-            xvfb-run -a gdb -batch -ex "set pagination off" -ex run -ex "bt 30" -ex "info sharedlibrary" \
-              --args ./pluginval --strictness-level 5 --validate-in-process --skip-gui-tests --verbose \
-              --output-dir "$PWD" "$PLUGIN" > gdb.log 2>&1
-            grep -n -E "^#[0-9]+" gdb.log | head -30 | cut -c1-330 | while IFS= read -r l; do echo "::error::[bt] $l"; done
-            grep -n -B14 -m1 -E "SIGSEGV|Program received" gdb.log | cut -c1-260 | tr '\n' '|' | cut -c1-1500 | while IFS= read -r l; do echo "::error::[before-crash] $l"; done
-          fi
-
-          # Pass 2: with the editor under Xvfb (informational, does not fail the job).
-          xvfb-run -a ./pluginval --strictness-level 5 --validate-in-process \
-            --output-dir "$PWD" "$PLUGIN" > val_gui.log 2>&1
-          s2=$?
-          echo "pass 2 (GUI) exit=$s2"
-          if [ $s2 -ne 0 ]; then
-            grep -n -i -E "fail|error|crash|assert" val_gui.log | head -25 | cut -c1-300 | while IFS= read -r l; do echo "::warning::[gui] $l"; done
-            echo "::warning::[gui] tail: $(tail -n 8 val_gui.log | tr '\n' '|' | cut -c1-700)"
-          fi
-          exit $s1
+          run_mode nogui "--skip-gui-tests" error
+          final=$?
+          run_mode gui "" warning
+          exit $final
