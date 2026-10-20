@@ -79,4 +79,8 @@
 #include "delay.cpp"
 #include "reverb.cpp"
 #include "sound_engine.cpp"
+#if VITAL_FX
+#include "effects_modulation_handler.cpp"
+#else
 #include "synth_voice_handler.cpp"
+#endif

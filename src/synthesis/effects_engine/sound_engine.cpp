@@ -16,10 +16,12 @@
 
 #include "sound_engine.h"
 
+#include "chorus_module.h"
 #include "compressor_module.h"
 #include "flanger_module.h"
 #include "phaser_module.h"
 #include "decimator.h"
+#include "upsampler.h"
 #include "modulation_connection_processor.h"
 #include "synth_constants.h"
 #include "effects_modulation_handler.h"
@@ -66,10 +68,10 @@ namespace vital {
 
     addProcessor(modulation_handler_);
 
-    Value* pitch_wheel = createBaseControl("pitch_wheel");
-    modulation_handler_->setPitchWheelControl(pitch_wheel);
-    Value* mod_wheel = createBaseControl("mod_wheel");
-    modulation_handler_->setModWheelControl(mod_wheel);
+    // Same as the synth engine: these only expose the wheel parameters to the host.
+    // Actual wheel values reach the modulation handler through setPitchWheel/setModWheel.
+    createBaseControl("pitch_wheel");
+    createBaseControl("mod_wheel");
 
     upsampler_ = new Upsampler();
     addIdleProcessor(upsampler_);

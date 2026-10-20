@@ -19,7 +19,18 @@
 #include "sound_engine.h"
 #include "load_save.h"
 
+#if VITAL_FX
+AudioProcessor::BusesProperties SynthPlugin::getBusesProperties() {
+  return BusesProperties()
+      .withInput("Input", AudioChannelSet::stereo(), true)
+      .withInput("Sidechain", AudioChannelSet::stereo(), false)
+      .withOutput("Output", AudioChannelSet::stereo(), true);
+}
+
+SynthPlugin::SynthPlugin() : AudioProcessor(getBusesProperties()) {
+#else
 SynthPlugin::SynthPlugin() {
+#endif
   last_seconds_time_ = 0.0;
 
   int num_params = vital::Parameters::getNumParameters();
@@ -94,6 +105,39 @@ bool SynthPlugin::isOutputChannelStereoPair(int index) const {
   return true;
 }
 
+#if VITAL_FX
+bool SynthPlugin::isBusesLayoutSupported(const BusesLayout& layouts) const {
+  if (layouts.getMainInputChannelSet() != AudioChannelSet::stereo() ||
+      layouts.getMainOutputChannelSet() != AudioChannelSet::stereo()) {
+    return false;
+  }
+
+  // The sidechain bus may be disabled or stereo.
+  if (layouts.inputBuses.size() > 1) {
+    const AudioChannelSet& sidechain = layouts.inputBuses.getReference(1);
+    if (!sidechain.isDisabled() && sidechain != AudioChannelSet::stereo())
+      return false;
+  }
+  return true;
+}
+
+void SynthPlugin::fillEffectInput(AudioSampleBuffer& buffer, int num_samples, int sample_offset) {
+  AudioSampleBuffer main_input = getBusBuffer(buffer, true, 0);
+  int num_inputs = main_input.getNumChannels();
+
+  if (num_inputs == 0) {
+    for (int i = 0; i < num_samples; ++i)
+      effect_input_[i] = 0.0f;
+    return;
+  }
+
+  const float* left = main_input.getReadPointer(0, sample_offset);
+  const float* right = main_input.getReadPointer(num_inputs > 1 ? 1 : 0, sample_offset);
+  for (int i = 0; i < num_samples; ++i)
+    effect_input_[i] = vital::poly_float(left[i], right[i]);
+}
+#endif
+
 bool SynthPlugin::acceptsMidi() const {
 #if JucePlugin_WantsMidiInput
   return true;
@@ -167,7 +211,13 @@ void SynthPlugin::processBlock(AudioSampleBuffer& buffer, MidiBuffer& midi_messa
 
     engine_->correctToTime(last_seconds_time_);
     processMidi(midi_messages, sample_offset, sample_offset + num_samples);
+#if VITAL_FX
+    // Input must be captured before the engine writes to the (shared) buffer.
+    fillEffectInput(buffer, num_samples, sample_offset);
+    processAudioWithInput(&buffer, effect_input_, num_channels, num_samples, sample_offset);
+#else
     processAudio(&buffer, num_channels, num_samples, sample_offset);
+#endif
 
     last_seconds_time_ += num_samples * sample_time;
     sample_offset += num_samples;

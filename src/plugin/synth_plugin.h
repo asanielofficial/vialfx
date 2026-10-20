@@ -47,6 +47,10 @@ class SynthPlugin : public SynthBase, public AudioProcessor, public ValueBridge:
     const String getName() const override;
     bool supportsMPE() const override { return true; }
 
+#if VITAL_FX
+    bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
+#endif
+
     const String getInputChannelName(int channel_index) const override;
     const String getOutputChannelName(int channel_index) const override;
     bool isInputChannelStereoPair(int index) const override;
@@ -70,6 +74,14 @@ class SynthPlugin : public SynthBase, public AudioProcessor, public ValueBridge:
     void parameterChanged(std::string name, vital::mono_float value) override;
 
   private:
+#if VITAL_FX
+    static BusesProperties getBusesProperties();
+    void fillEffectInput(AudioSampleBuffer& buffer, int num_samples, int sample_offset);
+
+    // Interleaved stereo input handed to the effects engine: lanes are (L, R, L, R).
+    vital::poly_float effect_input_[vital::kMaxBufferSize];
+#endif
+
     ValueBridge* bypass_parameter_;
     double last_seconds_time_;
 
