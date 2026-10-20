@@ -23,8 +23,17 @@ jobs:
 
       - name: Build VialFX VST3
         run: |
+          set +e
           make -C effects/builds/linux_vst VST3 CONFIG=Release AR=gcc-ar \
-            SIMDFLAGS="-msse2" GLFLAGS="" BUILD_DATE="$(date +'%Y %m %d %H %M')"
+            SIMDFLAGS="-msse2" GLFLAGS="" BUILD_DATE="$(date +'%Y %m %d %H %M')" > build.log 2>&1
+          status=$?
+          if [ $status -ne 0 ]; then
+            # Surface the first errors as annotations so they are readable without the full log.
+            grep -n -m 40 -E "error|undefined reference|No such file|\*\*\*" build.log \
+              | cut -c1-450 | while IFS= read -r line; do echo "::error::${line}"; done
+            echo "::error::last lines: $(tail -n 6 build.log | tr '\n' '|' | cut -c1-600)"
+          fi
+          exit $status
 
       - name: Package
         run: |
