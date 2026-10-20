@@ -1,0 +1,38 @@
+name: Build VialFX (Linux)
+
+on:
+  push:
+    branches: [ main, 'vialfx-*' ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  vst3:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config \
+            libasound2-dev libfreetype6-dev libgl1-mesa-dev libcurl4-openssl-dev \
+            libx11-dev libxext-dev libxinerama-dev libxrandr-dev libxcursor-dev
+
+      - name: Build VialFX VST3
+        run: |
+          make -C effects/builds/linux_vst VST3 CONFIG=Release AR=gcc-ar \
+            SIMDFLAGS="-msse2" GLFLAGS="" BUILD_DATE="$(date +'%Y %m %d %H %M')"
+
+      - name: Package
+        run: |
+          mkdir -p dist
+          cp -r effects/builds/linux_vst/build/VialFX.vst3 dist/
+          ls -R dist | head -30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VialFX-linux-vst3
+          path: dist
