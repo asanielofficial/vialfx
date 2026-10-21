@@ -35,6 +35,24 @@ jobs:
           fi
           exit $status
 
+      - name: Check for Vital branding and service domains
+        run: |
+          set +e
+          # The built plugin must not contain the original product's domains or author/company names.
+          strings -a effects/builds/linux_vst/build/VialFX.vst3/Contents/x86_64-linux/VialFX.so > binary_strings.txt
+          if grep -i -n -E "vital\.audio|account\.vital|store\.vital|forum\.vital|vital audio|tytel" binary_strings.txt | head -20 > hits.txt && [ -s hits.txt ]; then
+            while IFS= read -r l; do echo "::error::[binary] $l"; done < hits.txt
+            exit 1
+          fi
+          # No first-party source/build file (outside third_party, the licence files and copyright headers) may reference them either.
+          if grep -rIn -i -E "vital\.audio|vital audio|tytel\.org|matthewtytel" --exclude-dir=third_party --exclude-dir=.git \
+               --exclude=LICENSE --exclude=NOTICE.md --exclude=copyright --exclude=changelog --exclude-dir=debian \
+               src effects Makefile README.md 2>/dev/null | grep -v -E "Copyright 20[0-9-]+ Matt Tytel" | head -20 > srchits.txt && [ -s srchits.txt ]; then
+            while IFS= read -r l; do echo "::error::[source] $l"; done < srchits.txt
+            exit 1
+          fi
+          echo "branding check passed"
+
       - name: Package
         run: |
           mkdir -p dist

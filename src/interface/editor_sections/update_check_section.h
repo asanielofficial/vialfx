@@ -84,7 +84,10 @@ class UpdateCheckSection : public Overlay, public URL::DownloadTask::Listener {
     void progress(URL::DownloadTask* task, int64 bytesDownloaded, int64 totalLength) override { }
 
     void startCheck() {
+#if !VITAL_FX
+      // The FX build never contacts a version server.
       version_request_.startThread();
+#endif
     }
     void checkUpdate();
     void checkContentUpdate();

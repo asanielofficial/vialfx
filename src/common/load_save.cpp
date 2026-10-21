@@ -27,7 +27,7 @@
 #define STRINGIFY(x) QUOTE(x)
 
 namespace {
-  const std::string kLinuxUserDataDirectory = "~/.local/share/vital/";
+  const std::string kLinuxUserDataDirectory = "~/.local/share/vialfx/";
   const std::string kAvailablePacksFile = "available_packs.json";
   const std::string kInstalledPacksFile = "packs.json";
 
@@ -1129,7 +1129,7 @@ std::string LoadSave::getLicense(json data) {
 File LoadSave::getConfigFile() {
 #if defined(JUCE_DATA_STRUCTURES_H_INCLUDED)
   PropertiesFile::Options config_options;
-  config_options.applicationName = "Vial";
+  config_options.applicationName = "VialFX";
   config_options.osxLibrarySubFolder = "Application Support";
   config_options.filenameSuffix = "config";
 
@@ -1165,7 +1165,7 @@ void LoadSave::writeErrorLog(String error_log) {
 File LoadSave::getFavoritesFile() {
 #if defined(JUCE_DATA_STRUCTURES_H_INCLUDED)
   PropertiesFile::Options config_options;
-  config_options.applicationName = "Vial";
+  config_options.applicationName = "VialFX";
   config_options.osxLibrarySubFolder = "Application Support";
   config_options.filenameSuffix = "favorites";
 
@@ -1184,7 +1184,7 @@ File LoadSave::getFavoritesFile() {
 File LoadSave::getDefaultSkin() {
 #if defined(JUCE_DATA_STRUCTURES_H_INCLUDED)
   PropertiesFile::Options config_options;
-  config_options.applicationName = "Vial";
+  config_options.applicationName = "VialFX";
   config_options.osxLibrarySubFolder = "Application Support";
   config_options.filenameSuffix = "skin";
 

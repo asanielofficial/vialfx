@@ -891,6 +891,7 @@ void PresetBrowser::fileDeleted(File saved_file) {
 }
 
 void PresetBrowser::buttonClicked(Button* clicked_button) {
+#if !VITAL_FX
   if (clicked_button == store_button_.get()) {
     String encoded_author = URL::addEscapeChars(author_text_->getText().toStdString(), true);
     encoded_author = encoded_author.replace("+", "%2B");
@@ -899,6 +900,7 @@ void PresetBrowser::buttonClicked(Button* clicked_button) {
     url.launchInDefaultBrowser();
   }
   else
+#endif
     filterPresets();
 }
 

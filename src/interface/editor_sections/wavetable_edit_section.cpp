@@ -608,7 +608,7 @@ void WavetableEditSection::exportToWav() {
   std::unique_ptr<FileOutputStream> file_stream = file.createOutputStream();
   WavAudioFormat wav_format;
   StringPairArray meta_data;
-  meta_data.set("clm ", "<!>2048 20000000 wavetable (vital.audio)");
+  meta_data.set("clm ", "<!>2048 20000000 wavetable (VialFX)");
   std::unique_ptr<AudioFormatWriter> writer(wav_format.createWriterFor(file_stream.get(), kWavetableSampleRate,
                                                                        1, 16, meta_data, 0));
 

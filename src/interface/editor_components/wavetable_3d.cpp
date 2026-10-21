@@ -269,11 +269,13 @@ void Wavetable3d::mouseDown(const MouseEvent& e) {
     options.addItem(-1, "");
     options.addItem(kInit, "Initialize");
 
+#if !VITAL_FX
     FullInterface* full_interface = findParentComponentOfClass<FullInterface>();
     if (full_interface && !full_interface->getSignedInName().empty())
       options.addItem(kTextToWavetable, "Text to Wavetable");
     else
       options.addItem(kLogIn, "Text to Wavetable - Log in");
+#endif
 
     options.addItem(kResynthesizePreset, "Resynthesize Preset to Wavetable");
 

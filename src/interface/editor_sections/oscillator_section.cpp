@@ -898,6 +898,9 @@ void OscillatorSection::showTtwtSettings() {
 }
 
 std::string OscillatorSection::loadWavetableFromText(const String& text) {
+#if VITAL_FX
+  return "Online wavetable generation is not available.";
+#endif
   String clamped_text = text.substring(0, kMaxTTWTLength);
   String language_query = String(kLanguageUrlQuery) + URL::addEscapeChars(kLanguageCodes[ttwt_language_], true);
   std::string token = auth_->token();

@@ -30,6 +30,83 @@
 
 #include <cfloat>
 
+namespace {
+  // Looks up how many entries a strings:: array has, so indexed parameters can never read past its end.
+  int getStringLookupSize(const std::string* lookup) {
+    if (lookup == nullptr)
+      return 0;
+    if (lookup == strings::kOffOnNames)
+      return sizeof(strings::kOffOnNames) / sizeof(strings::kOffOnNames[0]);
+    if (lookup == strings::kWavetableDimensionNames)
+      return sizeof(strings::kWavetableDimensionNames) / sizeof(strings::kWavetableDimensionNames[0]);
+    if (lookup == strings::kOversamplingNames)
+      return sizeof(strings::kOversamplingNames) / sizeof(strings::kOversamplingNames[0]);
+    if (lookup == strings::kDelayStyleNames)
+      return sizeof(strings::kDelayStyleNames) / sizeof(strings::kDelayStyleNames[0]);
+    if (lookup == strings::kCompressorBandNames)
+      return sizeof(strings::kCompressorBandNames) / sizeof(strings::kCompressorBandNames[0]);
+    if (lookup == strings::kCompressorBandShortNames)
+      return sizeof(strings::kCompressorBandShortNames) / sizeof(strings::kCompressorBandShortNames[0]);
+    if (lookup == strings::kPresetStyleNames)
+      return sizeof(strings::kPresetStyleNames) / sizeof(strings::kPresetStyleNames[0]);
+    if (lookup == strings::kUnisonStackNames)
+      return sizeof(strings::kUnisonStackNames) / sizeof(strings::kUnisonStackNames[0]);
+    if (lookup == strings::kFilterStyleNames)
+      return sizeof(strings::kFilterStyleNames) / sizeof(strings::kFilterStyleNames[0]);
+    if (lookup == strings::kDiodeStyleNames)
+      return sizeof(strings::kDiodeStyleNames) / sizeof(strings::kDiodeStyleNames[0]);
+    if (lookup == strings::kCombStyleNames)
+      return sizeof(strings::kCombStyleNames) / sizeof(strings::kCombStyleNames[0]);
+    if (lookup == strings::kFrequencySyncNames)
+      return sizeof(strings::kFrequencySyncNames) / sizeof(strings::kFrequencySyncNames[0]);
+    if (lookup == strings::kDistortionTypeShortNames)
+      return sizeof(strings::kDistortionTypeShortNames) / sizeof(strings::kDistortionTypeShortNames[0]);
+    if (lookup == strings::kDistortionTypeNames)
+      return sizeof(strings::kDistortionTypeNames) / sizeof(strings::kDistortionTypeNames[0]);
+    if (lookup == strings::kDistortionFilterOrderNames)
+      return sizeof(strings::kDistortionFilterOrderNames) / sizeof(strings::kDistortionFilterOrderNames[0]);
+    if (lookup == strings::kFilterModelNames)
+      return sizeof(strings::kFilterModelNames) / sizeof(strings::kFilterModelNames[0]);
+    if (lookup == strings::kPredefinedWaveformNames)
+      return sizeof(strings::kPredefinedWaveformNames) / sizeof(strings::kPredefinedWaveformNames[0]);
+    if (lookup == strings::kEffectOrder)
+      return sizeof(strings::kEffectOrder) / sizeof(strings::kEffectOrder[0]);
+    if (lookup == strings::kSyncedFrequencyNames)
+      return sizeof(strings::kSyncedFrequencyNames) / sizeof(strings::kSyncedFrequencyNames[0]);
+    if (lookup == strings::kSmoothModeNames)
+      return sizeof(strings::kSmoothModeNames) / sizeof(strings::kSmoothModeNames[0]);
+    if (lookup == strings::kSyncShortNames)
+      return sizeof(strings::kSyncShortNames) / sizeof(strings::kSyncShortNames[0]);
+    if (lookup == strings::kSyncNames)
+      return sizeof(strings::kSyncNames) / sizeof(strings::kSyncNames[0]);
+    if (lookup == strings::kRandomShortNames)
+      return sizeof(strings::kRandomShortNames) / sizeof(strings::kRandomShortNames[0]);
+    if (lookup == strings::kRandomNames)
+      return sizeof(strings::kRandomNames) / sizeof(strings::kRandomNames[0]);
+    if (lookup == strings::kPaintPatternNames)
+      return sizeof(strings::kPaintPatternNames) / sizeof(strings::kPaintPatternNames[0]);
+    if (lookup == strings::kVoicePriorityNames)
+      return sizeof(strings::kVoicePriorityNames) / sizeof(strings::kVoicePriorityNames[0]);
+    if (lookup == strings::kVoiceOverrideNames)
+      return sizeof(strings::kVoiceOverrideNames) / sizeof(strings::kVoiceOverrideNames[0]);
+    if (lookup == strings::kEqHighModeNames)
+      return sizeof(strings::kEqHighModeNames) / sizeof(strings::kEqHighModeNames[0]);
+    if (lookup == strings::kEqBandModeNames)
+      return sizeof(strings::kEqBandModeNames) / sizeof(strings::kEqBandModeNames[0]);
+    if (lookup == strings::kEqLowModeNames)
+      return sizeof(strings::kEqLowModeNames) / sizeof(strings::kEqLowModeNames[0]);
+    if (lookup == strings::kPhaseDistortionNames)
+      return sizeof(strings::kPhaseDistortionNames) / sizeof(strings::kPhaseDistortionNames[0]);
+    if (lookup == strings::kSpectralMorphNames)
+      return sizeof(strings::kSpectralMorphNames) / sizeof(strings::kSpectralMorphNames[0]);
+    if (lookup == strings::kStereoModeNames)
+      return sizeof(strings::kStereoModeNames) / sizeof(strings::kStereoModeNames[0]);
+    if (lookup == strings::kDestinationNames)
+      return sizeof(strings::kDestinationNames) / sizeof(strings::kDestinationNames[0]);
+    return 0;
+  }
+} // namespace
+
 namespace vital {
 
   bool compareValueDetails(const ValueDetails* a, const ValueDetails* b) {
@@ -588,6 +665,9 @@ namespace vital {
     details_lookup_["osc_3_destination"].default_value = 3.0f;
     details_lookup_["filter_1_osc1_input"].default_value = 1.0f;
     details_lookup_["filter_2_osc2_input"].default_value = 1.0f;
+
+    for (auto& entry : details_lookup_)
+      entry.second.string_lookup_size = getStringLookupSize(entry.second.string_lookup);
 
     std::sort(details_list_.begin(), details_list_.end(), compareValueDetails);
   }

@@ -336,7 +336,7 @@ class SynthApplication : public JUCEApplication {
         std::unique_ptr<FileOutputStream> file_stream = output_file.createOutputStream();
         WavAudioFormat wav_format;
         StringPairArray meta_data;
-        meta_data.set("clm ", "<!>2048 20000000 wavetable (vital.audio)");
+        meta_data.set("clm ", "<!>2048 20000000 wavetable (VialFX)");
         std::unique_ptr<AudioFormatWriter> writer(wav_format.createWriterFor(file_stream.get(), kSampleRate,
                                                                              1, 16, meta_data, 0));
 

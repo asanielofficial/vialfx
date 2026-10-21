@@ -297,6 +297,10 @@ Rectangle<int> DownloadSection::getDownloadRect() {
 }
 
 void DownloadSection::triggerDownload() {
+#if VITAL_FX
+  // Content packs are not downloaded in the FX build.
+  return;
+#endif
   cancel_ = false;
   progress_value_ = 0.0f;
   awaiting_install_.clear();
@@ -330,6 +334,9 @@ void DownloadSection::triggerInstall() {
 }
 
 void DownloadSection::startDownload(Thread* thread, URL& url, const File& dest) {
+#if VITAL_FX
+  return;
+#endif
   download_tasks_.emplace_back(url.downloadToFile(dest, "", this));
 }
 

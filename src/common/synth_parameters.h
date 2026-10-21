@@ -50,6 +50,9 @@ namespace vital {
     std::string display_name;
     const std::string* string_lookup = nullptr;
     std::string local_description;
+
+    // Number of entries in string_lookup (0 when there is no lookup). Filled in by ValueDetailsLookup.
+    int string_lookup_size = 0;
   } typedef ValueDetails;
 
   class ValueDetailsLookup {

@@ -1293,7 +1293,11 @@ void PopupBrowser::checkNoContent() {
   bool has_content = LoadSave::hasDataDirectory();
   if (search_box_)
     search_box_->setVisible(has_content);
+#if VITAL_FX
+  download_button_->setVisible(false);
+#else
   download_button_->setVisible(!has_content);
+#endif
 }
 
 void PopupBrowser::checkStoreButton() {
@@ -1302,7 +1306,11 @@ void PopupBrowser::checkStoreButton() {
     String type = folder_list_->getPassthroughFolderName();
     store_button_->setText("Get more " + type.toLowerCase().toStdString() + " by " + author);
     String cleaned = String(author).removeCharacters(" _.").toLowerCase();
+#if VITAL_FX
+    store_button_->setVisible(false);
+#else
     store_button_->setVisible(more_author_presets_.count(cleaned.toStdString()));
+#endif
   }
 }
 
@@ -1384,6 +1392,7 @@ void PopupBrowser::textEditorEscapeKeyPressed(TextEditor& editor) {
 void PopupBrowser::buttonClicked(Button* clicked_button) {
   if (clicked_button == exit_button_.get())
     setVisible(false);
+#if !VITAL_FX
   else if (clicked_button == download_button_.get()) {
     FullInterface* parent = findParentComponentOfClass<FullInterface>();
     if (parent) {
@@ -1398,4 +1407,5 @@ void PopupBrowser::buttonClicked(Button* clicked_button) {
     URL url(String(kStoreUrl) + encoded_author);
     url.launchInDefaultBrowser();
   }
+#endif
 }

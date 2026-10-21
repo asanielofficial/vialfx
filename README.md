@@ -1,27 +1,31 @@
-# Vital
-Vital is a spectral warping wavetable synthesizer. This is the source.
+# VialFX
 
-This repository is updated on a delay after binary releases.
+VialFX is an audio effect plugin: a filter, modulation and effects-rack processor with a sidechain input,
+built from GPLv3 synthesizer source code (see [NOTICE.md](NOTICE.md) for the origin of the code).
 
-## Code Licensing
-If you are making a proprietary or closed source app and would like to use Vital's source code, contact licensing@vital.audio for non GPLv3 licensing options.
+> **Status:** early development. The plugin shell builds on Linux (VST3) in CI and is being checked with
+> pluginval. Filters in front of the effects rack, the two-lane layout and the spectral modes are planned
+> in later updates.
 
-## Installing
-Create an account and download Vital at [vital.audio](https://vital.audio)
+## Building (Linux, VST3)
 
-## Issues
-Report bugs (e.g.non-code and non-compiling issues) to https://forum.vital.audio
+```
+sudo apt-get install build-essential pkg-config libasound2-dev libfreetype6-dev libgl1-mesa-dev \
+  libcurl4-openssl-dev libx11-dev libxext-dev libxinerama-dev libxrandr-dev libxcursor-dev
+make -C effects/builds/linux_vst VST3 CONFIG=Release AR=gcc-ar SIMDFLAGS="-msse2" GLFLAGS=""
+```
 
-Feel free to report issues on building/compiling here but note that I'm not prioritizing them.
+The result is `effects/builds/linux_vst/build/VialFX.vst3`. The same steps run in
+`.github/workflows/build-linux.yml`.
 
-## Pull requests
-I will not take any pull requests.
+## Online features
 
-## What can you do with the source
-The source code is licensed under the GPLv3. If you download the source or create builds you must comply with that license.
+VialFX does not connect to any web service. Account login, content/pack downloads, preset store links, the
+text-to-wavetable service and update checks are disabled in the effects build.
 
-### Things you can't do with this source
- - Do not create an app and distribute it on the iOS app store. The app store is not comptabile with GPLv3 and you'll only get an exception for this if you're paying for a GPLv3 exception for Vital's source (see Code Licensing above).
- - Do not use the name "Vital", "Vital Audio", "Tytel" or "Matt Tytel" for marketing or to name any distribution of binaries built with this source. This source code does not give you rights to infringe on trademarks.
- - Do not connect to any web service at https://vital.audio, https://account.vital.audio or https://store.vital.audio from your own builds. This is against the terms of using those sites.
- - Do not distribute the presets that come with the free version of Vital. They're under a separate license that does not allow redistribution.
+## License
+
+GPLv3, see [LICENSE](LICENSE). If you distribute builds you must comply with that license, including making
+the corresponding source available.
+
+Additional conditions inherited with the source code are listed in [NOTICE.md](NOTICE.md).

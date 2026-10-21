@@ -1,4 +1,4 @@
-LV2FLAGS:=-D "JucePlugin_Build_LV2=1" -D "JucePlugin_LV2URI=\"http://vial.audio\"" -D "JucePlugin_LV2Category=\"InstrumentPlugin\"" -D "JucePlugin_WantsLV2Presets=1" -D "JucePlugin_WantsLV2State=1" -D "JucePlugin_WantsLV2TimePos=1"
+LV2FLAGS:=-D "JucePlugin_Build_LV2=1" -D "JucePlugin_LV2URI=\"urn:vialfx:vialfx\"" -D "JucePlugin_LV2Category=\"Plugin\"" -D "JucePlugin_WantsLV2Presets=1" -D "JucePlugin_WantsLV2State=1" -D "JucePlugin_WantsLV2TimePos=1"
 
 BUILD_DATE="$(shell date +'%Y %m %d %H %M')"
 

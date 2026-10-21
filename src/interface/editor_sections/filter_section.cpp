@@ -56,6 +56,11 @@ namespace {
   }
 
   std::string getStyleName(int int_model, int style) {
+    int num_styles = getNumStyles(int_model);
+    if (num_styles <= 0)
+      return "";
+    style = std::max(0, std::min(style, num_styles - 1));
+
     vital::constants::FilterModel model = static_cast<vital::constants::FilterModel>(int_model);
     switch (model) {
       case vital::constants::kAnalog:
@@ -551,8 +556,9 @@ void FilterSection::showModelKnobs() {
 }
 
 void FilterSection::setFilterText() {
-  std::string style = getStyleName(current_model_, current_style_);
-  preset_selector_->setText(strings::kFilterModelNames[current_model_], ":", style);
+  int model = std::max(0, std::min<int>(current_model_, vital::constants::kNumFilterModels - 1));
+  std::string style = getStyleName(model, current_style_);
+  preset_selector_->setText(strings::kFilterModelNames[model], ":", style);
 }
 
 void FilterSection::setLabelText() {

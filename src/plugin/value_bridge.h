@@ -71,8 +71,14 @@ class ValueBridge : public AudioProcessorParameter {
     String getText(float value, int maximumStringLength) const override {
       float adjusted = convertToEngineValue(value);
       String result = "";
-      if (details_.string_lookup)
-        result = details_.string_lookup[std::max<int>(0, std::min(adjusted, details_.max))];
+      if (details_.string_lookup && details_.string_lookup_size > 0) {
+        int last_index = std::min<int>(details_.max, details_.string_lookup_size - 1);
+        int index = std::isfinite(adjusted) ? static_cast<int>(adjusted) : 0;
+        result = details_.string_lookup[std::max<int>(0, std::min<int>(index, last_index))];
+      }
+      else if (details_.string_lookup) {
+        result = "";
+      }
       else {
         float display_value = details_.display_multiply * skewValue(adjusted) + details_.post_offset;
         result = String(display_value) + details_.display_units;
