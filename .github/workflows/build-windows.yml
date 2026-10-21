@@ -1,0 +1,70 @@
+name: Build VialFX (Windows)
+
+on:
+  push:
+    branches: [ main, 'vialfx-*' ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  vst3:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    env:
+      CL: /bigobj
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: microsoft/setup-msbuild@v2
+
+      - name: Build VialFX VST3 (x64, Release)
+        shell: pwsh
+        run: |
+          msbuild effects\builds\vs17\VialFX.sln /m /nologo /p:Configuration=Release /p:Platform=x64 `
+            /p:PlatformToolset=v143 "/flp:logfile=msbuild.log;verbosity=minimal"
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            # Surface the first compiler/linker errors as annotations (the full log is not downloadable here).
+            Select-String -Path msbuild.log -Pattern ' error ' | Select-Object -Unique -First 40 |
+              ForEach-Object { $t = $_.Line.Trim(); if ($t.Length -gt 450) { $t = $t.Substring(0,450) }; Write-Host "::error::$t" }
+          }
+          exit $code
+
+      - name: Locate the plugin
+        shell: pwsh
+        run: |
+          $f = Get-ChildItem -Recurse effects\builds\vs17 -Filter *.vst3 | Select-Object -First 1
+          if (-not $f) { Write-Host "::error::no .vst3 produced"; exit 1 }
+          New-Item -ItemType Directory dist | Out-Null
+          Copy-Item $f.FullName dist\
+          Get-ChildItem dist | Format-Table Name, Length
+
+      - name: Check for Vital branding and service domains
+        shell: pwsh
+        run: |
+          python -c "import re,sys,glob; d=open(glob.glob('dist/*.vst3')[0],'rb').read(); m=re.findall(rb'(?i)vital\.audio|account\.vital|store\.vital|forum\.vital|vital audio|tytel', d); print(m[:10]); sys.exit(1 if m else 0)"
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::[binary] Vital branding or service domain found in the plugin"; exit 1 }
+          Write-Host "branding check passed"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VialFX-windows-vst3
+          path: dist
+
+      - name: Validate with pluginval (non-blocking)
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Windows.zip -OutFile pluginval.zip
+          Expand-Archive pluginval.zip -DestinationPath pv
+          $plugin = (Get-ChildItem dist -Filter *.vst3 | Select-Object -First 1).FullName
+          foreach ($seed in 1,2,3) {
+            .\pv\pluginval.exe --strictness-level 5 --validate-in-process --skip-gui-tests --random-seed $seed --output-dir $PWD $plugin *> "pv_$seed.log"
+            $rc = $LASTEXITCODE
+            Write-Host "seed $seed exit=$rc"
+            if ($rc -ne 0) {
+              Select-String -Path "pv_$seed.log" -Pattern 'fail|error|crash|assert' | Select-Object -First 15 |
+                ForEach-Object { $t = $_.Line.Trim(); if ($t.Length -gt 300) { $t = $t.Substring(0,300) }; Write-Host "::warning::[pluginval seed $seed] $t" }
+              exit $rc
+            }
+          }
