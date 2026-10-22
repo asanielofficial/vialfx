@@ -107,6 +107,11 @@ namespace vital {
 
       void process(int num_samples) override;
       void correctToTime(double seconds);
+#if VITAL_FX
+      // FX build: with no keys pressed the LFO behaves as if a note were held, so Sustain Envelope
+      // and Loop Hold keep working without MIDI input.
+      void setFreeHold(bool free_hold) { free_hold_ = free_hold; }
+#endif
 
     protected:
       void processTrigger();
@@ -129,6 +134,9 @@ namespace vital {
       LfoState audio_rate_state_;
 
       poly_mask held_mask_;
+#if VITAL_FX
+      bool free_hold_ = false;
+#endif
       poly_int trigger_sample_;
       poly_float trigger_delay_;
       LineGenerator* source_;

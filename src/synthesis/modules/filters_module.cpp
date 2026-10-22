@@ -28,6 +28,7 @@ namespace vital {
   void FiltersModule::init() {
     filter_1_filter_input_ = createBaseControl("filter_1_filter_input");
     filter_1_ = new FilterModule("filter_1");
+    filter_1_->setMono(mono_);
     addSubmodule(filter_1_);
     addProcessor(filter_1_);
 
@@ -38,6 +39,7 @@ namespace vital {
 
     filter_2_filter_input_ = createBaseControl("filter_2_filter_input");
     filter_2_ = new FilterModule("filter_2");
+    filter_2_->setMono(mono_);
     addSubmodule(filter_2_);
     addProcessor(filter_2_);
 

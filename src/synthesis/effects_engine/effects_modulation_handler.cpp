@@ -17,7 +17,6 @@
 #include "effects_modulation_handler.h"
 
 #include "envelope.h"
-#include "filters_module.h"
 #include "line_map.h"
 #include "operators.h"
 #include "portamento_slope.h"
@@ -33,9 +32,9 @@ namespace vital {
 
   EffectsModulationHandler::EffectsModulationHandler(Output* beats_per_second) :
       VoiceHandler(0, 1, true), beats_per_second_(beats_per_second),
-      note_from_reference_(nullptr), midi_offset_output_(nullptr),
+      note_from_reference_(nullptr), midi_offset_output_(nullptr), bent_midi_output_(nullptr),
       bent_midi_(nullptr), current_midi_note_(nullptr),
-      filters_module_(nullptr), lfos_(), envelopes_(), lfo_sources_(), random_(nullptr), random_lfos_(),
+      lfos_(), envelopes_(), lfo_sources_(), random_(nullptr), random_lfos_(),
       note_mapping_(nullptr), velocity_mapping_(nullptr), aftertouch_mapping_(nullptr),
       slide_mapping_(nullptr), lift_mapping_(nullptr), mod_wheel_mapping_(nullptr),
       pitch_wheel_mapping_(nullptr), stereo_(nullptr), note_percentage_(nullptr) {
@@ -47,7 +46,6 @@ namespace vital {
   void EffectsModulationHandler::init() {
     createArticulation();
     createModulators();
-    createFilters(note_from_reference_->output());
 
     Output* macros[kNumMacros];
     for (int i = 0; i < kNumMacros; ++i)
@@ -179,16 +177,6 @@ namespace vital {
     createStatusOutput("pitch_wheel", pitch_wheel_percent());
   }
 
-  void EffectsModulationHandler::createFilters(Output* keytrack) {
-    filters_module_ = new FiltersModule();
-    addSubmodule(filters_module_);
-    addProcessor(filters_module_);
-
-    filters_module_->plug(reset(), FiltersModule::kReset);
-    filters_module_->plug(keytrack, FiltersModule::kKeytrack);
-    filters_module_->plug(bent_midi_, FiltersModule::kMidi);
-  }
-
   void EffectsModulationHandler::createArticulation() {
     Output* velocity_track_amount = createPolyModControl("velocity_track");
     cr::Interpolate* velocity_track_mult = new cr::Interpolate();
@@ -225,6 +213,9 @@ namespace vital {
     bent_midi_->plugNext(local_pitch_bend());
     bent_midi_->plugNext(voice_tune);
 
+    // The engine-level filters read the played note through these readouts (last played note, bend included).
+    bent_midi_output_ = registerOutput(bent_midi_->output());
+
     static const cr::Value max_midi_invert(1.0f / (kMidiSize - 1));
     note_percentage_ = new cr::Multiply();
     note_percentage_->plug(&max_midi_invert, 0);
@@ -238,12 +229,30 @@ namespace vital {
 
     addProcessor(pitch_bend);
     addProcessor(bent_midi_);
+
+    // Non-accumulating outputs are only copied out of the voices while active. Without this the tracking
+    // readouts stay at zero and filter/effect key tracking does nothing.
+    setActiveNonaccumulatedOutput(note_from_reference_->output());
+    setActiveNonaccumulatedOutput(bent_midi_->output());
   }
 
   void EffectsModulationHandler::process(int num_samples) {
     poly_mask reset_mask = reset()->trigger_mask;
     if (reset_mask.anyMask())
       resetFeedbacks(reset_mask);
+
+    // The modulators (LFOs, envelopes, macros, mod matrix) live inside the voice handler, which
+    // does nothing while no voice is active. An FX plugin has to modulate without any MIDI input, so
+    // keep one anchor voice alive at all times. Real notes steal it (see the forced steal mode in
+    // SoundEngine), they never add voices.
+    if (getNumActiveVoices() == 0) {
+      VoiceHandler::noteOn(kMidiTrackCenter, 0.0f, 0, 0);
+      VoiceHandler::noteOff(kMidiTrackCenter, 0.0f, 0, 0);
+    }
+
+    bool no_keys_pressed = getNumPressedNotes() == 0;
+    for (int i = 0; i < kNumLfos; ++i)
+      lfos_[i]->setFreeHold(no_keys_pressed);
 
     VoiceHandler::process(num_samples);
     note_retriggered_.clearTrigger();

@@ -21,6 +21,8 @@
 #include "flanger_module.h"
 #include "phaser_module.h"
 #include "decimator.h"
+#include "effects_input_stage.h"
+#include "filters_module.h"
 #include "upsampler.h"
 #include "modulation_connection_processor.h"
 #include "synth_constants.h"
@@ -32,7 +34,8 @@
 
 namespace vital {
 
-  SoundEngine::SoundEngine() : SynthModule(0, 1), modulation_handler_(nullptr), 
+  SoundEngine::SoundEngine() : SynthModule(0, 1), modulation_handler_(nullptr), audio_input_(nullptr),
+                               filter_router_(nullptr), filters_module_(nullptr), upsampler_(nullptr),
                                last_oversampling_amount_(-1), last_sample_rate_(-1), peak_meter_(nullptr) {
     init();
     bps_ = data_->controls["beats_per_minute"];
@@ -62,9 +65,15 @@ namespace vital {
     modulation_handler_ = new EffectsModulationHandler(beats_per_second_clamped->output());
     addSubmodule(modulation_handler_);
     modulation_handler_->setPolyphony(vital::kMaxPolyphony);
-    modulation_handler_->plug(polyphony, VoiceHandler::kPolyphony);
+    // The FX engine is monophonic: one permanent voice carries the modulators and every new note
+    // steals it. The polyphony/voice_override parameters stay registered but are not used here.
+    Value* fixed_polyphony = new Value(1.0f);
+    Value* fixed_override = new Value(static_cast<mono_float>(VoiceHandler::kSteal));
+    addIdleProcessor(fixed_polyphony);
+    addIdleProcessor(fixed_override);
+    modulation_handler_->plug(fixed_polyphony, VoiceHandler::kPolyphony);
     modulation_handler_->plug(voice_priority, VoiceHandler::kVoicePriority);
-    modulation_handler_->plug(voice_override, VoiceHandler::kVoiceOverride);
+    modulation_handler_->plug(fixed_override, VoiceHandler::kVoiceOverride);
 
     addProcessor(modulation_handler_);
 
@@ -73,8 +82,33 @@ namespace vital {
     createBaseControl("pitch_wheel");
     createBaseControl("mod_wheel");
 
-    upsampler_ = new Upsampler();
-    addIdleProcessor(upsampler_);
+    // Input audio is held here at the base sample rate and fed through the filters before the rack.
+    audio_input_ = new Upsampler();
+    addIdleProcessor(audio_input_);
+
+    filter_router_ = new AudioFilterRouter();
+    filter_router_->plug(audio_input_, AudioFilterRouter::kAudio);
+    addProcessor(filter_router_);
+
+    filters_module_ = new FiltersModule();
+    filters_module_->setMono(true);
+    addSubmodule(filters_module_);
+    addProcessor(filters_module_);
+    filters_module_->plug(filter_router_->output(AudioFilterRouter::kToFilter1), FiltersModule::kFilter1Input);
+    filters_module_->plug(filter_router_->output(AudioFilterRouter::kToFilter2), FiltersModule::kFilter2Input);
+    // The key tracking / MIDI inputs are connected after SynthModule::init() below: the modulation handler
+    // only creates its played-note outputs in its own init().
+
+    Add* filter_sum = new Add();
+    filter_sum->plug(filters_module_, 0);
+    filter_sum->plug(filter_router_->output(AudioFilterRouter::kRawOut), 1);
+    // The upsampler reads this at the oversampled block size, so make the buffer big enough for that.
+    filter_sum->output()->ensureBufferSize(kMaxBufferSize * kMaxOversample);
+    addProcessor(filter_sum);
+
+    upsampler_ = new AudioUpsampler();
+    upsampler_->plug(filter_sum, AudioUpsampler::kAudio);
+    addProcessor(upsampler_);
 
     Value* effect_chain_order = createBaseControl("effect_chain_order");
     effect_chain_ = new ReorderableEffectChain(beats_per_second, modulation_handler_->midi_offset_output());
@@ -130,6 +164,16 @@ namespace vital {
     clamp->useOutput(output());
 
     SynthModule::init();
+
+    VITAL_ASSERT(modulation_handler_->midi_offset_output() != nullptr);
+    VITAL_ASSERT(modulation_handler_->bent_midi_output() != nullptr);
+    filters_module_->plug(modulation_handler_->midi_offset_output(), FiltersModule::kKeytrack);
+    filters_module_->plug(modulation_handler_->bent_midi_output(), FiltersModule::kMidi);
+
+    filter_router_->setControls(filters_module_->getFilter1OnValue(), filters_module_->getFilter2OnValue(),
+                                filters_module_->getFilter1FilterInputValue(),
+                                filters_module_->getFilter2FilterInputValue());
+
     disableUnnecessaryModSources();
     setOversamplingAmount(kDefaultOversamplingAmount, kDefaultSampleRate);
   }
@@ -235,7 +279,7 @@ namespace vital {
     FloatVectorOperations::disableDenormalisedNumberSupport();
     modulation_handler_->setLegato(legato_->value());
 
-    upsampler_->processWithInput(audio_in, num_samples);
+    audio_input_->processWithInput(audio_in, num_samples);
     ProcessorRouter::process(num_samples);
 
     for (auto& status_source : data_->status_outputs)

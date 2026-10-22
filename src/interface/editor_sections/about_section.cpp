@@ -31,6 +31,12 @@ namespace {
   }
 }
 
+#if VITAL_FX
+namespace {
+  const char* const kVialFxVersion = "0.1.0";
+}
+#endif
+
 AboutSection::AboutSection(const String& name) : Overlay(name), body_(Shaders::kRoundedRectangleFragment) {
   addOpenGlComponent(&body_);
   logo_ = std::make_unique<AppLogo>("logo");
@@ -41,7 +47,13 @@ AboutSection::AboutSection(const String& name) : Overlay(name), body_(Shaders::k
   name_text_->setFontType(PlainTextComponent::kRegular);
   name_text_->setTextSize(40.0f);
 
+#if VITAL_FX
+  // Display version of the FX plugin. ProjectInfo::versionString intentionally stays at the base
+  // version because preset, skin and wavetable compatibility checks compare against it.
+  version_text_ = std::make_unique<PlainTextComponent>("version", String("version  ") + kVialFxVersion);
+#else
   version_text_ = std::make_unique<PlainTextComponent>("version", String("version  ") + ProjectInfo::versionString);
+#endif
   addOpenGlComponent(version_text_.get());
   version_text_->setFontType(PlainTextComponent::kLight);
   version_text_->setTextSize(12.0f);
@@ -57,6 +69,12 @@ AboutSection::AboutSection(const String& name) : Overlay(name), body_(Shaders::k
   check_for_updates_->addListener(this);
   addAndMakeVisible(check_for_updates_.get());
   addOpenGlComponent(check_for_updates_->getGlComponent());
+#if VITAL_FX
+  // VialFX never contacts an update server, so the option is not offered.
+  check_for_updates_text_->setVisible(false);
+  check_for_updates_->setVisible(false);
+  check_for_updates_->getGlComponent()->setVisible(false);
+#endif
 
   size_button_extra_small_ = std::make_unique<OpenGlToggleButton>(String(100 * kMultExtraSmall) + "%");
   size_button_extra_small_->setUiButton(false);

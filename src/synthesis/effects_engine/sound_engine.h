@@ -26,7 +26,10 @@ class LineGenerator;
 namespace vital {
   class PeakMeter;
   class ReorderableEffectChain;
+  class AudioFilterRouter;
+  class AudioUpsampler;
   class EffectsModulationHandler;
+  class FiltersModule;
   class Sample;
   class StereoMemory;
   class SynthLfo;
@@ -37,7 +40,7 @@ namespace vital {
 
   class SoundEngine : public SynthModule, public NoteHandler {
     public:
-      static constexpr int kDefaultOversamplingAmount = 2;
+      static constexpr int kDefaultOversamplingAmount = 1;
       static constexpr int kDefaultSampleRate = 44100;
 
       SoundEngine();
@@ -99,7 +102,10 @@ namespace vital {
 
     private:
       EffectsModulationHandler* modulation_handler_;
-      Upsampler* upsampler_;
+      Upsampler* audio_input_;
+      AudioFilterRouter* filter_router_;
+      FiltersModule* filters_module_;
+      AudioUpsampler* upsampler_;
       ReorderableEffectChain* effect_chain_;
 
       int last_oversampling_amount_;

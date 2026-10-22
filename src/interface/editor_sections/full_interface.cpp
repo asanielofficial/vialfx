@@ -680,7 +680,8 @@ void FullInterface::setPresetBrowserVisibility(bool visible, int current_tab) {
   modulation_interface_->setVisible(!visible);
   portamento_section_->setVisible(!visible);
   voice_section_->setVisible(!visible);
-  synthesis_interface_->setVisible(!visible);
+  if (synthesis_interface_)
+    synthesis_interface_->setVisible(!visible);
 
   if (visible) {
     tabSelected(-1);
@@ -701,7 +702,8 @@ void FullInterface::setBankExporterVisibility(bool visible, int current_tab) {
   modulation_interface_->setVisible(!visible);
   portamento_section_->setVisible(!visible);
   voice_section_->setVisible(!visible);
-  synthesis_interface_->setVisible(!visible);
+  if (synthesis_interface_)
+    synthesis_interface_->setVisible(!visible);
 
   if (visible) {
     tabSelected(-1);
@@ -758,12 +760,15 @@ void FullInterface::showFullScreenSection(SynthSection* full_screen) {
     full_screen_section_->setBounds(getLocalBounds());
   }
 
-  for (int i = 0; i < vital::kNumOscillators; ++i)
-    wavetable_edits_[i]->setVisible(false);
+  for (int i = 0; i < vital::kNumOscillators; ++i) {
+    if (wavetable_edits_[i])
+      wavetable_edits_[i]->setVisible(false);
+  }
 
   bool show_rest = full_screen == nullptr;
   header_->setVisible(show_rest);
-  synthesis_interface_->setVisible(show_rest);
+  if (synthesis_interface_)
+    synthesis_interface_->setVisible(show_rest);
   modulation_interface_->setVisible(show_rest);
   keyboard_interface_->setVisible(show_rest);
   extra_mod_section_->setVisible(show_rest);
@@ -779,12 +784,15 @@ void FullInterface::showWavetableEditSection(int index) {
     return;
 
   ScopedLock lock(open_gl_critical_section_);
-  for (int i = 0; i < vital::kNumOscillators; ++i)
-    wavetable_edits_[i]->setVisible(i == index);
+  for (int i = 0; i < vital::kNumOscillators; ++i) {
+    if (wavetable_edits_[i])
+      wavetable_edits_[i]->setVisible(i == index);
+  }
 
   bool show_rest = index < 0;
   header_->setVisible(show_rest);
-  synthesis_interface_->setVisible(show_rest);
+  if (synthesis_interface_)
+    synthesis_interface_->setVisible(show_rest);
   modulation_interface_->setVisible(show_rest);
   keyboard_interface_->setVisible(show_rest);
   extra_mod_section_->setVisible(show_rest);
@@ -796,10 +804,14 @@ void FullInterface::showWavetableEditSection(int index) {
 }
 
 std::string FullInterface::getLastBrowsedWavetable(int index) {
+  if (wavetable_edits_[index] == nullptr)
+    return "";
   return wavetable_edits_[index]->getLastBrowsedWavetable();
 }
 
 std::string FullInterface::getWavetableName(int index) {
+  if (wavetable_edits_[index] == nullptr)
+    return "";
   return wavetable_edits_[index]->getName();
 }
 
@@ -950,20 +962,20 @@ void FullInterface::modulationValueChanged(int index) {
 void FullInterface::toggleOscillatorZoom(int index) {
   if (full_screen_section_)
     showFullScreenSection(nullptr);
-  else
+  else if (synthesis_interface_)
     showFullScreenSection(synthesis_interface_->getOscillatorSection(index));
 }
 
 void FullInterface::toggleFilter1Zoom() {
   if (full_screen_section_)
     showFullScreenSection(nullptr);
-  else
+  else if (synthesis_interface_)
     showFullScreenSection(synthesis_interface_->getFilterSection1());
 }
 
 void FullInterface::toggleFilter2Zoom() {
   if (full_screen_section_)
     showFullScreenSection(nullptr);
-  else
+  else if (synthesis_interface_)
     showFullScreenSection(synthesis_interface_->getFilterSection2());
 }

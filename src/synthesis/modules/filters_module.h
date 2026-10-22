@@ -45,6 +45,11 @@ namespace vital {
 
       const Value* getFilter1OnValue() const { return filter_1_->getOnValue(); }
       const Value* getFilter2OnValue() const { return filter_2_->getOnValue(); }
+      const Value* getFilter1FilterInputValue() const { return filter_1_filter_input_; }
+      const Value* getFilter2FilterInputValue() const { return filter_2_filter_input_; }
+
+      // Mono mode creates mono modulation controls (for use outside a voice handler). Call before init().
+      void setMono(bool mono) { mono_ = mono; }
 
       void setOversampleAmount(int oversample) override {
         SynthModule::setOversampleAmount(oversample);
@@ -53,6 +58,7 @@ namespace vital {
       }
 
     protected:
+      bool mono_ = false;
       FilterModule* filter_1_;
       FilterModule* filter_2_;
 

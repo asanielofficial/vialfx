@@ -27,7 +27,6 @@
 
 namespace vital {
   class AudioRateEnvelope;
-  class FiltersModule;
   class LegatoFilter;
   class LineMap;
   class LfoModule;
@@ -61,11 +60,11 @@ namespace vital {
       Output* note_retrigger() { return &note_retriggered_; }
 
       Output* midi_offset_output() { return midi_offset_output_; }
+      Output* bent_midi_output() { return bent_midi_output_; }
 
     private:
       void createArticulation();
       void createModulators();
-      void createFilters(Output* keytrack);
 
       void setupPolyModulationReadouts();
 
@@ -74,10 +73,9 @@ namespace vital {
 
       Processor* note_from_reference_;
       Output* midi_offset_output_;
+      Output* bent_midi_output_;
       Processor* bent_midi_;
       Processor* current_midi_note_;
-
-      FiltersModule* filters_module_;
 
       LfoModule* lfos_[kNumLfos];
       EnvelopeModule* envelopes_[kNumEnvelopes];

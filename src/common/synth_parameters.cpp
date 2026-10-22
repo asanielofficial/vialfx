@@ -275,7 +275,12 @@ namespace vital {
       ValueDetails::kLinear, false, "%", "Sample Pan", nullptr },
     { "velocity_track", 0x000000, -1.0, 1.0, 0.0, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Velocity Track", nullptr },
+#if VITAL_FX
+    // FX build: unity gain by default so an untouched plugin is a clean passthrough (raw 6400 = 0 dB).
+    { "volume", 0x000000, 0.0, 7399.4404, 6400.0, -80, 1.0,
+#else
     { "volume", 0x000000, 0.0, 7399.4404, 5473.0404, -80, 1.0,
+#endif
       ValueDetails::kSquareRoot, false, "dB", "Volume", nullptr },
     { "phaser_on", 0x000000, 0.0, 1.0, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Phaser Switch", strings::kOffOnNames },
@@ -413,7 +418,13 @@ namespace vital {
       ValueDetails::kIndexed, false, "", "Voice Priority", strings::kVoicePriorityNames },
     { "voice_override", 0x000700, 0.0, VoiceHandler::kNumVoiceOverrides - 1, VoiceHandler::kKill, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Voice Override", strings::kVoiceOverrideNames },
+#if VITAL_FX
+    // FX build: 1x by default. The input upsampler in front of the filters is sample-and-hold, which rolls
+    // off the top octave (-1.3 dB at 15 kHz at 2x), so an idle plugin is only transparent at 1x.
+    { "oversampling", 0x000000, 0.0, 3.0, 0.0, 0.0, 1.0,
+#else
     { "oversampling", 0x000000, 0.0, 3.0, 1.0, 0.0, 1.0,
+#endif
       ValueDetails::kIndexed, false, "", "Oversampling", strings::kOversamplingNames },
     { "pitch_wheel", 0x000400, -1.0, 1.0, 0.0, 0.0, 1.0,
       ValueDetails::kLinear, false, "", "Pitch Wheel", nullptr },

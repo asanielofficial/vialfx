@@ -21,6 +21,11 @@ jobs:
             libasound2-dev libfreetype6-dev libgl1-mesa-dev libcurl4-openssl-dev \
             libx11-dev libxext-dev libxinerama-dev libxrandr-dev libxcursor-dev
 
+      - name: Engine test (headless DSP checks)
+        run: |
+          # Passthrough, filters, routing, key tracking, all 9 effects, LFOs without MIDI. Fails on any check.
+          make -C effects/tests -j"$(nproc)"
+
       - name: Build VialFX VST3
         run: |
           set +e

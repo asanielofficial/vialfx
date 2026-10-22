@@ -37,6 +37,10 @@ namespace vital {
     poly_mask reset_mask = getResetMask(kNoteTrigger);
     poly_mask release_mask = getReleaseMask();
     held_mask_ = (held_mask_ | reset_mask) & ~release_mask;
+#if VITAL_FX
+    if (free_hold_)
+      held_mask_ = constants::kFullMask;
+#endif
     poly_int trigger_offset = input(kNoteTrigger)->source->trigger_offset;
     trigger_sample_ = utils::maskLoad(trigger_sample_, trigger_offset, (reset_mask | release_mask));
 
@@ -66,6 +70,15 @@ namespace vital {
         audio_rate_state_.offset = utils::maskLoad(audio_rate_state_.offset, -offset_start, reset_mask);
       }
     }
+
+#if VITAL_FX
+    // Sync mode stays locked to the host timeline every block, not only when a note retriggers it.
+    if (sync_type == kSync) {
+      poly_float sync_phase = utils::getCycleOffsetFromSeconds(*sync_seconds_, input(kFrequency)->at(0));
+      control_rate_state_.offset = sync_phase;
+      audio_rate_state_.offset = sync_phase;
+    }
+#endif
   }
 
   void SynthLfo::processControlRate(int num_samples) {

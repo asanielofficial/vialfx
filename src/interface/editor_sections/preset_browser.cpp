@@ -807,6 +807,7 @@ void PresetBrowser::visibilityChanged() {
     folder_list_->redoCache();
     more_author_presets_.clear();
 
+#if !VITAL_FX
     try {
       json available = LoadSave::getAvailablePacks();
       json available_packs = available["packs"];
@@ -829,6 +830,7 @@ void PresetBrowser::visibilityChanged() {
     }
     catch (const json::exception& e) {
     }
+#endif
   }
 
   loadPresetInfo();
