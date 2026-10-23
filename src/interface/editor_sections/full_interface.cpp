@@ -70,6 +70,12 @@ FullInterface::FullInterface(SynthGuiData* synth_data) : SynthSection("full_inte
 
     addSubSection(synthesis_interface_.get());
   }
+  else {
+    // Effect build: the VOICE tab holds the two filters.
+    fx_voice_interface_ = std::make_unique<FxVoiceInterface>(synth_data->mono_modulations,
+                                                             synth_data->poly_modulations);
+    addSubSection(fx_voice_interface_.get());
+  }
 
   effects_interface_ = std::make_unique<EffectsInterface>(synth_data->mono_modulations);
   addSubSection(effects_interface_.get());
@@ -176,6 +182,8 @@ FullInterface::FullInterface(SynthGuiData* synth_data) : SynthSection("full_inte
 
   if (synthesis_interface_)
     synthesis_interface_->toFront(true);
+  if (fx_voice_interface_)
+    fx_voice_interface_->toFront(true);
 
   master_controls_interface_->toFront(true);
   effects_interface_->toFront(true);
@@ -278,6 +286,10 @@ void FullInterface::paintBackground(Graphics& g) {
     int x2 = synthesis_interface_->getRight() + padding;
     g.fillRect(x2, y, bar_width, height);
   }
+  else if (fx_voice_interface_) {
+    int x2 = fx_voice_interface_->getRight() + padding;
+    g.fillRect(x2, y, bar_width, height);
+  }
 
   paintKnobShadows(g);
   paintChildrenBackgrounds(g);
@@ -320,7 +332,8 @@ void FullInterface::repaintChildBackground(SynthSection* child) {
   if (!background_image_.isValid() || setting_all_values_)
     return; 
 
-  if (child->getParentComponent() == synthesis_interface_.get()) {
+  if ((synthesis_interface_ && child->getParentComponent() == synthesis_interface_.get()) ||
+      (fx_voice_interface_ && child->getParentComponent() == fx_voice_interface_.get())) {
     repaintSynthesisSection();
     return;
   }
@@ -336,16 +349,18 @@ void FullInterface::repaintChildBackground(SynthSection* child) {
 }
 
 void FullInterface::repaintSynthesisSection() {
-  if (synthesis_interface_ == nullptr || !synthesis_interface_->isVisible() || !background_image_.isValid())
+  SynthSection* voice_interface = synthesis_interface_ ? static_cast<SynthSection*>(synthesis_interface_.get())
+                                                       : static_cast<SynthSection*>(fx_voice_interface_.get());
+  if (voice_interface == nullptr || !voice_interface->isVisible() || !background_image_.isValid())
     return;
 
   background_.lock();
   Graphics g(background_image_);
   int padding = findValue(Skin::kPadding);
   g.setColour(findColour(Skin::kBackground, true));
-  g.fillRect(synthesis_interface_->getBounds().expanded(padding));
-  paintChildShadow(g, synthesis_interface_.get());
-  paintChildBackground(g, synthesis_interface_.get());
+  g.fillRect(voice_interface->getBounds().expanded(padding));
+  paintChildShadow(g, voice_interface);
+  paintChildBackground(g, voice_interface);
 
   background_.updateBackgroundImage(background_image_);
   background_.unlock();
@@ -454,6 +469,8 @@ void FullInterface::resized() {
 
   if (synthesis_interface_)
     synthesis_interface_->setBounds(main_bounds);
+  if (fx_voice_interface_)
+    fx_voice_interface_->setBounds(main_bounds);
   effects_interface_->setBounds(main_bounds.withRight(main_bounds.getRight() + voice_padding));
   modulation_matrix_->setBounds(main_bounds);
   int modulation_height = voice_height - knob_section_height - padding;
@@ -653,6 +670,8 @@ void FullInterface::tabSelected(int index) {
 
   if (synthesis_interface_)
     synthesis_interface_->setVisible(index == 0 && make_visible);
+  if (fx_voice_interface_)
+    fx_voice_interface_->setVisible(index == 0 && make_visible);
 
   effects_interface_->setVisible(index == 1 && make_visible);
   modulation_matrix_->setVisible(index == 2 && make_visible);
@@ -682,6 +701,8 @@ void FullInterface::setPresetBrowserVisibility(bool visible, int current_tab) {
   voice_section_->setVisible(!visible);
   if (synthesis_interface_)
     synthesis_interface_->setVisible(!visible);
+  if (fx_voice_interface_)
+    fx_voice_interface_->setVisible(!visible);
 
   if (visible) {
     tabSelected(-1);
@@ -704,6 +725,8 @@ void FullInterface::setBankExporterVisibility(bool visible, int current_tab) {
   voice_section_->setVisible(!visible);
   if (synthesis_interface_)
     synthesis_interface_->setVisible(!visible);
+  if (fx_voice_interface_)
+    fx_voice_interface_->setVisible(!visible);
 
   if (visible) {
     tabSelected(-1);
@@ -734,6 +757,8 @@ void FullInterface::setFocus() {
     authentication_->setFocus();
   else if (synthesis_interface_ && synthesis_interface_->isShowing())
     synthesis_interface_->setFocus();
+  else if (fx_voice_interface_ && fx_voice_interface_->isShowing())
+    fx_voice_interface_->setFocus();
 }
 
 void FullInterface::notifyChange() {
@@ -769,6 +794,8 @@ void FullInterface::showFullScreenSection(SynthSection* full_screen) {
   header_->setVisible(show_rest);
   if (synthesis_interface_)
     synthesis_interface_->setVisible(show_rest);
+  if (fx_voice_interface_)
+    fx_voice_interface_->setVisible(show_rest);
   modulation_interface_->setVisible(show_rest);
   keyboard_interface_->setVisible(show_rest);
   extra_mod_section_->setVisible(show_rest);
@@ -793,6 +820,8 @@ void FullInterface::showWavetableEditSection(int index) {
   header_->setVisible(show_rest);
   if (synthesis_interface_)
     synthesis_interface_->setVisible(show_rest);
+  if (fx_voice_interface_)
+    fx_voice_interface_->setVisible(show_rest);
   modulation_interface_->setVisible(show_rest);
   keyboard_interface_->setVisible(show_rest);
   extra_mod_section_->setVisible(show_rest);
@@ -971,6 +1000,8 @@ void FullInterface::toggleFilter1Zoom() {
     showFullScreenSection(nullptr);
   else if (synthesis_interface_)
     showFullScreenSection(synthesis_interface_->getFilterSection1());
+  else if (fx_voice_interface_)
+    showFullScreenSection(fx_voice_interface_->getFilterSection1());
 }
 
 void FullInterface::toggleFilter2Zoom() {
@@ -978,4 +1009,6 @@ void FullInterface::toggleFilter2Zoom() {
     showFullScreenSection(nullptr);
   else if (synthesis_interface_)
     showFullScreenSection(synthesis_interface_->getFilterSection2());
+  else if (fx_voice_interface_)
+    showFullScreenSection(fx_voice_interface_->getFilterSection2());
 }

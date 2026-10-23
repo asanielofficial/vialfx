@@ -66,6 +66,8 @@ class FilterSection : public SynthSection, public PresetSelector::Listener {
     void clearFilterInput() { filter_input_->setToggleState(false, sendNotification); }
     void setOscillatorInput(int oscillator_index, bool input);
     void setSampleInput(bool input);
+    // Effect build: there are no oscillators or sample to route into the filter.
+    void hideSourceInputs();
 
   private:
     FilterSection(String name, String suffix);

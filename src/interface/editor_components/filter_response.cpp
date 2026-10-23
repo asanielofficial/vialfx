@@ -93,9 +93,11 @@ namespace {
   std::pair<vital::Output*, vital::Output*> getOutputs(const vital::output_map& mono_modulations,
                                                        const vital::output_map& poly_modulations,
                                                        const std::string& name) {
+    // Effect builds have only mono filters, so a missing poly output is not an error.
+    auto poly = poly_modulations.find(name);
     return {
       mono_modulations.at(name),
-      poly_modulations.at(name)
+      poly != poly_modulations.end() ? poly->second : nullptr
     };
   }
 } // namespace

@@ -529,6 +529,16 @@ void FilterSection::setOscillatorInput(int oscillator_index, bool input) {
     osc3_input_->setToggleState(input, dontSendNotification);
 }
 
+void FilterSection::hideSourceInputs() {
+  OpenGlToggleButton* inputs[] = { osc1_input_.get(), osc2_input_.get(), osc3_input_.get(), sample_input_.get() };
+  for (OpenGlToggleButton* input : inputs) {
+    if (input == nullptr)
+      continue;
+    input->setVisible(false);
+    input->getGlComponent()->setVisible(false);
+  }
+}
+
 void FilterSection::setSampleInput(bool input) {
   sample_input_->setToggleState(input, dontSendNotification);
 }

@@ -23,6 +23,7 @@
 #include "download_section.h"
 #include "header_section.h"
 #include "effects_interface.h"
+#include "fx_voice_interface.h"
 #include "memory.h"
 #include "modulation_matrix.h"
 #include "open_gl_background.h"
@@ -181,6 +182,7 @@ class FullInterface : public SynthSection, public AuthenticationSection::Listene
 
     std::unique_ptr<HeaderSection> header_;
     std::unique_ptr<SynthesisInterface> synthesis_interface_;
+    std::unique_ptr<FxVoiceInterface> fx_voice_interface_;
     std::unique_ptr<MasterControlsInterface> master_controls_interface_;
     std::unique_ptr<ModulationInterface> modulation_interface_;
     std::unique_ptr<ExtraModSection> extra_mod_section_;
