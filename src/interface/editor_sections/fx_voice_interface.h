@@ -19,15 +19,22 @@
 #include "JuceHeader.h"
 
 #include "filter_section.h"
+#include "fx_input_section.h"
 #include "synth_section.h"
 
-// VOICE tab of the effect build: the two filters, side by side, where the synth shows them under its
-// oscillators. There are no oscillators or sample source to route, so those buttons are hidden; the
+// VOICE tab of the effect build: the main input and sidechain input panels on top, and the two filters
+// side by side below them, where the synth shows its filters under the oscillators. There are no oscillators or sample source to route, so those buttons are hidden; the
 // serial buttons (FIL1/FIL2) still choose between parallel and serial routing.
 class FxVoiceInterface : public SynthSection, public FilterSection::Listener {
   public:
     FxVoiceInterface(const vital::output_map& mono_modulations, const vital::output_map& poly_modulations) :
         SynthSection("synthesis") {
+      main_input_ = std::make_unique<FxInputSection>("INPUT", "input");
+      addSubSection(main_input_.get());
+
+      sidechain_input_ = std::make_unique<FxInputSection>("SIDECHAIN", "sidechain");
+      addSubSection(sidechain_input_.get());
+
       filter_section_1_ = std::make_unique<FilterSection>(1, mono_modulations, poly_modulations);
       filter_section_1_->hideSourceInputs();
       filter_section_1_->addListener(this);
@@ -50,8 +57,22 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener {
       int width_left = (getWidth() - padding) / 2;
       int width_right = getWidth() - padding - width_left;
 
-      filter_section_1_->setBounds(0, 0, width_left, getHeight());
-      filter_section_2_->setBounds(width_left + padding, 0, width_right, getHeight());
+      // Input panels are as tall as the synth's oscillator panels; the filters get what is left.
+      int panel_margin = main_input_->findValue(Skin::kWidgetMargin);
+      int panel_height = 2 * (int)main_input_->getKnobSectionHeight() - panel_margin;
+      int inputs_height = 2 * panel_height + padding;
+      if (inputs_height > getHeight() / 2) {
+        panel_height = (getHeight() / 2 - padding) / 2;
+        inputs_height = 2 * panel_height + padding;
+      }
+
+      main_input_->setBounds(0, 0, getWidth(), panel_height);
+      sidechain_input_->setBounds(0, panel_height + padding, getWidth(), panel_height);
+
+      int filter_y = inputs_height + padding;
+      int filter_height = getHeight() - filter_y;
+      filter_section_1_->setBounds(0, filter_y, width_left, filter_height);
+      filter_section_2_->setBounds(width_left + padding, filter_y, width_right, filter_height);
       SynthSection::resized();
     }
 
@@ -71,6 +92,8 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener {
     FilterSection* getFilterSection2() { return filter_section_2_.get(); }
 
   private:
+    std::unique_ptr<FxInputSection> main_input_;
+    std::unique_ptr<FxInputSection> sidechain_input_;
     std::unique_ptr<FilterSection> filter_section_1_;
     std::unique_ptr<FilterSection> filter_section_2_;
 

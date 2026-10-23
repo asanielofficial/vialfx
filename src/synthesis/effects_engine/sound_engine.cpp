@@ -48,6 +48,12 @@ namespace vital {
 
   void SoundEngine::init() {
     createBaseControl("bypass");
+
+    // Placeholder controls for the input panels; nothing reads them until spectral morph / distortion exist.
+    createBaseControl("input_spectral_morph_amount");
+    createBaseControl("input_distortion_amount");
+    createBaseControl("sidechain_spectral_morph_amount");
+    createBaseControl("sidechain_distortion_amount");
     oversampling_ = createBaseControl("oversampling");
     legato_ = createBaseControl("legato");
 

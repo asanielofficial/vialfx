@@ -507,6 +507,19 @@ namespace {
           fmt("range %.3f..%.3f", later.first, later.second));
   }
 
+  void testPlaceholders() {
+    std::printf("\n== Input panel placeholder controls ==\n");
+    // Placeholder input-panel parameters must exist in the engine so the GUI and presets can bind to them.
+    for (const char* name : { "input_spectral_morph_amount", "input_distortion_amount",
+                              "sidechain_spectral_morph_amount", "sidechain_distortion_amount" }) {
+      Rig placeholder_rig;
+      check(placeholder_rig.controls.count(name) == 1, std::string("control exists: ") + name);
+      check(placeholder_rig.controls.count(name) == 0 || placeholder_rig.controls[name]->value() == 0.0f,
+            std::string("defaults to 0: ") + name);
+    }
+
+  }
+
   void testCpu() {
     std::printf("\n== CPU ==\n");
     Rig rig;
@@ -538,6 +551,7 @@ int main() {
     testEffects();
     testOversampling();
     testModulation();
+    testPlaceholders();
     testCpu();
   }
   catch (const std::exception& e) {

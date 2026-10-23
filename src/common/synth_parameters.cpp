@@ -282,6 +282,18 @@ namespace vital {
     { "volume", 0x000000, 0.0, 7399.4404, 5473.0404, -80, 1.0,
 #endif
       ValueDetails::kSquareRoot, false, "dB", "Volume", nullptr },
+#if VITAL_FX
+    // Input panels of the FX build. The knobs exist in the interface and are saved with presets, but the
+    // spectral morph and distortion processing is not implemented yet (roadmap v0.2 / v0.3).
+    { "input_spectral_morph_amount", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Input Spectral Morph", nullptr },
+    { "input_distortion_amount", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Input Distortion", nullptr },
+    { "sidechain_spectral_morph_amount", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Sidechain Spectral Morph", nullptr },
+    { "sidechain_distortion_amount", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Sidechain Distortion", nullptr },
+#endif
     { "phaser_on", 0x000000, 0.0, 1.0, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Phaser Switch", strings::kOffOnNames },
     { "phaser_dry_wet", 0x000000, 0.0, 1.0, 1.0, 0.0, 100.0,
