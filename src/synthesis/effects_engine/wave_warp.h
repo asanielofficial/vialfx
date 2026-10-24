@@ -25,13 +25,19 @@
 namespace vital {
   // Time-domain waveshapers that sit on each input lane after its level and pan, before the filter routing.
   //
-  // Eight modes, each with an amount from 0 to 1. At amount 0 every mode passes the audio through untouched.
+  // Eight modes, each with an amount knob from 0 to 1. Sync, Formant, Bend and Squeeze are bipolar, as in the
+  // original oscillator distortions: the knob's centre (0.5) is neutral and the two directions do opposite
+  // things. The other four (Quantize, Pulse, FM, RM) are unipolar: 0 is neutral. At its neutral position every
+  // mode passes the audio through untouched.
   //
-  //  Sync     triangle wavefolder; the amount drives the signal further into the folds.
-  //  Formant  wavefolder windowed by the signal's own amplitude, so the folding is strongest near zero.
+  //  Sync     (bipolar) up: triangle wavefolder, driven further into the folds. Down: only the positive half
+  //           of the waveform folds (an asymmetric, "one-sided" fold).
+  //  Formant  (bipolar) up: wavefolder windowed by the signal's own amplitude, folding the middle of the wave.
+  //           Down: the opposite window, folding the peaks.
   //  Quantize bit reduction plus sample-rate reduction.
-  //  Bend     cubic waveshaper that bends (pinches) the curve around zero.
-  //  Squeeze  power-law waveshaper that squeezes low levels harder than peaks.
+  //  Bend     (bipolar) bends one half of the waveform towards zero: up the positive half, down the negative.
+  //  Squeeze  (bipolar) up: power-law squeeze that pinches low levels towards zero. Down: the opposite, which
+  //           lifts low levels (a stretch).
   //  Pulse    asymmetric clipper: the positive half clips early, the negative half stays open.
   //  FM       phase modulation: the modulator lane (the sidechain) moves a short delay tap of the signal.
   //  RM       ring modulation: the signal multiplied by the modulator lane, mixed in by the amount.
@@ -66,12 +72,15 @@ namespace vital {
       static constexpr int kMaxFmDelaySamples = 64;
       static constexpr int kFmBufferSize = 256;  // power of two, bigger than the maximum delay plus interpolation
       static constexpr int kLanes = poly_float::kSize;
+      static constexpr float kReleaseSeconds = 0.15f;
+      static constexpr float kMinReference = 0.01f;   // below about -40 dB the signal is not scaled up further
 
       // uses_modulator: whether this instance has a modulator lane to read (the main lane has one).
       explicit WaveWarp(bool uses_modulator) : Processor(kNumInputs, 1), uses_modulator_(uses_modulator),
                                                write_index_(0), hold_counter_(0) {
         for (int lane = 0; lane < kLanes; ++lane) {
           held_[lane] = 0.0f;
+          envelope_[lane] = 0.0f;
           for (int i = 0; i < kFmBufferSize; ++i)
             history_[i][lane] = 0.0f;
         }
@@ -79,22 +88,52 @@ namespace vital {
 
       Processor* clone() const override { return new WaveWarp(*this); }
 
-      // The waveshaper for one sample of one channel, for the six modes that need no state or modulator.
+      static bool isBipolar(int mode) {
+        return mode == kSync || mode == kFormant || mode == kBend || mode == kSqueeze;
+      }
+
+      // The knob value (0..1) as the signed/unsigned amount the shapers use.
+      static float effectiveAmount(int mode, float knob) {
+        knob = utils::clamp(knob, 0.0f, 1.0f);
+        return isBipolar(mode) ? 2.0f * knob - 1.0f : knob;
+      }
+
+      static bool isNeutral(int mode, float amount) {
+        return isBipolar(mode) ? std::fabs(amount) < 1.0e-4f : amount < 1.0e-6f;
+      }
+
+      // The waveshaper for one sample of one channel, for the modes that need no state or modulator.
+      // amount is signed (-1..1) for the bipolar modes and 0..1 for Pulse.
       static float shape(int mode, float x, float amount) {
         switch (mode) {
           case kSync: {
-            float gain = 1.0f + 7.0f * amount;
-            return fold(gain * x);
+            if (amount >= 0.0f)
+              return fold((1.0f + 7.0f * amount) * x);
+            return x < 0.0f ? x : fold((1.0f - 7.0f * amount) * x);
           }
           case kFormant: {
-            float window = 1.0f - std::min(x * x, 1.0f);
-            float folded = fold((1.0f + 3.0f * amount) * 2.0f * x) * window;
-            return x + amount * (folded - x);
+            float squared = std::min(x * x, 1.0f);
+            float window = amount >= 0.0f ? 1.0f - squared : squared;
+            float strength = std::fabs(amount);
+            float folded = fold((1.0f + 3.0f * strength) * 2.0f * x) * window;
+            return x + strength * (folded - x);
           }
-          case kBend:
-            return x * (1.0f + amount * (x * x - 1.0f));
-          case kSqueeze:
-            return x * std::pow(std::fabs(x), 3.0f * amount);
+          case kBend: {
+            // Pinch one half of the wave towards zero (positive half for amount > 0, negative for < 0).
+            float power = 1.0f + 3.0f * std::fabs(amount);
+            bool bent_side = amount >= 0.0f ? x > 0.0f : x < 0.0f;
+            if (!bent_side)
+              return x;
+            float magnitude = std::fabs(x);
+            return std::copysign(magnitude <= 1.0f ? std::pow(magnitude, power) : magnitude, x);
+          }
+          case kSqueeze: {
+            float magnitude = std::fabs(x);
+            if (magnitude > 1.0f)
+              return x;
+            float power = amount >= 0.0f ? 1.0f + 3.0f * amount : 1.0f / (1.0f + 3.0f * -amount);
+            return std::copysign(std::pow(magnitude, power), x);
+          }
           case kPulse: {
             float ceiling = 1.0f - 0.7f * amount;
             float y = std::min(x * (1.0f + 3.0f * amount), ceiling);
@@ -111,7 +150,7 @@ namespace vital {
 
         int mode = static_cast<int>(input(kMode)->source->buffer[0][0] + 0.5f);
         mode = std::max(0, std::min(mode, kNumModes - 1));
-        float amount = utils::clamp(input(kAmount)->source->buffer[0][0], 0.0f, 1.0f);
+        float amount = effectiveAmount(mode, input(kAmount)->source->buffer[0][0]);
         bool modulated_mode = mode == kFm || mode == kRm;
         bool has_modulator = uses_modulator_ && input(kModulatorOn)->source->buffer[0][0] > 0.5f;
 
@@ -121,7 +160,7 @@ namespace vital {
             history_[(write_index_ + i) & (kFmBufferSize - 1)][lane] = audio[i][lane];
         }
 
-        if (amount < 1.0e-6f || (modulated_mode && !uses_modulator_)) {
+        if (isNeutral(mode, amount) || (modulated_mode && !uses_modulator_)) {
           for (int i = 0; i < num_samples; ++i)
             out[i] = audio[i];
           write_index_ = (write_index_ + num_samples) & (kFmBufferSize - 1);
@@ -135,6 +174,11 @@ namespace vital {
           return;
         }
 
+        // The shapers are designed for a full-scale (+-1) waveform. Real audio is usually much quieter, so the
+        // waveshaping modes work on the signal relative to its own peak level (a fast-attack, slow-release
+        // follower) and scale the result back. The effect is then the same at any input level.
+        float release = std::exp(-1.0f / (kReleaseSeconds * std::max(getSampleRate(), 8000)));
+
         const poly_float* modulator = uses_modulator_ ? input(kModulator)->source->buffer : nullptr;
         for (int i = 0; i < num_samples; ++i) {
           float result[kLanes];
@@ -147,8 +191,11 @@ namespace vital {
                                                (write_index_ + i) & (kFmBufferSize - 1), lane);
             else if (mode == kRm)
               result[lane] = x + amount * (x * utils::clamp(modulator[i][lane], -1.0f, 1.0f) - x);
-            else
-              result[lane] = shape(mode, x, amount);
+            else {
+              envelope_[lane] = std::max(std::fabs(x), envelope_[lane] * release);
+              float reference = std::max(envelope_[lane], kMinReference);
+              result[lane] = reference * shape(mode, x / reference, amount);
+            }
           }
           if (mode == kQuantize)
             advanceHold(amount);
@@ -195,6 +242,7 @@ namespace vital {
       int write_index_;
       int hold_counter_;
       float held_[kLanes];
+      float envelope_[kLanes];
       float history_[kFmBufferSize][kLanes];
 
       JUCE_LEAK_DETECTOR(WaveWarp)

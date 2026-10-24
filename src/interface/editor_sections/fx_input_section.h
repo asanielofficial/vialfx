@@ -245,6 +245,7 @@ class FxInputSection : public SynthSection {
       if (warp != controls.end() && warp->second) {
         current_warp_ = clampWarp(static_cast<int>(warp->second->value()));
         warp_text_->setText(strings::kWarpNames[current_warp_]);
+        updateWarpKnob();
       }
       connectMemory();
     }
@@ -285,9 +286,25 @@ class FxInputSection : public SynthSection {
 
     int clampWarp(int mode) const { return std::max(0, std::min(mode, num_warp_modes_ - 1)); }
 
+    // Sync, Formant, Bend and Squeeze have a centred (bipolar) amount knob, like the original distortions.
+    static bool isBipolarWarp(int mode) { return mode == 0 || mode == 1 || mode == 3 || mode == 4; }
+
+    void updateWarpKnob() {
+      bool bipolar = isBipolarWarp(current_warp_);
+      distortion_->setBipolar(bipolar);
+      distortion_->setDoubleClickReturnValue(true, bipolar ? 0.5f : 0.0f);
+      distortion_->redoImage();
+    }
+
     void setWarp(int mode) {
+      bool was_bipolar = isBipolarWarp(current_warp_);
       current_warp_ = clampWarp(mode);
       warp_text_->setText(strings::kWarpNames[current_warp_]);
+      updateWarpKnob();
+
+      // Moving between a centred and a zero-based knob would leave a surprising amount, so go back to neutral.
+      if (was_bipolar != isBipolarWarp(current_warp_))
+        distortion_->setValue(isBipolarWarp(current_warp_) ? 0.5f : 0.0f, sendNotificationSync);
 
       SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
       if (parent && parent->getSynth())

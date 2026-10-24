@@ -117,8 +117,8 @@ class SynthBase : public MidiManager::Listener {
     const vital::poly_float* getOscilloscopeMemory() { return oscilloscope_memory_; }
     const vital::StereoMemory* getAudioMemory() { return audio_memory_.get(); }
     // Recent audio of the effect build's two inputs (for the input panels' spectrum displays).
-    const vital::StereoMemory* getInputMemory() { return input_memory_.get(); }
-    const vital::StereoMemory* getSidechainMemory() { return sidechain_memory_.get(); }
+    const vital::StereoMemory* getInputMemory();
+    const vital::StereoMemory* getSidechainMemory();
     const vital::StereoMemory* getEqualizerMemory();
     vital::ModulationConnectionBank& getModulationBank();
     void notifyOversamplingChanged();
@@ -178,8 +178,6 @@ class SynthBase : public MidiManager::Listener {
     vital::poly_float oscilloscope_memory_[2 * vital::kOscilloscopeMemoryResolution];
     vital::poly_float oscilloscope_memory_write_[2 * vital::kOscilloscopeMemoryResolution];
     std::unique_ptr<vital::StereoMemory> audio_memory_;
-    std::unique_ptr<vital::StereoMemory> input_memory_;
-    std::unique_ptr<vital::StereoMemory> sidechain_memory_;
     vital::mono_float last_played_note_;
     int last_num_pressed_;
     vital::mono_float memory_reset_period_;

@@ -50,8 +50,6 @@ SynthBase::SynthBase() : expired_(false) {
   last_played_note_ = 0.0f;
   last_num_pressed_ = 0;
   audio_memory_ = std::make_unique<vital::StereoMemory>(vital::kAudioMemorySamples);
-  input_memory_ = std::make_unique<vital::StereoMemory>(vital::kAudioMemorySamples);
-  sidechain_memory_ = std::make_unique<vital::StereoMemory>(vital::kAudioMemorySamples);
   memset(oscilloscope_memory_, 0, 2 * vital::kOscilloscopeMemoryResolution * sizeof(vital::poly_float));
   memset(oscilloscope_memory_write_, 0, 2 * vital::kOscilloscopeMemoryResolution * sizeof(vital::poly_float));
   memory_reset_period_ = vital::kOscilloscopeMemoryResolution;
@@ -600,11 +598,6 @@ void SynthBase::processAudioWithInput(AudioSampleBuffer* buffer, const vital::po
   if (expired_)
     return;
 
-  for (int i = 0; i < samples; ++i) {
-    input_memory_->push(input_buffer[i]);
-    sidechain_memory_->push(sidechain_buffer ? sidechain_buffer[i] : vital::poly_float(0.0f));
-  }
-
 #if VITAL_FX
   engine_->setSidechainInput(sidechain_buffer);
 #endif
@@ -753,6 +746,22 @@ String SynthBase::getMacroName(int index) {
   if (name.trim().isEmpty())
     return "MACRO " + String(index + 1);
   return name;
+}
+
+const vital::StereoMemory* SynthBase::getInputMemory() {
+#if VITAL_FX
+  return engine_->getInputMemory();
+#else
+  return nullptr;
+#endif
+}
+
+const vital::StereoMemory* SynthBase::getSidechainMemory() {
+#if VITAL_FX
+  return engine_->getSidechainMemory();
+#else
+  return nullptr;
+#endif
 }
 
 const vital::StereoMemory* SynthBase::getEqualizerMemory() {

@@ -17,7 +17,10 @@ It is built from GPLv3 synthesizer source code (see [NOTICE.md](NOTICE.md) for t
   the amount is a modulation target). Modes: Sync and Formant (wavefolders), Quantize (bit and sample-rate
   reduction), Bend and Squeeze (waveshapers), Pulse (asymmetric clipper), and on the main input only FM and RM,
   where the sidechain lane modulates the main lane. The sidechain lane is warped first; FM and RM on the main
-  input are silent while the sidechain lane is switched off. Amount 0 is an exact bypass.
+  input are silent while the sidechain lane is switched off. Sync, Formant, Bend and Squeeze are bipolar like the
+  original distortions (knob centre is neutral); the other modes are neutral at zero. The waveshapers work
+  relative to the signal's own level, so they bite at quiet levels too. The input spectrum displays show each
+  lane after its level, pan and warp.
 - **Filters:** two filters with the full set of filter models, in parallel or serial (FIL1/FIL2 buttons).
   Key tracking follows the last played MIDI note.
 - **Effects rack:** chorus, compressor, delay, distortion, EQ, filter, flanger, phaser and reverb, in a

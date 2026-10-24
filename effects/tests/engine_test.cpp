@@ -13,6 +13,7 @@
 #include "sound_engine.h"
 #include "synth_constants.h"
 #include "modulation_connection_processor.h"
+#include "memory.h"
 
 #include <chrono>
 #include <cmath>
@@ -662,11 +663,12 @@ namespace {
       // Amount 0 is transparent in every mode, on the main lane.
       Rig off;
       off.set("input_distortion_type", static_cast<float>(mode));
-      off.set("input_distortion_amount", 0.0f);
+      // The knob's neutral position: the centre for the bipolar modes, zero for the others.
+      off.set("input_distortion_amount", (mode == 0 || mode == 1 || mode == 3 || mode == 4) ? 0.5f : 0.0f);
       off.set("sidechain_on", 1.0f);
       Stereo out = off.render(kSampleRate, tone, 64, &silence);
       // (FM/RM at amount 0 must leave the main signal alone even with the sidechain lane switched on)
-      check(difference(out) < 1e-4, std::string(names[mode]) + " at amount 0 passes the audio through",
+      check(difference(out) < 1e-4, std::string(names[mode]) + " at its neutral amount passes the audio through",
             fmt("difference %.6f", difference(out)));
     }
 
@@ -699,6 +701,76 @@ namespace {
         check(out.finite() && out.peak() < 4.5f, std::string(names[mode]) + " stays finite and bounded at amount " +
               fmt("%.1f", amount), fmt("peak %.3f", out.peak()));
       }
+    }
+
+    // The waveshaping modes work at any input level (quiet music included), not just at full scale.
+    {
+      Generator quiet = [](int i, float& l, float& r) {
+        l = r = 0.03f * std::sin(2.0f * kPi * 440.0f * i / kSampleRate);
+      };
+      Rig quiet_baseline;
+      Stereo quiet_ref = quiet_baseline.render(kSampleRate, quiet);
+      for (int mode : { 0, 1, 3, 4, 5 }) {
+        Rig rig;
+        rig.set("input_distortion_type", static_cast<float>(mode));
+        rig.set("input_distortion_amount", mode == 5 ? 0.8f : 0.9f);
+        Stereo out = rig.render(kSampleRate, quiet);
+        double diff = 0.0, ref = 0.0;
+        for (size_t i = kSampleRate / 2; i < out.left.size(); ++i) {
+          diff += std::pow(static_cast<double>(out.left[i]) - quiet_ref.left[i], 2.0);
+          ref += std::pow(static_cast<double>(quiet_ref.left[i]), 2.0);
+        }
+        double relative = std::sqrt(diff / std::max(ref, 1e-12));
+        check(relative > 0.1, std::string(names[mode]) + " changes a quiet (-30 dB) signal clearly",
+              fmt("relative difference %.3f", relative));
+      }
+    }
+
+    // Sync, Formant, Bend and Squeeze are bipolar: below the centre does something different from above it.
+    for (int mode : { 0, 1, 3, 4 }) {
+      auto render_at = [&](float knob) {
+        Rig rig;
+        rig.set("input_distortion_type", static_cast<float>(mode));
+        rig.set("input_distortion_amount", knob);
+        return rig.render(kSampleRate, tone);
+      };
+      Stereo down = render_at(0.1f);
+      Stereo centre = render_at(0.5f);
+      Stereo up = render_at(0.9f);
+      double centre_diff = difference(centre);
+      double down_diff = difference(down);
+      double up_diff = difference(up);
+      double between = 0.0;
+      size_t n = 0;
+      for (size_t i = kSampleRate / 2; i < up.left.size(); ++i, ++n)
+        between += std::pow(static_cast<double>(up.left[i]) - down.left[i], 2.0);
+      between = std::sqrt(between / std::max<size_t>(n, 1));
+      check(centre_diff < 1e-4 && down_diff > 0.003 && up_diff > 0.003 && between > 0.003,
+            std::string(names[mode]) + " is bipolar: centre neutral, both directions act, and differently",
+            fmt("centre %.5f, down %.4f, up %.4f, down-vs-up %.4f", centre_diff, down_diff, up_diff, between));
+    }
+
+    // The input spectrum displays read the lane after the warp.
+    {
+      Rig rig;
+      rig.set("input_distortion_type", 6.0f);   // FM with the sidechain off: the lane is silent
+      rig.set("input_distortion_amount", 0.5f);
+      rig.render(kSampleRate / 2, tone);
+      const StereoMemory* memory = rig.engine->getInputMemory();
+      float peak = 0.0f;
+      float buffer[2048];
+      memory->readSamples(buffer, 2048, 0, 0);
+      for (float v : buffer)
+        peak = std::max(peak, std::fabs(v));
+      check(peak < 1e-4, "the input display memory follows the warped (here silenced) lane", fmt("peak %.6f", peak));
+
+      Rig open;
+      open.render(kSampleRate / 2, tone);
+      open.engine->getInputMemory()->readSamples(buffer, 2048, 0, 0);
+      peak = 0.0f;
+      for (float v : buffer)
+        peak = std::max(peak, std::fabs(v));
+      check(peak > 0.2f, "the input display memory carries the lane audio", fmt("peak %.4f", peak));
     }
 
     // RM: the 440 Hz carrier is replaced by sum/difference tones with a 1 kHz modulator.
@@ -745,7 +817,8 @@ namespace {
     {
       auto warped_difference = [&](float macro) {
         Rig rig;
-        rig.set("input_distortion_type", 3.0f);
+        rig.set("input_distortion_type", 5.0f);
+        rig.set("input_distortion_amount", 0.0f);
         connectMod(rig, "macro_control_1", "input_distortion_amount", 1.0f);
         rig.set("macro_control_1", macro);
         return difference(rig.render(kSampleRate, tone));
@@ -998,8 +1071,10 @@ namespace {
                               "sidechain_spectral_morph_amount", "sidechain_distortion_amount" }) {
       Rig placeholder_rig;
       check(placeholder_rig.controls.count(name) == 1, std::string("control exists: ") + name);
-      check(placeholder_rig.controls.count(name) == 0 || placeholder_rig.controls[name]->value() == 0.0f,
-            std::string("defaults to 0: ") + name);
+      // The morph knobs default to 0; the warp amounts default to their bipolar centre (Sync is the first mode).
+      float expected = std::string(name).find("distortion") != std::string::npos ? 0.5f : 0.0f;
+      check(placeholder_rig.controls.count(name) == 0 || placeholder_rig.controls[name]->value() == expected,
+            std::string("default value: ") + name);
     }
 
     // Controls the GUI touches directly (Advanced tab and header): touching them used to crash the plugin.

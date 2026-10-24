@@ -9,6 +9,7 @@
 #pragma once
 
 #include "processor.h"
+#include "memory.h"
 #include "synth_constants.h"
 #include "utils.h"
 #include "value.h"
@@ -66,6 +67,34 @@ namespace vital {
       bool first_block_;
 
       JUCE_LEAK_DETECTOR(AudioLane)
+  };
+
+  // Records what a lane carries (after its level, pan and warp) for the input panel's spectrum display.
+  // The audio passes through unchanged.
+  class AudioTap : public Processor {
+    public:
+      enum {
+        kAudio,
+        kNumInputs
+      };
+
+      explicit AudioTap(StereoMemory* memory) : Processor(kNumInputs, 1), memory_(memory) { }
+
+      Processor* clone() const override { return new AudioTap(*this); }
+
+      void process(int num_samples) override {
+        const poly_float* audio = input(kAudio)->source->buffer;
+        poly_float* out = output()->buffer;
+        for (int i = 0; i < num_samples; ++i) {
+          out[i] = audio[i];
+          memory_->push(audio[i]);
+        }
+      }
+
+    private:
+      StereoMemory* memory_;
+
+      JUCE_LEAK_DETECTOR(AudioTap)
   };
 
   // Routes the two audio inputs (main and sidechain) to the filters, the effects, or straight to the output.

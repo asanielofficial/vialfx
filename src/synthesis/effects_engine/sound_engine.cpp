@@ -145,9 +145,19 @@ namespace vital {
     main_warp->plug(sidechain_on, WaveWarp::kModulatorOn);
     addProcessor(main_warp);
 
+    // The input panels' spectrum displays show each lane after its level, pan and warp.
+    input_memory_ = std::make_shared<StereoMemory>(kAudioMemorySamples);
+    sidechain_memory_ = std::make_shared<StereoMemory>(kAudioMemorySamples);
+    AudioTap* main_tap = new AudioTap(input_memory_.get());
+    main_tap->plug(main_warp, AudioTap::kAudio);
+    addProcessor(main_tap);
+    AudioTap* sidechain_tap = new AudioTap(sidechain_memory_.get());
+    sidechain_tap->plug(sidechain_warp, AudioTap::kAudio);
+    addProcessor(sidechain_tap);
+
     filter_router_ = new AudioFilterRouter();
-    filter_router_->plug(main_warp, AudioFilterRouter::kAudio);
-    filter_router_->plug(sidechain_warp, AudioFilterRouter::kSidechain);
+    filter_router_->plug(main_tap, AudioFilterRouter::kAudio);
+    filter_router_->plug(sidechain_tap, AudioFilterRouter::kSidechain);
     filter_router_->setDestinations(input_destination, sidechain_destination);
     addProcessor(filter_router_);
 
@@ -353,6 +363,10 @@ namespace vital {
     for (auto& status_source : data_->status_outputs)
       status_source.second->update();
   }
+
+  const StereoMemory* SoundEngine::getInputMemory() { return input_memory_.get(); }
+
+  const StereoMemory* SoundEngine::getSidechainMemory() { return sidechain_memory_.get(); }
 
   void SoundEngine::setSidechainInput(const poly_float* audio) {
     sidechain_in_ = audio;
