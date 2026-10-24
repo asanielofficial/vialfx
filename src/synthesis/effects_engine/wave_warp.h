@@ -177,7 +177,7 @@ namespace vital {
         // The shapers are designed for a full-scale (+-1) waveform. Real audio is usually much quieter, so the
         // waveshaping modes work on the signal relative to its own peak level (a fast-attack, slow-release
         // follower) and scale the result back. The effect is then the same at any input level.
-        float release = std::exp(-1.0f / (kReleaseSeconds * std::max(getSampleRate(), 8000)));
+        float release = std::exp(-1.0f / (float(kReleaseSeconds) * std::max(getSampleRate(), 8000)));
 
         const poly_float* modulator = uses_modulator_ ? input(kModulator)->source->buffer : nullptr;
         for (int i = 0; i < num_samples; ++i) {
@@ -193,7 +193,7 @@ namespace vital {
               result[lane] = x + amount * (x * utils::clamp(modulator[i][lane], -1.0f, 1.0f) - x);
             else {
               envelope_[lane] = std::max(std::fabs(x), envelope_[lane] * release);
-              float reference = std::max(envelope_[lane], kMinReference);
+              float reference = std::max(envelope_[lane], float(kMinReference));
               result[lane] = reference * shape(mode, x / reference, amount);
             }
           }
