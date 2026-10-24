@@ -204,6 +204,7 @@ namespace vital {
 
     Output* pitch_bend_range = createPolyModControl("pitch_bend_range");
     Output* voice_tune = createPolyModControl("voice_tune");
+    Output* voice_transpose = createPolyModControl("voice_transpose");
     cr::Multiply* pitch_bend = new cr::Multiply();
     pitch_bend->plug(pitch_wheel(), 0);
     pitch_bend->plug(pitch_bend_range, 1);
@@ -212,6 +213,7 @@ namespace vital {
     bent_midi_->plugNext(pitch_bend);
     bent_midi_->plugNext(local_pitch_bend());
     bent_midi_->plugNext(voice_tune);
+    bent_midi_->plugNext(voice_transpose);
 
     // The engine-level filters read the played note through these readouts (last played note, bend included).
     bent_midi_output_ = registerOutput(bent_midi_->output());

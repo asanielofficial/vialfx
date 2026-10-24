@@ -107,3 +107,22 @@ jobs:
           final=$?
           run_mode gui "" warning
           exit $final
+
+      - name: GUI smoke test (clicks through the editor)
+        if: always()
+        run: |
+          set +e
+          make -C effects/tests/gui_smoke -j"$(nproc)" > smoke_build.log 2>&1
+          if [ $? -ne 0 ]; then
+            grep -E "error" smoke_build.log | head -15 | cut -c1-300 | while IFS= read -r l; do echo "::warning::[smoke build] $l"; done
+            exit 0
+          fi
+          PLUGIN="$PWD/effects/builds/linux_vst/build/VialFX.vst3"
+          xvfb-run -a gdb -batch -ex "set pagination off" -ex run -ex "bt 30" \
+            --args effects/tests/gui_smoke/build/gui_smoke "$PLUGIN" > smoke.log 2>&1
+          grep -E "\[smoke\]" smoke.log | cut -c1-200 | while IFS= read -r l; do echo "::notice::$l"; done
+          if grep -qE "SIGSEGV|SIGABRT|SIGILL|SIGFPE" smoke.log; then
+            grep -E "^#[0-9]+" smoke.log | head -30 | cut -c1-330 | while IFS= read -r l; do echo "::error::[smoke bt] $l"; done
+            exit 1
+          fi
+          grep -q "ALL OK" smoke.log || { echo "::error::GUI smoke test did not finish cleanly"; exit 1; }

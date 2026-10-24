@@ -64,7 +64,11 @@ SynthBase::SynthBase() : expired_(false) {
 SynthBase::~SynthBase() { }
 
 void SynthBase::valueChanged(const std::string& name, vital::mono_float value) {
-  controls_[name]->set(value);
+  // A parameter that this engine does not implement (e.g. synth-only ones in the effect build) is ignored
+  // instead of dereferencing a missing control.
+  auto control = controls_.find(name);
+  if (control != controls_.end() && control->second)
+    control->second->set(value);
 }
 
 void SynthBase::valueChangedInternal(const std::string& name, vital::mono_float value) {
@@ -73,7 +77,10 @@ void SynthBase::valueChangedInternal(const std::string& name, vital::mono_float 
 }
 
 void SynthBase::valueChangedThroughMidi(const std::string& name, vital::mono_float value) {
-  controls_[name]->set(value);
+  auto control = controls_.find(name);
+  if (control == controls_.end() || !control->second)
+    return;
+  control->second->set(value);
   ValueChangedCallback* callback = new ValueChangedCallback(self_reference_, name, value);
   setValueNotifyHost(name, value);
   callback->post();

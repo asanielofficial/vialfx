@@ -49,6 +49,12 @@ namespace vital {
   void SoundEngine::init() {
     createBaseControl("bypass");
 
+    // Interface-level controls the synth engine also registers. The GUI sets these by name, so they have to
+    // exist (an unregistered name used to crash the plugin when its button or knob was touched).
+    createBaseControl("mpe_enabled");
+    createBaseControl("view_spectrogram");
+    createBaseControl("voice_amplitude");  // voice section knob; there is no voice audio in an effect
+
     // Placeholder controls for the input panels; nothing reads them until spectral morph / distortion exist.
     createBaseControl("input_spectral_morph_amount");
     createBaseControl("input_distortion_amount");
