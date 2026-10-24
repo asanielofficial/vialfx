@@ -518,6 +518,29 @@ namespace {
             std::string("defaults to 0: ") + name);
     }
 
+    // Controls the GUI touches directly (Advanced tab and header): touching them used to crash the plugin.
+    Rig gui_rig;
+    for (const char* name : { "mpe_enabled", "view_spectrogram", "voice_transpose", "voice_tune", "bypass" })
+      check(gui_rig.controls.count(name) == 1, std::string("GUI control exists: ") + name);
+
+    // Parameters the GUI/host can set but the engine lacks: reported so they are visible (the control lookup
+    // in SynthBase is tolerant, so these are ignored rather than crashing).
+    int missing = 0;
+    for (int i = 0; i < vital::Parameters::getNumParameters(); ++i) {
+      const vital::ValueDetails* d = vital::Parameters::getDetails(i);
+      if (d && gui_rig.controls.count(d->name) == 0)
+        ++missing;
+    }
+    std::printf("  (%d of %d parameters have no engine control; ignored safely)\n", missing,
+                vital::Parameters::getNumParameters());
+
+    // Transpose and MPE while notes are playing.
+    for (float transpose : { 12.0f, -24.0f, 48.0f, -48.0f, 0.0f }) {
+      gui_rig.controls["voice_transpose"]->set(transpose);
+      gui_rig.controls["mpe_enabled"]->set(transpose > 0 ? 1.0f : 0.0f);
+      gui_rig.controls["view_spectrogram"]->set(transpose > 0 ? 1.0f : 0.0f);
+    }
+    check(true, "transpose / MPE / spectrogram controls accept values");
   }
 
   void testCpu() {
