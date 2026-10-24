@@ -101,6 +101,8 @@ namespace {
       return sizeof(strings::kSpectralMorphNames) / sizeof(strings::kSpectralMorphNames[0]);
     if (lookup == strings::kStereoModeNames)
       return sizeof(strings::kStereoModeNames) / sizeof(strings::kStereoModeNames[0]);
+    if (lookup == strings::kWarpNames)
+      return sizeof(strings::kWarpNames) / sizeof(strings::kWarpNames[0]);
     if (lookup == strings::kDestinationNames)
       return sizeof(strings::kDestinationNames) / sizeof(strings::kDestinationNames[0]);
     return 0;
@@ -301,6 +303,12 @@ namespace vital {
       ValueDetails::kIndexed, false, "", "Sidechain Destination", strings::kDestinationNames },
     // Lane switch, level (knob 1.0 = unity gain, up to +6 dB) and pan for each input. The sidechain lane is
     // off by default.
+    // Distortion warp mode (the knob amount is input_distortion_amount / sidechain_distortion_amount).
+    // FM and RM need the sidechain as their modulator, so only the main lane offers them.
+    { "input_distortion_type", 0x000000, 0.0, 7.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Input Warp Mode", strings::kWarpNames },
+    { "sidechain_distortion_type", 0x000000, 0.0, 5.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Sidechain Warp Mode", strings::kWarpNames },
     { "input_on", 0x000000, 0.0, 1.0, 1.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Input Switch", strings::kOffOnNames },
     { "input_level", 0x000000, 0.0, 1.41421356237, 1.0, 0.0, 1.0,

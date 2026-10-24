@@ -47,9 +47,11 @@ class FxInputSection : public SynthSection {
         virtual void inputDestinationChanged(FxInputSection* section, int destination) = 0;
     };
 
-    // prefix is "input" or "sidechain".
-    FxInputSection(String title, const std::string& prefix) : SynthSection(title), prefix_(prefix),
-                                                              current_destination_(vital::constants::kDualFilters) {
+    // prefix is "input" or "sidechain". num_warp_modes is how many distortion warp modes the lane offers
+    // (the main lane has all 8; the sidechain has no modulator lane for FM and RM, so it offers 6).
+    FxInputSection(String title, const std::string& prefix, int num_warp_modes = 8) :
+        SynthSection(title), prefix_(prefix), current_destination_(vital::constants::kDualFilters),
+        num_warp_modes_(num_warp_modes) {
       spectral_morph_ = std::make_unique<SynthSlider>(prefix + "_spectral_morph_amount");
       addSlider(spectral_morph_.get());
       spectral_morph_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
@@ -106,6 +108,28 @@ class FxInputSection : public SynthSection {
       next_destination_->addListener(this);
       next_destination_->setShape(Paths::next());
 
+      warp_selector_ = std::make_unique<ShapeButton>("Warp Mode", Colour(0xff666666),
+                                                     Colour(0xffaaaaaa), Colour(0xff888888));
+      addAndMakeVisible(warp_selector_.get());
+      warp_selector_->addListener(this);
+      warp_selector_->setTriggeredOnMouseDown(true);
+      warp_selector_->setShape(Path(), true, true, true);
+
+      warp_text_ = std::make_unique<PlainTextComponent>("Warp Text", strings::kWarpNames[0]);
+      addOpenGlComponent(warp_text_.get());
+
+      prev_warp_ = std::make_unique<OpenGlShapeButton>("Prev Warp");
+      addAndMakeVisible(prev_warp_.get());
+      addOpenGlComponent(prev_warp_->getGlComponent());
+      prev_warp_->addListener(this);
+      prev_warp_->setShape(Paths::prev());
+
+      next_warp_ = std::make_unique<OpenGlShapeButton>("Next Warp");
+      addAndMakeVisible(next_warp_.get());
+      addOpenGlComponent(next_warp_->getGlComponent());
+      next_warp_->addListener(this);
+      next_warp_->setShape(Paths::next());
+
       setSkinOverride(Skin::kOscillator);
       updateDestinationText();
     }
@@ -143,7 +167,10 @@ class FxInputSection : public SynthSection {
       drawLabelForComponent(g, TRANS("LEVEL"), level_.get());
       drawLabelForComponent(g, TRANS("PAN"), pan_.get());
       drawLabelForComponent(g, TRANS("SPECTRAL"), spectral_morph_.get());
-      drawLabelForComponent(g, TRANS("DISTORTION"), distortion_.get());
+      // The distortion knob's label is the warp mode selector.
+      g.setColour(findColour(Skin::kTextComponentBackground, true));
+      g.fillRoundedRectangle(getLabelBackgroundBounds(distortion_.get()).toFloat(),
+                             findValue(Skin::kLabelBackgroundRounding));
     }
 
     void resized() override {
@@ -184,6 +211,16 @@ class FxInputSection : public SynthSection {
       prev_destination_->setBounds(display_x, destination_y, browse_width, browse_width);
       next_destination_->setBounds(display_x + display_width - browse_width, destination_y,
                                    browse_width, browse_width);
+
+      Rectangle<int> warp_bounds = getLabelBackgroundBounds(distortion_.get());
+      int warp_browse = warp_bounds.getHeight();
+      warp_text_->setBounds(warp_bounds);
+      warp_text_->setTextSize(findValue(Skin::kLabelHeight));
+      warp_text_->setColor(findColour(Skin::kBodyText, true));
+      prev_warp_->setBounds(warp_bounds.getX(), warp_bounds.getY(), warp_browse, warp_browse);
+      next_warp_->setBounds(warp_bounds.getRight() - warp_browse, warp_bounds.getY(), warp_browse, warp_browse);
+      int warp_menu_x = prev_warp_->getRight();
+      warp_selector_->setBounds(warp_menu_x, warp_bounds.getY(), next_warp_->getX() - warp_menu_x, warp_browse);
       connectMemory();
     }
 
@@ -204,6 +241,11 @@ class FxInputSection : public SynthSection {
         current_destination_ = clampDestination(static_cast<int>(destination->second->value()));
         notifyDestination();
       }
+      auto warp = controls.find(prefix_ + "_distortion_type");
+      if (warp != controls.end() && warp->second) {
+        current_warp_ = clampWarp(static_cast<int>(warp->second->value()));
+        warp_text_->setText(strings::kWarpNames[current_warp_]);
+      }
       connectMemory();
     }
 
@@ -216,6 +258,18 @@ class FxInputSection : public SynthSection {
         Point<int> position(destination_selector_->getX(), destination_selector_->getBottom());
         showPopupSelector(this, position, options, [=](int selection) { setDestination(selection); });
       }
+      else if (clicked_button == warp_selector_.get()) {
+        PopupItems options;
+        for (int i = 0; i < num_warp_modes_; ++i)
+          options.addItem(i, strings::kWarpNames[i]);
+
+        Point<int> position(warp_selector_->getX(), warp_selector_->getBottom());
+        showPopupSelector(this, position, options, [=](int selection) { setWarp(selection); });
+      }
+      else if (clicked_button == prev_warp_.get())
+        setWarp((current_warp_ + num_warp_modes_ - 1) % num_warp_modes_);
+      else if (clicked_button == next_warp_.get())
+        setWarp((current_warp_ + 1) % num_warp_modes_);
       else if (clicked_button == prev_destination_.get())
         setDestination((current_destination_ + kNumDestinations - 1) % kNumDestinations);
       else if (clicked_button == next_destination_.get())
@@ -227,6 +281,17 @@ class FxInputSection : public SynthSection {
   private:
     static int clampDestination(int destination) {
       return std::max(0, std::min(destination, kNumDestinations - 1));
+    }
+
+    int clampWarp(int mode) const { return std::max(0, std::min(mode, num_warp_modes_ - 1)); }
+
+    void setWarp(int mode) {
+      current_warp_ = clampWarp(mode);
+      warp_text_->setText(strings::kWarpNames[current_warp_]);
+
+      SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
+      if (parent && parent->getSynth())
+        parent->getSynth()->valueChangedInternal(prefix_ + "_distortion_type", current_warp_);
     }
 
     void connectMemory() {
@@ -263,6 +328,8 @@ class FxInputSection : public SynthSection {
 
     std::string prefix_;
     int current_destination_;
+    int num_warp_modes_;
+    int current_warp_ = 0;
     bool memory_connected_ = false;
     std::vector<Listener*> listeners_;
 
@@ -276,6 +343,10 @@ class FxInputSection : public SynthSection {
     std::unique_ptr<PlainTextComponent> destination_text_;
     std::unique_ptr<OpenGlShapeButton> prev_destination_;
     std::unique_ptr<OpenGlShapeButton> next_destination_;
+    std::unique_ptr<ShapeButton> warp_selector_;
+    std::unique_ptr<PlainTextComponent> warp_text_;
+    std::unique_ptr<OpenGlShapeButton> prev_warp_;
+    std::unique_ptr<OpenGlShapeButton> next_warp_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FxInputSection)
 };

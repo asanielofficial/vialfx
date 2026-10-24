@@ -629,6 +629,133 @@ namespace {
     }
   }
 
+  // Amplitude of one frequency in the second half of a signal (single-bin DFT).
+  double toneAmplitude(const std::vector<float>& x, float frequency) {
+    size_t start = x.size() / 2;
+    double re = 0.0, im = 0.0;
+    for (size_t i = start; i < x.size(); ++i) {
+      double phase = 2.0 * kPi * frequency * static_cast<double>(i) / kSampleRate;
+      re += x[i] * std::cos(phase);
+      im += x[i] * std::sin(phase);
+    }
+    return 2.0 * std::sqrt(re * re + im * im) / static_cast<double>(x.size() - start);
+  }
+
+  void testWarp() {
+    std::printf("\n== Distortion warp (8 modes per lane) ==\n");
+    const char* names[] = { "Sync", "Formant", "Quantize", "Bend", "Squeeze", "Pulse", "FM", "RM" };
+    Generator silence = [](int, float& l, float& r) { l = r = 0.0f; };
+    Generator tone = sine(440.0f);
+
+    Rig baseline_rig;
+    Stereo baseline = baseline_rig.render(kSampleRate, tone);
+
+    auto difference = [&](const Stereo& out) {
+      double diff = 0.0;
+      size_t n = 0;
+      for (size_t i = kSampleRate / 2; i < out.left.size(); ++i, ++n)
+        diff += std::pow(static_cast<double>(out.left[i]) - baseline.left[i], 2.0);
+      return std::sqrt(diff / std::max<size_t>(n, 1));
+    };
+
+    for (int mode = 0; mode < 8; ++mode) {
+      // Amount 0 is transparent in every mode, on the main lane.
+      Rig off;
+      off.set("input_distortion_type", static_cast<float>(mode));
+      off.set("input_distortion_amount", 0.0f);
+      off.set("sidechain_on", 1.0f);
+      Stereo out = off.render(kSampleRate, tone, 64, &silence);
+      // (FM/RM at amount 0 must leave the main signal alone even with the sidechain lane switched on)
+      check(difference(out) < 1e-4, std::string(names[mode]) + " at amount 0 passes the audio through",
+            fmt("difference %.6f", difference(out)));
+    }
+
+    for (int lane = 0; lane < 2; ++lane) {
+      std::string prefix = lane ? "sidechain" : "input";
+      for (int mode = 0; mode < 6; ++mode) {
+        Rig rig;
+        rig.set("sidechain_on", 1.0f);
+        rig.set(prefix + "_distortion_type", static_cast<float>(mode));
+        rig.set(prefix + "_distortion_amount", 0.7f);
+        Stereo out = lane ? rig.render(kSampleRate, silence, 64, &tone) : rig.render(kSampleRate, tone);
+        double diff = difference(out);
+        check(out.finite() && out.peak() < 2.0f && diff > 0.003,
+              std::string(names[mode]) + " warps the " + (lane ? "sidechain" : "main") + " lane",
+              fmt("difference rms %.4f, peak %.3f", diff, out.peak()));
+      }
+    }
+
+    // The shapers are bounded and finite for any amount, including loud input.
+    for (int mode = 0; mode < 8; ++mode) {
+      for (float amount : { 0.2f, 1.0f }) {
+        Rig rig;
+        rig.set("sidechain_on", 1.0f);
+        rig.set("input_distortion_type", static_cast<float>(mode));
+        rig.set("input_distortion_amount", amount);
+        Generator loud = [](int i, float& l, float& r) {
+          l = r = 1.8f * std::sin(2.0f * kPi * 330.0f * i / kSampleRate);
+        };
+        Stereo out = rig.render(kSampleRate / 2, loud, 64, &loud);
+        check(out.finite() && out.peak() < 4.5f, std::string(names[mode]) + " stays finite and bounded at amount " +
+              fmt("%.1f", amount), fmt("peak %.3f", out.peak()));
+      }
+    }
+
+    // RM: the 440 Hz carrier is replaced by sum/difference tones with a 1 kHz modulator.
+    {
+      Rig rig;
+      rig.set("sidechain_on", 1.0f);
+      rig.set("input_distortion_type", 7.0f);
+      rig.set("input_distortion_amount", 1.0f);
+      Generator modulator = sine(1000.0f);
+      Stereo out = rig.render(kSampleRate, tone, 64, &modulator);
+      double carrier = toneAmplitude(out.left, 440.0f);
+      double sum = toneAmplitude(out.left, 1440.0f);
+      double difference_tone = toneAmplitude(out.left, 560.0f);
+      check(carrier < 0.01 && sum > 0.02 && difference_tone > 0.02,
+            "RM replaces the carrier with sum and difference tones",
+            fmt("440 Hz %.4f, 1440 Hz %.4f, 560 Hz %.4f", carrier, sum, difference_tone));
+    }
+
+    // FM: sidebands appear around the carrier.
+    {
+      Rig rig;
+      rig.set("sidechain_on", 1.0f);
+      rig.set("input_distortion_type", 6.0f);
+      rig.set("input_distortion_amount", 1.0f);
+      Generator modulator = [](int i, float& l, float& r) {
+        l = r = std::sin(2.0f * kPi * 100.0f * i / kSampleRate);
+      };
+      Stereo out = rig.render(kSampleRate, tone, 64, &modulator);
+      double sideband = toneAmplitude(out.left, 540.0f) + toneAmplitude(out.left, 340.0f);
+      check(out.finite() && sideband > 0.003, "FM puts sidebands around the carrier", fmt("sidebands %.4f", sideband));
+    }
+
+    // FM and RM need the sidechain lane: with it off they output silence.
+    for (int mode : { 6, 7 }) {
+      Rig rig;
+      rig.set("input_distortion_type", static_cast<float>(mode));
+      rig.set("input_distortion_amount", 0.5f);
+      Stereo out = rig.render(kSampleRate / 2, tone);
+      check(out.peak() < 1e-4, std::string(names[mode]) + " is silent while the sidechain lane is off",
+            fmt("peak %.6f", out.peak()));
+    }
+
+    // The warp amount is a modulation target.
+    {
+      auto warped_difference = [&](float macro) {
+        Rig rig;
+        rig.set("input_distortion_type", 3.0f);
+        connectMod(rig, "macro_control_1", "input_distortion_amount", 1.0f);
+        rig.set("macro_control_1", macro);
+        return difference(rig.render(kSampleRate, tone));
+      };
+      double low = warped_difference(0.0f);
+      double high = warped_difference(1.0f);
+      check(low < 1e-4 && high > 0.01, "a macro can drive the warp amount", fmt("%.5f -> %.4f", low, high));
+    }
+  }
+
   double highBandEnergy(const Stereo& s, size_t start) {
     // Crude high-pass (first difference twice) to compare spectral tilt.
     double sum = 0.0;
@@ -879,7 +1006,8 @@ namespace {
     Rig gui_rig;
     for (const char* name : { "mpe_enabled", "view_spectrogram", "voice_transpose", "voice_tune", "bypass",
                               "input_destination", "sidechain_destination", "input_on", "input_level", "input_pan",
-                              "sidechain_on", "sidechain_level", "sidechain_pan" })
+                              "sidechain_on", "sidechain_level", "sidechain_pan",
+                              "input_distortion_type", "sidechain_distortion_type" })
       check(gui_rig.controls.count(name) == 1, std::string("GUI control exists: ") + name);
 
     // Parameters the GUI/host can set but the engine lacks: reported so they are visible (the control lookup
@@ -936,6 +1064,7 @@ int main() {
     testInputRouting();
     testLanes();
     testModulationMatrix();
+    testWarp();
     testPlaceholders();
     testCpu();
   }

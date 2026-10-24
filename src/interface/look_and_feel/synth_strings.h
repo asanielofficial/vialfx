@@ -315,6 +315,18 @@ namespace strings {
     "RM <- Sample"
   };
 
+  // Distortion warp modes of the effect build's input lanes (the sidechain lane offers the first six).
+  const std::string kWarpNames[] = {
+    "Sync",
+    "Formant",
+    "Quantize",
+    "Bend",
+    "Squeeze",
+    "Pulse",
+    "FM",
+    "RM"
+  };
+
   const std::string kSpectralMorphNames[] = {
     "None",
     "Vocode",

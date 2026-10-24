@@ -22,6 +22,7 @@
 #include "phaser_module.h"
 #include "decimator.h"
 #include "effects_input_stage.h"
+#include "wave_warp.h"
 #include "filters_module.h"
 #include "upsampler.h"
 #include "modulation_connection_processor.h"
@@ -58,9 +59,7 @@ namespace vital {
 
     // Placeholder controls for the input panels; nothing reads them until spectral morph / distortion exist.
     createBaseControl("input_spectral_morph_amount");
-    createBaseControl("input_distortion_amount");
     createBaseControl("sidechain_spectral_morph_amount");
-    createBaseControl("sidechain_distortion_amount");
     Value* input_destination = createBaseControl("input_destination");
     Value* sidechain_destination = createBaseControl("sidechain_destination");
 
@@ -69,6 +68,11 @@ namespace vital {
     Output* input_level = createMonoModControl("input_level");
     Output* input_pan = createMonoModControl("input_pan");
     Value* sidechain_on = createBaseControl("sidechain_on");
+    // Distortion warp: mode and (modulatable) amount for each lane.
+    Value* input_warp_mode = createBaseControl("input_distortion_type");
+    Output* input_warp_amount = createMonoModControl("input_distortion_amount");
+    Value* sidechain_warp_mode = createBaseControl("sidechain_distortion_type");
+    Output* sidechain_warp_amount = createMonoModControl("sidechain_distortion_amount");
     Output* sidechain_level = createMonoModControl("sidechain_level");
     Output* sidechain_pan = createMonoModControl("sidechain_pan");
     oversampling_ = createBaseControl("oversampling");
@@ -126,9 +130,24 @@ namespace vital {
     sidechain_lane->plug(sidechain_pan, AudioLane::kPan);
     addProcessor(sidechain_lane);
 
+    // The sidechain lane warps first; the main lane's FM and RM modes use its result as their modulator.
+    WaveWarp* sidechain_warp = new WaveWarp(false);
+    sidechain_warp->plug(sidechain_lane, WaveWarp::kAudio);
+    sidechain_warp->plug(sidechain_warp_mode, WaveWarp::kMode);
+    sidechain_warp->plug(sidechain_warp_amount, WaveWarp::kAmount);
+    addProcessor(sidechain_warp);
+
+    WaveWarp* main_warp = new WaveWarp(true);
+    main_warp->plug(main_lane, WaveWarp::kAudio);
+    main_warp->plug(input_warp_mode, WaveWarp::kMode);
+    main_warp->plug(input_warp_amount, WaveWarp::kAmount);
+    main_warp->plug(sidechain_warp, WaveWarp::kModulator);
+    main_warp->plug(sidechain_on, WaveWarp::kModulatorOn);
+    addProcessor(main_warp);
+
     filter_router_ = new AudioFilterRouter();
-    filter_router_->plug(main_lane, AudioFilterRouter::kAudio);
-    filter_router_->plug(sidechain_lane, AudioFilterRouter::kSidechain);
+    filter_router_->plug(main_warp, AudioFilterRouter::kAudio);
+    filter_router_->plug(sidechain_warp, AudioFilterRouter::kSidechain);
     filter_router_->setDestinations(input_destination, sidechain_destination);
     addProcessor(filter_router_);
 

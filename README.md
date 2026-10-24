@@ -5,7 +5,7 @@ inputs (main and sidechain) that can each be routed to the filters, the effects 
 It is built from GPLv3 synthesizer source code (see [NOTICE.md](NOTICE.md) for the origin of the code).
 
 > **Status:** version 0.1.0, early development. It builds as a VST3 on Linux and Windows in CI and passes
-> pluginval. The spectral morph and distortion knobs on the input panels are placeholders until v0.2 and v0.3.
+> pluginval. The spectral morph knobs on the input panels are placeholders until v0.3.
 
 ## What it does today
 
@@ -13,6 +13,11 @@ It is built from GPLv3 synthesizer source code (see [NOTICE.md](NOTICE.md) for t
   display sends it to Filter 1, Filter 2, Filter 1+2, the effects rack, or direct out (skipping filters and
   effects). The INPUT and SIDECHAIN buttons on each filter mirror these dropdowns. Each input also has an
   on/off switch, level and pan (all three can be modulated; the sidechain lane is off by default).
+- **Distortion warp (v0.2):** each input has a warp mode and amount (the right-hand knob on its panel, and
+  the amount is a modulation target). Modes: Sync and Formant (wavefolders), Quantize (bit and sample-rate
+  reduction), Bend and Squeeze (waveshapers), Pulse (asymmetric clipper), and on the main input only FM and RM,
+  where the sidechain lane modulates the main lane. The sidechain lane is warped first; FM and RM on the main
+  input are silent while the sidechain lane is switched off. Amount 0 is an exact bypass.
 - **Filters:** two filters with the full set of filter models, in parallel or serial (FIL1/FIL2 buttons).
   Key tracking follows the last played MIDI note.
 - **Effects rack:** chorus, compressor, delay, distortion, EQ, filter, flanger, phaser and reverb, in a
@@ -30,7 +35,7 @@ It is built from GPLv3 synthesizer source code (see [NOTICE.md](NOTICE.md) for t
 | Version | Content |
 | --- | --- |
 | v0.1 | Base FX: plugin shell, filters and effects rack, two-lane layout, GUI cleanup and modulation matrix (done) |
-| v0.2 | Distortion warp |
+| v0.2 | Distortion warp (done) |
 | v0.3 | Spectral processing |
 
 ## Building
