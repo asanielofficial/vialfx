@@ -15,6 +15,59 @@
 
 namespace vital {
 
+  // One input "lane": on/off switch, level and pan in front of the routing. The gain changes are ramped over
+  // the block so switching, level and pan modulation never click.
+  //
+  // level is the final linear gain (the engine control already applies the knob's quadratic curve);
+  // pan is -1..1 with an equal-power law that is exactly unity per side at the centre.
+  class AudioLane : public Processor {
+    public:
+      enum {
+        kAudio,
+        kOn,
+        kLevel,
+        kPan,
+        kNumInputs
+      };
+
+      AudioLane() : Processor(kNumInputs, 1), gain_(0.0f), first_block_(true) { }
+
+      Processor* clone() const override { return new AudioLane(*this); }
+
+      void process(int num_samples) override {
+        const poly_float* audio = input(kAudio)->source->buffer;
+        poly_float* out = output()->buffer;
+
+        float on = input(kOn)->source->buffer[0][0];
+        float level = input(kLevel)->source->buffer[0][0];
+        float pan = input(kPan)->source->buffer[0][0];
+        pan = utils::clamp(pan, -1.0f, 1.0f);
+
+        float angle = (pan + 1.0f) * 0.25f * kPi;
+        float amp = on > 0.5f ? std::max(level, 0.0f) * kSqrt2 : 0.0f;
+        poly_float target(amp * cosf(angle), amp * sinf(angle));
+
+        if (first_block_) {
+          gain_ = target;
+          first_block_ = false;
+        }
+
+        poly_float step = (target - gain_) * (1.0f / std::max(num_samples, 1));
+        poly_float gain = gain_;
+        for (int i = 0; i < num_samples; ++i) {
+          gain += step;
+          out[i] = audio[i] * gain;
+        }
+        gain_ = target;
+      }
+
+    private:
+      poly_float gain_;
+      bool first_block_;
+
+      JUCE_LEAK_DETECTOR(AudioLane)
+  };
+
   // Routes the two audio inputs (main and sidechain) to the filters, the effects, or straight to the output.
   //
   // Each input has a destination, the same list the synth uses for its oscillators:

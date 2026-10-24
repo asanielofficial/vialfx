@@ -12,6 +12,7 @@
 #include "JuceHeader.h"
 #include "sound_engine.h"
 #include "synth_constants.h"
+#include "modulation_connection_processor.h"
 
 #include <chrono>
 #include <cmath>
@@ -20,6 +21,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -301,6 +303,7 @@ namespace {
         setFilter(rig, 1, f1, 40.0f);
         setFilter(rig, 2, f2, 40.0f);
         rig.set(control, static_cast<float>(destination));
+        rig.set("sidechain_on", 1.0f);
         return rig.sineGainDbOn(sidechain != 0, probe);
       };
 
@@ -329,6 +332,7 @@ namespace {
       setFilter(rig, 1, true, 40.0f);
       rig.set("input_destination", static_cast<float>(kFilter1));
       rig.set("sidechain_destination", static_cast<float>(kDirect));
+      rig.set("sidechain_on", 1.0f);
       Generator tone = sine(probe);
       Generator silence = [](int, float& l, float& r) { l = r = 0.0f; };
       Stereo both = rig.render(kSampleRate, tone, 64, &tone);
@@ -379,6 +383,249 @@ namespace {
       serial.set("input_destination", static_cast<float>(kDual));
       double cascade = serial.sineGainDbOn(false, 600.0f);
       check(cascade < one - 3.0, "serial routing still cascades with destinations", fmt("%.2f vs %.2f dB", cascade, one));
+    }
+  }
+
+  void testLanes() {
+    std::printf("\n== Lane switch, level and pan ==\n");
+
+    {
+      Rig rig;
+      double gain = rig.sineGainDbOn(true, 1000.0f);
+      check(gain < -100.0, "sidechain lane is off by default (silent)", fmt("%.1f dB", gain));
+    }
+    {
+      Rig rig;
+      rig.set("sidechain_on", 1.0f);
+      double gain = rig.sineGainDbOn(true, 1000.0f);
+      check(std::fabs(gain) < 0.1, "sidechain lane passes audio when switched on", fmt("%.2f dB", gain));
+    }
+    {
+      Rig rig;
+      rig.set("input_on", 0.0f);
+      double gain = rig.sineGainDbOn(false, 1000.0f);
+      check(gain < -100.0, "main lane switched off is silent", fmt("%.1f dB", gain));
+    }
+
+    for (int lane = 0; lane < 2; ++lane) {
+      std::string prefix = lane ? "sidechain" : "input";
+      auto level_gain = [&](float knob) {
+        Rig rig;
+        rig.set("sidechain_on", 1.0f);
+        rig.set(prefix + "_level", knob);
+        return rig.sineGainDbOn(lane == 1, 1000.0f);
+      };
+      double half = level_gain(std::sqrt(0.5f));  // knob^2 = 0.5 -> -6 dB
+      double zero = level_gain(0.0f);
+      double max = level_gain(1.41421356f);        // knob^2 = 2 -> +6 dB
+      check(std::fabs(half + 6.02) < 0.3, prefix + " level knob 0.707 is -6 dB", fmt("%.2f dB", half));
+      check(zero < -100.0, prefix + " level 0 is silent", fmt("%.1f dB", zero));
+      check(std::fabs(max - 6.02) < 0.3, prefix + " level at maximum is +6 dB", fmt("%.2f dB", max));
+
+      auto pan_levels = [&](float pan) {
+        Rig rig;
+        rig.set("sidechain_on", 1.0f);
+        rig.set(prefix + "_pan", pan);
+        Generator tone = sine(1000.0f);
+        Generator silence = [](int, float& l, float& r) { l = r = 0.0f; };
+        Stereo out = lane ? rig.render(kSampleRate, silence, 64, &tone) : rig.render(kSampleRate, tone);
+        return std::make_pair(db(rms(out.left, kSampleRate / 2) / (kAmp / std::sqrt(2.0))),
+                              db(rms(out.right, kSampleRate / 2) / (kAmp / std::sqrt(2.0))));
+      };
+      auto center = pan_levels(0.0f);
+      auto left = pan_levels(-1.0f);
+      auto right = pan_levels(1.0f);
+      auto quarter = pan_levels(-0.5f);
+      check(std::fabs(center.first) < 0.1 && std::fabs(center.second) < 0.1, prefix + " pan centre is unity on both sides",
+            fmt("L %.2f R %.2f dB", center.first, center.second));
+      check(left.second < -60.0 && left.first > 2.9 && left.first < 3.1, prefix + " pan hard left: right silent, left +3 dB",
+            fmt("L %.2f R %.1f dB", left.first, left.second));
+      check(right.first < -60.0 && right.second > 2.9 && right.second < 3.1, prefix + " pan hard right: left silent, right +3 dB",
+            fmt("L %.1f R %.2f dB", right.first, right.second));
+      check(quarter.first > 0.0 && quarter.second < 0.0, prefix + " pan half left favours the left", fmt("L %.2f R %.2f dB", quarter.first, quarter.second));
+    }
+  }
+
+  // Connects a modulation source to a destination the way the interface does, at full amount.
+  // Returns the connection's processor (its output is what gets added to the destination), or nullptr.
+  ModulationConnectionProcessor* connectMod(Rig& rig, const std::string& source, const std::string& destination,
+                                            float amount = 1.0f) {
+    ModulationConnection* connection = rig.engine->getModulationBank().createConnection(source, destination);
+    if (connection == nullptr)
+      return nullptr;
+
+    modulation_change change;
+    change.source = rig.engine->getModulationSource(source);
+    change.mono_destination = rig.engine->getMonoModulationDestination(destination);
+    change.mono_modulation_switch = rig.engine->getMonoModulationSwitch(destination);
+    change.destination_scale = Parameters::getParameterRange(destination);
+    change.poly_modulation_switch = rig.engine->getPolyModulationSwitch(destination);
+    change.poly_destination = rig.engine->getPolyModulationDestination(destination);
+    change.modulation_processor = connection->modulation_processor.get();
+    change.num_audio_rate = 0;
+    change.disconnecting = false;
+    if (change.source == nullptr || change.mono_destination == nullptr || change.mono_modulation_switch == nullptr)
+      return nullptr;
+
+    rig.engine->connectModulation(change);
+    rig.set("modulation_1_amount", amount);  // the first connection of a fresh engine
+    return change.modulation_processor;
+  }
+
+  // What the connection currently adds to its destination (sum over lanes, so any lane moving shows up).
+  float modulationOutput(ModulationConnectionProcessor* processor) {
+    poly_float value = processor->output(ModulationConnectionProcessor::kModulationOutput)->buffer[0];
+    float sum = 0.0f;
+    for (int i = 0; i < poly_float::kSize; ++i)
+      sum += value[i];
+    return sum;
+  }
+
+  void testModulationMatrix() {
+    std::printf("\n== Modulation matrix: every source reaches a destination ==\n");
+    std::vector<poly_float> silence(kMaxBufferSize, poly_float(0.0f));
+
+    // Reads the value of the connection's source as seen by the matrix after running some blocks.
+    ModulationConnectionProcessor* watched = nullptr;
+    auto read = [&](Rig& rig, int blocks) {
+      float last = 0.0f;
+      for (int b = 0; b < blocks; ++b) {
+        rig.engine->processWithInput(silence.data(), 64);
+        last = modulationOutput(watched);
+      }
+      return last;
+    };
+
+    struct Case {
+      const char* source;
+      std::function<void(Rig&)> action;  // what the player/host does to move the source
+    };
+    const Case cases[] = {
+      { "macro_control_1", [](Rig& r) { r.set("macro_control_1", 0.8f); } },
+      { "macro_control_2", [](Rig& r) { r.set("macro_control_2", 0.8f); } },
+      { "macro_control_3", [](Rig& r) { r.set("macro_control_3", 0.8f); } },
+      { "macro_control_4", [](Rig& r) { r.set("macro_control_4", 0.8f); } },
+      { "mod_wheel", [](Rig& r) { r.engine->setModWheel(0.9f, 0); } },
+      { "pitch_wheel", [](Rig& r) { r.engine->setZonedPitchWheel(1.0f, 0, 0); } },
+      { "velocity", [](Rig& r) { r.engine->noteOn(60, 0.9f, 0, 0); } },
+      { "note", [](Rig& r) { r.engine->noteOn(96, 1.0f, 0, 0); } },
+      { "note_in_octave", [](Rig& r) { r.engine->noteOn(71, 1.0f, 0, 0); } },
+      { "aftertouch", [](Rig& r) { r.engine->noteOn(60, 1.0f, 0, 0); r.engine->setAftertouch(60, 0.9f, 0, 0); } },
+      { "slide", [&silence](Rig& r) {
+        r.engine->noteOn(60, 1.0f, 0, 0);
+        r.engine->processWithInput(silence.data(), 64);
+        r.engine->setChannelSlide(0, 0.9f, 0);
+      } },
+      { "lift", [](Rig& r) { r.engine->noteOn(60, 1.0f, 0, 0); r.engine->noteOff(60, 0.9f, 0, 0); } },
+      { "env_1", [](Rig& r) { r.engine->noteOn(60, 1.0f, 0, 0); } },
+      { "env_2", [](Rig& r) { r.engine->enableModSource("env_2"); r.engine->noteOn(60, 1.0f, 0, 0); } },
+    };
+
+    for (const Case& c : cases) {
+      Rig rig;
+      watched = connectMod(rig, c.source, "filter_1_cutoff");
+      bool connected = watched != nullptr;
+      check(connected, std::string(c.source) + " can be connected to a destination");
+      if (!connected)
+        continue;
+
+      float before = read(rig, 100);
+      c.action(rig);
+      float peak_change = 0.0f;
+      for (int b = 0; b < 20; ++b)
+        peak_change = std::max(peak_change, std::fabs(read(rig, 20) - before));
+      check(peak_change > 0.03f, std::string(c.source) + " moves the matrix source when played / turned",
+            fmt("changed by %.3f", peak_change));
+    }
+
+    // Free-running and random sources move on their own.
+    for (const char* source : { "lfo_1", "lfo_2", "lfo_3", "lfo_4", "random_1", "random_2" }) {
+      Rig rig;
+      rig.engine->enableModSource(source);
+      watched = connectMod(rig, source, "filter_1_cutoff");
+      bool connected = watched != nullptr;
+      check(connected, std::string(source) + " can be connected to a destination");
+      if (!connected)
+        continue;
+
+      std::string name = source;
+      if (name.find("lfo") == 0)
+        rig.set(name + "_frequency", 2.0f);
+      if (name.find("random") == 0) {
+        rig.set(name + "_frequency", 2.0f);
+        rig.set(name + "_sync", 0.0f);
+      }
+      float lo = 9.0f, hi = -9.0f;
+      for (int b = 0; b < 400; ++b) {
+        rig.engine->processWithInput(silence.data(), 64);
+        float v = modulationOutput(watched);
+        lo = std::min(lo, v);
+        hi = std::max(hi, v);
+      }
+      check(hi - lo > 0.05f, std::string(source) + " moves by itself without notes", fmt("range %.3f..%.3f", lo, hi));
+    }
+
+    // "random" takes a new value per note.
+    {
+      Rig rig;
+      rig.engine->enableModSource("random");
+      watched = connectMod(rig, "random", "filter_1_cutoff");
+      bool connected = watched != nullptr;
+      check(connected, "random can be connected to a destination");
+      if (connected) {
+        std::set<int> values;
+        for (int note = 40; note < 60; ++note) {
+          rig.engine->noteOn(note, 1.0f, 0, 0);
+          values.insert(static_cast<int>(read(rig, 4) * 1000.0f));
+          rig.engine->noteOff(note, 0.5f, 0, 0);
+          read(rig, 4);
+        }
+        check(values.size() > 3, "random picks different values for different notes", fmt("%.0f distinct", static_cast<double>(values.size())));
+      }
+    }
+
+    // End to end: a macro really changes what the lane does to the audio.
+    {
+      auto level_with_macro = [&](float macro) {
+        Rig rig;
+        rig.set("input_level", 0.5f);
+        connectMod(rig, "macro_control_1", "input_level", 0.3f);
+        rig.set("macro_control_1", macro);
+        return rig.sineGainDbOn(false, 1000.0f);
+      };
+      double low = level_with_macro(0.0f);
+      double high = level_with_macro(1.0f);
+      check(high > low + 6.0, "macro -> lane level changes the audio level", fmt("%.1f dB -> %.1f dB", low, high));
+
+      auto pan_with_macro = [&](float macro) {
+        Rig rig;
+        connectMod(rig, "macro_control_1", "sidechain_pan", 1.0f);
+        rig.set("sidechain_on", 1.0f);
+        rig.set("macro_control_1", macro);
+        Generator tone = sine(1000.0f);
+        Generator silence_gen = [](int, float& l, float& r) { l = r = 0.0f; };
+        Stereo out = rig.render(kSampleRate / 2, silence_gen, 64, &tone);
+        return std::make_pair(rms(out.left, kSampleRate / 4), rms(out.right, kSampleRate / 4));
+      };
+      auto centred = pan_with_macro(0.0f);
+      auto swung = pan_with_macro(1.0f);
+      check(swung.second > swung.first * 2.0 && std::fabs(centred.first - centred.second) < 0.02 * centred.first,
+            "macro -> lane pan moves the sidechain across the stereo field",
+            fmt("centred %.3f/%.3f, swung %.3f/%.3f", centred.first, centred.second, swung.first, swung.second));
+
+      Rig cutoff_rig;
+      setFilter(cutoff_rig, 1, true, 100.0f);
+      cutoff_rig.set("input_destination", 0.0f);
+      connectMod(cutoff_rig, "macro_control_1", "filter_1_cutoff", -1.0f);
+      cutoff_rig.set("macro_control_1", 0.0f);
+      double open_gain = cutoff_rig.sineGainDbOn(false, 4000.0f);
+      Rig closed_rig;
+      setFilter(closed_rig, 1, true, 100.0f);
+      closed_rig.set("input_destination", 0.0f);
+      connectMod(closed_rig, "macro_control_1", "filter_1_cutoff", -1.0f);
+      closed_rig.set("macro_control_1", 1.0f);
+      double closed_gain = closed_rig.sineGainDbOn(false, 4000.0f);
+      check(open_gain > closed_gain + 10.0, "macro -> filter cutoff closes the filter", fmt("%.1f dB vs %.1f dB", open_gain, closed_gain));
     }
   }
 
@@ -631,7 +878,8 @@ namespace {
     // Controls the GUI touches directly (Advanced tab and header): touching them used to crash the plugin.
     Rig gui_rig;
     for (const char* name : { "mpe_enabled", "view_spectrogram", "voice_transpose", "voice_tune", "bypass",
-                              "input_destination", "sidechain_destination" })
+                              "input_destination", "sidechain_destination", "input_on", "input_level", "input_pan",
+                              "sidechain_on", "sidechain_level", "sidechain_pan" })
       check(gui_rig.controls.count(name) == 1, std::string("GUI control exists: ") + name);
 
     // Parameters the GUI/host can set but the engine lacks: reported so they are visible (the control lookup
@@ -686,6 +934,8 @@ int main() {
     testOversampling();
     testModulation();
     testInputRouting();
+    testLanes();
+    testModulationMatrix();
     testPlaceholders();
     testCpu();
   }

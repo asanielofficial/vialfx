@@ -63,6 +63,14 @@ namespace vital {
     createBaseControl("sidechain_distortion_amount");
     Value* input_destination = createBaseControl("input_destination");
     Value* sidechain_destination = createBaseControl("sidechain_destination");
+
+    // Lane switches, levels and pans (both inputs). The levels and pans can be modulated.
+    Value* input_on = createBaseControl("input_on");
+    Output* input_level = createMonoModControl("input_level");
+    Output* input_pan = createMonoModControl("input_pan");
+    Value* sidechain_on = createBaseControl("sidechain_on");
+    Output* sidechain_level = createMonoModControl("sidechain_level");
+    Output* sidechain_pan = createMonoModControl("sidechain_pan");
     oversampling_ = createBaseControl("oversampling");
     legato_ = createBaseControl("legato");
 
@@ -104,9 +112,23 @@ namespace vital {
     sidechain_input_ = new Upsampler();
     addIdleProcessor(sidechain_input_);
 
+    AudioLane* main_lane = new AudioLane();
+    main_lane->plug(audio_input_, AudioLane::kAudio);
+    main_lane->plug(input_on, AudioLane::kOn);
+    main_lane->plug(input_level, AudioLane::kLevel);
+    main_lane->plug(input_pan, AudioLane::kPan);
+    addProcessor(main_lane);
+
+    AudioLane* sidechain_lane = new AudioLane();
+    sidechain_lane->plug(sidechain_input_, AudioLane::kAudio);
+    sidechain_lane->plug(sidechain_on, AudioLane::kOn);
+    sidechain_lane->plug(sidechain_level, AudioLane::kLevel);
+    sidechain_lane->plug(sidechain_pan, AudioLane::kPan);
+    addProcessor(sidechain_lane);
+
     filter_router_ = new AudioFilterRouter();
-    filter_router_->plug(audio_input_, AudioFilterRouter::kAudio);
-    filter_router_->plug(sidechain_input_, AudioFilterRouter::kSidechain);
+    filter_router_->plug(main_lane, AudioFilterRouter::kAudio);
+    filter_router_->plug(sidechain_lane, AudioFilterRouter::kSidechain);
     filter_router_->setDestinations(input_destination, sidechain_destination);
     addProcessor(filter_router_);
 

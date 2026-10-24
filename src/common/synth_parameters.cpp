@@ -299,6 +299,20 @@ namespace vital {
       ValueDetails::kIndexed, false, "", "Input Destination", strings::kDestinationNames },
     { "sidechain_destination", 0x000500, 0.0, constants::kNumSourceDestinations - 1, 2.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Sidechain Destination", strings::kDestinationNames },
+    // Lane switch, level (knob 1.0 = unity gain, up to +6 dB) and pan for each input. The sidechain lane is
+    // off by default.
+    { "input_on", 0x000000, 0.0, 1.0, 1.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Input Switch", strings::kOffOnNames },
+    { "input_level", 0x000000, 0.0, 1.41421356237, 1.0, 0.0, 1.0,
+      ValueDetails::kQuadratic, false, "", "Input Level", nullptr },
+    { "input_pan", 0x000000, -1.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Input Pan", nullptr },
+    { "sidechain_on", 0x000000, 0.0, 1.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Sidechain Switch", strings::kOffOnNames },
+    { "sidechain_level", 0x000000, 0.0, 1.41421356237, 1.0, 0.0, 1.0,
+      ValueDetails::kQuadratic, false, "", "Sidechain Level", nullptr },
+    { "sidechain_pan", 0x000000, -1.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Sidechain Pan", nullptr },
 #endif
     { "phaser_on", 0x000000, 0.0, 1.0, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Phaser Switch", strings::kOffOnNames },

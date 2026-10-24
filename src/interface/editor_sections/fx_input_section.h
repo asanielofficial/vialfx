@@ -38,6 +38,7 @@
 class FxInputSection : public SynthSection {
   public:
     static constexpr float kKnobAreaWidthRatio = 0.38f;
+    static constexpr float kLevelPanWidthRatio = 0.19f;
     static constexpr int kNumDestinations = vital::constants::kNumSourceDestinations;
 
     class Listener {
@@ -60,6 +61,21 @@ class FxInputSection : public SynthSection {
       distortion_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
       distortion_->setKnobSizeScale(1.5f);
       distortion_->setPopupPrefix("Distortion: ");
+
+      level_ = std::make_unique<SynthSlider>(prefix + "_level");
+      addSlider(level_.get());
+      level_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
+      level_->setPopupPrefix("Level: ");
+
+      pan_ = std::make_unique<SynthSlider>(prefix + "_pan");
+      addSlider(pan_.get());
+      pan_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
+      pan_->setBipolar();
+      pan_->setPopupPrefix("Pan: ");
+
+      lane_on_ = std::make_unique<SynthButton>(prefix + "_on");
+      addButton(lane_on_.get());
+      setActivator(lane_on_.get());
 
       spectrogram_ = std::make_unique<Spectrogram>();
       addOpenGlComponent(spectrogram_.get());
@@ -123,6 +139,9 @@ class FxInputSection : public SynthSection {
       g.fillRoundedRectangle(destination_selector_->getBounds().toFloat(), findValue(Skin::kLabelBackgroundRounding));
 
       setLabelFont(g);
+      drawLabelConnectionForComponents(g, level_.get(), pan_.get());
+      drawLabelForComponent(g, TRANS("LEVEL"), level_.get());
+      drawLabelForComponent(g, TRANS("PAN"), pan_.get());
       drawLabelForComponent(g, TRANS("SPECTRAL"), spectral_morph_.get());
       drawLabelForComponent(g, TRANS("DISTORTION"), distortion_.get());
     }
@@ -143,8 +162,13 @@ class FxInputSection : public SynthSection {
       placeKnobsInArea(Rectangle<int>(getWidth() - knob_width, knob_y, knob_width, knob_height + widget_margin),
                        { spectral_morph_.get(), distortion_.get() });
 
+      // Level and pan on the left, like an oscillator panel.
+      int level_pan_width = getWidth() * kLevelPanWidthRatio;
+      placeKnobsInArea(Rectangle<int>(title_width, knob_y, level_pan_width, knob_height + widget_margin),
+                       { level_.get(), pan_.get() });
+
       // Spectrum display in the middle, routing dropdown underneath it.
-      int display_x = title_width + widget_margin;
+      int display_x = title_width + level_pan_width + widget_margin;
       int display_width = std::max(0, getWidth() - knob_width - display_x - widget_margin);
       int destination_y = getHeight() - label_height - widget_margin;
       int display_height = std::max(0, destination_y - 2 * widget_margin);
@@ -242,6 +266,9 @@ class FxInputSection : public SynthSection {
     bool memory_connected_ = false;
     std::vector<Listener*> listeners_;
 
+    std::unique_ptr<SynthSlider> level_;
+    std::unique_ptr<SynthSlider> pan_;
+    std::unique_ptr<SynthButton> lane_on_;
     std::unique_ptr<SynthSlider> spectral_morph_;
     std::unique_ptr<SynthSlider> distortion_;
     std::unique_ptr<Spectrogram> spectrogram_;
