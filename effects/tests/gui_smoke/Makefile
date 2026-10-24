@@ -11,7 +11,7 @@ CXX      ?= g++
 CXXFLAGS := -std=c++17 -O0 -g -MMD -MP -pthread -w -DLINUX=1 -DNDEBUG=1 -DJUCE_USE_CURL=0 -DJUCE_WEB_BROWSER=0 \
             -DJUCE_USE_XRANDR=0 -DJUCE_PLUGINHOST_VST3=1 -DJUCE_STANDALONE_APPLICATION=1 \
             -DJUCE_DSP_USE_SHARED_FFTW=0 $(shell pkg-config --cflags freetype2 2>/dev/null)
-INCLUDES := -I$(LIB) -I$(JUCE)
+INCLUDES := -I$(LIB) -I$(JUCE) -I$(JUCE)/juce_audio_processors/format_types/VST3_SDK
 
 MODULES  := core events data_structures graphics gui_basics audio_basics audio_processors
 OBJECTS  := $(foreach m,$(MODULES),$(BUILD)/juce_$(m).o) $(BUILD)/gui_smoke.o
