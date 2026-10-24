@@ -122,12 +122,6 @@ namespace {
 
   struct Editor {
     std::unique_ptr<AudioProcessorEditor> editor;
-    std::unique_ptr<DocumentWindow> window;
-  };
-
-  struct Window : public DocumentWindow {
-    Window() : DocumentWindow("VialFX smoke", Colours::black, DocumentWindow::allButtons) { }
-    void closeButtonPressed() override { }
   };
 
   void openEditor(AudioProcessor& processor, Editor& e) {
@@ -136,19 +130,20 @@ namespace {
       say("FAIL: plugin has no editor");
       std::exit(2);
     }
-    e.window = std::make_unique<Window>();
-    e.window->setUsingNativeTitleBar(false);
-    e.window->setContentNonOwned(e.editor.get(), true);
-    e.window->setVisible(true);
-    e.window->centreWithSize(e.editor->getWidth(), e.editor->getHeight());
+    say("editor created");
+    e.editor->setTopLeftPosition(10, 10);
+    e.editor->addToDesktop(0);
+    say("editor on desktop");
+    e.editor->setVisible(true);
+    say("editor visible");
   }
 
   void closeEditor(AudioProcessor& processor, Editor& e) {
-    if (e.window)
-      e.window->clearContentComponent();
-    e.window.reset();
-    if (e.editor)
+    if (e.editor) {
+      e.editor->setVisible(false);
+      e.editor->removeFromDesktop();
       processor.editorBeingDeleted(e.editor.get());
+    }
     e.editor.reset();
   }
 
