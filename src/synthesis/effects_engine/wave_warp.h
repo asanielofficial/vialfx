@@ -69,10 +69,12 @@ namespace vital {
         kNumModes
       };
 
-      static constexpr int kMaxFmDelaySamples = 64;
-      static constexpr int kFmBufferSize = 256;  // power of two, bigger than the maximum delay plus interpolation
+      static constexpr int kMaxFmDelaySamples = 200;   // about 4.5 ms at 44.1 kHz
+      static constexpr int kFmBufferSize = 512;  // power of two, bigger than the maximum delay plus interpolation
       static constexpr int kLanes = poly_float::kSize;
       static constexpr float kReleaseSeconds = 0.15f;
+      static constexpr float kLevelSeconds = 0.03f;      // averaging time of the level the shapers work relative to
+      static constexpr float kQuantizeFullAmount = 0.75f; // knob position where quantize reaches its maximum
       static constexpr float kMinReference = 0.01f;   // below about -40 dB the signal is not scaled up further
 
       // uses_modulator: whether this instance has a modulator lane to read (the main lane has one).
@@ -81,6 +83,7 @@ namespace vital {
         for (int lane = 0; lane < kLanes; ++lane) {
           held_[lane] = 0.0f;
           envelope_[lane] = 0.0f;
+          modulator_envelope_[lane] = 0.0f;
           for (int i = 0; i < kFmBufferSize; ++i)
             history_[i][lane] = 0.0f;
         }
@@ -120,7 +123,7 @@ namespace vital {
           }
           case kBend: {
             // Pinch one half of the wave towards zero (positive half for amount > 0, negative for < 0).
-            float power = 1.0f + 3.0f * std::fabs(amount);
+            float power = 1.0f + 7.0f * std::fabs(amount);
             bool bent_side = amount >= 0.0f ? x > 0.0f : x < 0.0f;
             if (!bent_side)
               return x;
@@ -135,9 +138,11 @@ namespace vital {
             return std::copysign(std::pow(magnitude, power), x);
           }
           case kPulse: {
-            float ceiling = 1.0f - 0.7f * amount;
-            float y = std::min(x * (1.0f + 3.0f * amount), ceiling);
-            return std::max(y, -1.0f);
+            // The positive half is driven into an ever-lower ceiling and the waveform is pushed up, which
+            // narrows the positive "pulse" while the negative half stays open.
+            float ceiling = 1.0f - 0.85f * amount;
+            float y = std::min(x * (1.0f + 5.0f * amount) + 0.3f * amount, ceiling);
+            return std::max(y, -1.0f) - 0.3f * amount;
           }
           default:
             return x;
@@ -178,6 +183,7 @@ namespace vital {
         // waveshaping modes work on the signal relative to its own peak level (a fast-attack, slow-release
         // follower) and scale the result back. The effect is then the same at any input level.
         float release = std::exp(-1.0f / (float(kReleaseSeconds) * std::max(getSampleRate(), 8000)));
+        float level_smoothing = 1.0f - std::exp(-1.0f / (float(kLevelSeconds) * std::max(getSampleRate(), 8000)));
 
         const poly_float* modulator = uses_modulator_ ? input(kModulator)->source->buffer : nullptr;
         for (int i = 0; i < num_samples; ++i) {
@@ -186,14 +192,22 @@ namespace vital {
             float x = audio[i][lane];
             if (mode == kQuantize)
               result[lane] = quantize(x, amount, lane);
-            else if (mode == kFm)
-              result[lane] = frequencyModulate(x, amount, utils::clamp(modulator[i][lane], -1.0f, 1.0f),
-                                               (write_index_ + i) & (kFmBufferSize - 1), lane);
-            else if (mode == kRm)
-              result[lane] = x + amount * (x * utils::clamp(modulator[i][lane], -1.0f, 1.0f) - x);
+            else if (modulated_mode) {
+              // The modulator is scaled to its own peak level, so it drives FM and RM the same whether the
+              // sidechain signal is loud or quiet.
+              float m = modulator[i][lane];
+              modulator_envelope_[lane] = std::max(std::fabs(m), modulator_envelope_[lane] * release);
+              float scaled = utils::clamp(m / std::max(modulator_envelope_[lane], float(kMinReference)), -1.0f, 1.0f);
+              if (mode == kFm)
+                result[lane] = frequencyModulate(x, amount, scaled, (write_index_ + i) & (kFmBufferSize - 1), lane);
+              else
+                result[lane] = x + amount * (x * scaled - x);
+            }
             else {
-              envelope_[lane] = std::max(std::fabs(x), envelope_[lane] * release);
-              float reference = std::max(envelope_[lane], float(kMinReference));
+              // Work relative to the signal's average level (about 2x its mean absolute value, which is the
+              // peak for a sine). Louder moments then push into the folds, bends and clips.
+              envelope_[lane] += level_smoothing * (std::fabs(x) - envelope_[lane]);
+              float reference = std::max(2.0f * envelope_[lane], float(kMinReference));
               result[lane] = reference * shape(mode, x / reference, amount);
             }
           }
@@ -214,7 +228,11 @@ namespace vital {
 
       int holdPeriod(float amount) const { return 1 + static_cast<int>(amount * amount * 15.0f); }
 
-      float quantize(float x, float amount, int lane) {
+      // The knob reaches the maximum quantize setting at kQuantizeFullAmount.
+      static float quantizeAmount(float knob) { return std::min(knob / kQuantizeFullAmount, 1.0f); }
+
+      float quantize(float x, float knob, int lane) {
+        float amount = quantizeAmount(knob);
         if (hold_counter_ == 0) {
           float levels = std::pow(2.0f, 1.0f + (1.0f - amount) * 14.0f);
           held_[lane] = std::round(x * levels) / levels;
@@ -222,8 +240,8 @@ namespace vital {
         return held_[lane];
       }
 
-      void advanceHold(float amount) {
-        int period = holdPeriod(amount);
+      void advanceHold(float knob) {
+        int period = holdPeriod(quantizeAmount(knob));
         hold_counter_ = (hold_counter_ + 1) % period;
       }
 
@@ -243,6 +261,7 @@ namespace vital {
       int hold_counter_;
       float held_[kLanes];
       float envelope_[kLanes];
+      float modulator_envelope_[kLanes];
       float history_[kFmBufferSize][kLanes];
 
       JUCE_LEAK_DETECTOR(WaveWarp)

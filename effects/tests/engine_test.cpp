@@ -773,6 +773,71 @@ namespace {
       check(peak > 0.2f, "the input display memory carries the lane audio", fmt("peak %.4f", peak));
     }
 
+    // Quantize reaches its maximum at 75% of the knob; beyond that nothing changes.
+    {
+      auto quantized = [&](float knob) {
+        Rig rig;
+        rig.set("input_distortion_type", 2.0f);
+        rig.set("input_distortion_amount", knob);
+        return rig.render(kSampleRate / 2, tone);
+      };
+      Stereo at_full = quantized(0.75f);
+      Stereo at_top = quantized(1.0f);
+      Stereo at_half = quantized(0.4f);
+      double same = 0.0, differs = 0.0;
+      for (size_t i = 0; i < at_full.left.size(); ++i) {
+        same = std::max(same, static_cast<double>(std::fabs(at_full.left[i] - at_top.left[i])));
+        differs = std::max(differs, static_cast<double>(std::fabs(at_full.left[i] - at_half.left[i])));
+      }
+      check(same < 1e-6 && differs > 0.01, "quantize reaches its maximum at 75% of the knob",
+            fmt("75%% vs 100%% %.6f, 75%% vs 40%% %.4f", same, differs));
+    }
+
+    // Bend and Pulse bite on music-like (noisy, low crest factor) material, not just on a sine.
+    for (int mode : { 3, 5 }) {
+      Rig reference_rig;
+      Stereo reference = reference_rig.render(kSampleRate, noise());
+      Rig rig;
+      rig.set("input_distortion_type", static_cast<float>(mode));
+      rig.set("input_distortion_amount", mode == 3 ? 0.9f : 0.6f);
+      Stereo out = rig.render(kSampleRate, noise());
+      double diff = 0.0, ref = 0.0;
+      for (size_t i = kSampleRate / 2; i < out.left.size(); ++i) {
+        diff += std::pow(static_cast<double>(out.left[i]) - reference.left[i], 2.0);
+        ref += std::pow(static_cast<double>(reference.left[i]), 2.0);
+      }
+      double relative = std::sqrt(diff / std::max(ref, 1e-12));
+      check(relative > 0.25, std::string(names[mode]) + " has a clear effect on dense material",
+            fmt("relative difference %.3f", relative));
+    }
+
+    // FM and RM work with a quiet sidechain too (the modulator is scaled to its own level).
+    {
+      Generator quiet_modulator = [](int i, float& l, float& r) {
+        l = r = 0.02f * std::sin(2.0f * kPi * 1000.0f * i / kSampleRate);
+      };
+      Rig rm;
+      rm.set("sidechain_on", 1.0f);
+      rm.set("input_distortion_type", 7.0f);
+      rm.set("input_distortion_amount", 1.0f);
+      Stereo rm_out = rm.render(kSampleRate, tone, 64, &quiet_modulator);
+      check(toneAmplitude(rm_out.left, 1440.0f) > 0.02, "RM works with a quiet (-34 dB) sidechain",
+            fmt("1440 Hz %.4f", toneAmplitude(rm_out.left, 1440.0f)));
+
+      Generator quiet_slow = [](int i, float& l, float& r) {
+        l = r = 0.02f * std::sin(2.0f * kPi * 150.0f * i / kSampleRate);
+      };
+      Rig fm;
+      fm.set("sidechain_on", 1.0f);
+      fm.set("input_distortion_type", 6.0f);
+      fm.set("input_distortion_amount", 0.6f);
+      Stereo fm_out = fm.render(kSampleRate, tone, 64, &quiet_slow);
+      double sidebands = 0.0;
+      for (int k = 1; k <= 3; ++k)
+        sidebands += toneAmplitude(fm_out.left, 440.0f + 150.0f * k) + toneAmplitude(fm_out.left, 440.0f - 150.0f * k);
+      check(sidebands > 0.03, "FM works with a quiet (-34 dB) sidechain", fmt("sidebands %.4f", sidebands));
+    }
+
     // RM: the 440 Hz carrier is replaced by sum/difference tones with a 1 kHz modulator.
     {
       Rig rig;
