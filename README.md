@@ -11,13 +11,16 @@ It is built from GPLv3 synthesizer source code (see [NOTICE.md](NOTICE.md) for t
 
 - **Inputs:** a main input and a sidechain input, each with a live spectrum display. A dropdown under each
   display sends it to Filter 1, Filter 2, Filter 1+2, the effects rack, or direct out (skipping filters and
-  effects). The INPUT and SIDECHAIN buttons on each filter mirror these dropdowns.
+  effects). The INPUT and SIDECHAIN buttons on each filter mirror these dropdowns. Each input also has an
+  on/off switch, level and pan (all three can be modulated; the sidechain lane is off by default).
 - **Filters:** two filters with the full set of filter models, in parallel or serial (FIL1/FIL2 buttons).
   Key tracking follows the last played MIDI note.
 - **Effects rack:** chorus, compressor, delay, distortion, EQ, filter, flanger, phaser and reverb, in a
   reorderable chain.
 - **Modulation:** LFOs and envelopes run without any MIDI note held; sync and the other LFO modes work.
-  Notes act as a trigger and key-tracking source.
+  Notes act as a trigger and key-tracking source. The full matrix is wired: LFOs, envelopes, randoms,
+  macros and MIDI sources (note, velocity, aftertouch, slide, lift, mod wheel, pitch wheel) can drive lane
+  level and pan, filter parameters and effect parameters.
 - **Presets:** save, load and browse presets from the built-in preset browser.
 - **Oversampling:** 1x by default. Higher settings work but roll off the top end slightly (a better
   interpolator is planned).
@@ -26,7 +29,7 @@ It is built from GPLv3 synthesizer source code (see [NOTICE.md](NOTICE.md) for t
 
 | Version | Content |
 | --- | --- |
-| v0.1 | Base FX: plugin shell, filters and effects rack (done), then the two-lane layout, GUI cleanup and modulation matrix |
+| v0.1 | Base FX: plugin shell, filters and effects rack, two-lane layout, GUI cleanup and modulation matrix (done) |
 | v0.2 | Distortion warp |
 | v0.3 | Spectral processing |
 

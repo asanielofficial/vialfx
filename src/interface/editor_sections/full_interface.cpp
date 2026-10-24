@@ -455,7 +455,11 @@ void FullInterface::resized() {
   int top_height = kTopHeight * ratio;
 
   int knob_section_height = getKnobSectionHeight();
+#if VITAL_FX
+  int keyboard_section_height = 0;  // the effect has no on-screen keyboard strip
+#else
   int keyboard_section_height = knob_section_height * 0.7f;
+#endif
   int voice_height = height - top_height - keyboard_section_height;
 
   int section_one_width = 350 * ratio;
@@ -492,10 +496,13 @@ void FullInterface::resized() {
   int extra_mod_height = height - top_height - knob_section_height - padding - 1;
   extra_mod_section_->setBounds(left + voice_padding, top + top_height, extra_mod_width, extra_mod_height);
 
-  int keyboard_height = keyboard_section_height - voice_padding - padding;
+  int keyboard_height = std::max(0, keyboard_section_height - voice_padding - padding);
   int keyboard_x = extra_mod_section_->getRight() + voice_padding;
   int keyboard_width = modulation_interface_->getRight() - keyboard_x;
   keyboard_interface_->setBounds(keyboard_x, top + height - keyboard_height - padding, keyboard_width, keyboard_height);
+#if VITAL_FX
+  keyboard_interface_->setVisible(false);
+#endif
 
   about_section_->setBounds(bounds);
   update_check_section_->setBounds(bounds);
@@ -797,7 +804,11 @@ void FullInterface::showFullScreenSection(SynthSection* full_screen) {
   if (fx_voice_interface_)
     fx_voice_interface_->setVisible(show_rest);
   modulation_interface_->setVisible(show_rest);
+#if VITAL_FX
+  keyboard_interface_->setVisible(false);
+#else
   keyboard_interface_->setVisible(show_rest);
+#endif
   extra_mod_section_->setVisible(show_rest);
   modulation_manager_->setVisible(show_rest);
   voice_section_->setVisible(show_rest);
@@ -823,7 +834,11 @@ void FullInterface::showWavetableEditSection(int index) {
   if (fx_voice_interface_)
     fx_voice_interface_->setVisible(show_rest);
   modulation_interface_->setVisible(show_rest);
+#if VITAL_FX
+  keyboard_interface_->setVisible(false);
+#else
   keyboard_interface_->setVisible(show_rest);
+#endif
   extra_mod_section_->setVisible(show_rest);
   modulation_manager_->setVisible(show_rest);
   voice_section_->setVisible(show_rest);
