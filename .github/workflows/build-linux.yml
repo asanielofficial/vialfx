@@ -114,7 +114,7 @@ jobs:
           set +e
           make -C effects/tests/gui_smoke -j"$(nproc)" > smoke_build.log 2>&1
           if [ $? -ne 0 ]; then
-            grep -E "error" smoke_build.log | head -15 | cut -c1-300 | while IFS= read -r l; do echo "::error::[smoke build] $l"; done
+            grep -E "error|undefined reference" smoke_build.log | sed -E "s/.*undefined reference to//" | sort -u | head -15 | cut -c1-200 | while IFS= read -r l; do echo "::error::[smoke build] $l"; done
             exit 1
           fi
           PLUGIN="$PWD/effects/builds/linux_vst/build/VialFX.vst3"
