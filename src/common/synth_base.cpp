@@ -50,6 +50,8 @@ SynthBase::SynthBase() : expired_(false) {
   last_played_note_ = 0.0f;
   last_num_pressed_ = 0;
   audio_memory_ = std::make_unique<vital::StereoMemory>(vital::kAudioMemorySamples);
+  input_memory_ = std::make_unique<vital::StereoMemory>(vital::kAudioMemorySamples);
+  sidechain_memory_ = std::make_unique<vital::StereoMemory>(vital::kAudioMemorySamples);
   memset(oscilloscope_memory_, 0, 2 * vital::kOscilloscopeMemoryResolution * sizeof(vital::poly_float));
   memset(oscilloscope_memory_write_, 0, 2 * vital::kOscilloscopeMemoryResolution * sizeof(vital::poly_float));
   memory_reset_period_ = vital::kOscilloscopeMemoryResolution;
@@ -593,10 +595,19 @@ void SynthBase::processAudio(AudioSampleBuffer* buffer, int channels, int sample
 }
 
 void SynthBase::processAudioWithInput(AudioSampleBuffer* buffer, const vital::poly_float* input_buffer,
-                                      int channels, int samples, int offset) {
+                                      int channels, int samples, int offset,
+                                      const vital::poly_float* sidechain_buffer) {
   if (expired_)
     return;
 
+  for (int i = 0; i < samples; ++i) {
+    input_memory_->push(input_buffer[i]);
+    sidechain_memory_->push(sidechain_buffer ? sidechain_buffer[i] : vital::poly_float(0.0f));
+  }
+
+#if VITAL_FX
+  engine_->setSidechainInput(sidechain_buffer);
+#endif
   engine_->processWithInput(input_buffer, samples);
   writeAudio(buffer, channels, samples, offset);
 }

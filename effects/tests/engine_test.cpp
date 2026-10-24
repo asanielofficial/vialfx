@@ -115,11 +115,13 @@ namespace {
     void noteOn(int note) { engine->noteOn(note, 1.0f, 0, 0); }
 
     // Renders num_samples through the plugin-style block loop (blocks of at most 128 samples).
-    Stereo render(int num_samples, const Generator& generator, int block = 64) {
+    Stereo render(int num_samples, const Generator& generator, int block = 64,
+                  const Generator* sidechain = nullptr) {
       Stereo out;
       out.left.resize(num_samples);
       out.right.resize(num_samples);
       std::vector<poly_float> input(kMaxBufferSize);
+      std::vector<poly_float> side(kMaxBufferSize);
 
       int done = 0;
       while (done < num_samples) {
@@ -129,8 +131,13 @@ namespace {
           float l = 0.0f, r = 0.0f;
           generator(done + i, l, r);
           input[i] = poly_float(l, r);
+          float sl = 0.0f, sr = 0.0f;
+          if (sidechain)
+            (*sidechain)(done + i, sl, sr);
+          side[i] = poly_float(sl, sr);
         }
 
+        engine->setSidechainInput(sidechain ? side.data() : nullptr);
         engine->processWithInput(input.data(), n);
 
         const mono_float* result = reinterpret_cast<const mono_float*>(engine->output(0)->buffer);
@@ -141,6 +148,15 @@ namespace {
         done += n;
       }
       return out;
+    }
+
+    // Gain in dB of a sine on the main input (or on the sidechain input) through the engine, left channel.
+    double sineGainDbOn(bool use_sidechain, float frequency) {
+      const int total = kSampleRate;
+      Generator silence = [](int, float& l, float& r) { l = r = 0.0f; };
+      Generator tone = sine(frequency);
+      Stereo out = use_sidechain ? render(total, silence, 64, &tone) : render(total, tone);
+      return db(rms(out.left, total / 2) / (kAmp / std::sqrt(2.0)));
     }
 
     // Gain in dB of a sine through the engine (left channel), measured after the settling time.
@@ -270,6 +286,100 @@ namespace {
     double first = only_first.sineGainDb(probe);
     check(std::fabs(first - one) < 1.0, "serial routing with filter 2 off still filters through filter 1",
           fmt("%.2f dB vs %.2f dB", first, one));
+  }
+
+  void testInputRouting() {
+    std::printf("\n== Input destinations (main + sidechain) ==\n");
+    const float probe = 4000.0f;  // well above a low cutoff, so "went through the filter" is obvious
+    const int kFilter1 = 0, kFilter2 = 1, kDual = 2, kEffects = 3, kDirect = 4;
+
+    for (int sidechain = 0; sidechain <= 1; ++sidechain) {
+      std::string who = sidechain ? "sidechain" : "main input";
+      std::string control = sidechain ? "sidechain_destination" : "input_destination";
+      auto gain = [&](int destination, bool f1, bool f2) {
+        Rig rig;
+        setFilter(rig, 1, f1, 40.0f);
+        setFilter(rig, 2, f2, 40.0f);
+        rig.set(control, static_cast<float>(destination));
+        return rig.sineGainDbOn(sidechain != 0, probe);
+      };
+
+      double to_f1 = gain(kFilter1, true, true);
+      double to_f2 = gain(kFilter2, true, true);
+      double dual = gain(kDual, true, true);
+      double effects = gain(kEffects, true, true);
+      double direct = gain(kDirect, true, true);
+      double f1_off = gain(kFilter1, false, true);
+      double dual_all_off = gain(kDual, false, false);
+      std::printf("   %s: F1 %.1f | F2 %.1f | F1+2 %.1f | effects %.1f | direct %.1f | F1 (off) %.1f dB\n",
+                  who.c_str(), to_f1, to_f2, dual, effects, direct, f1_off);
+
+      check(to_f1 < -20.0, who + " -> Filter 1 goes through the filter", fmt("%.1f dB", to_f1));
+      check(to_f2 < -20.0, who + " -> Filter 2 goes through the filter", fmt("%.1f dB", to_f2));
+      check(dual < -20.0, who + " -> Filter 1+2 goes through the filters", fmt("%.1f dB", dual));
+      check(std::fabs(effects) < 0.2, who + " -> Effects skips the filters", fmt("%.2f dB", effects));
+      check(std::fabs(direct) < 0.2, who + " -> Direct Out skips the filters", fmt("%.2f dB", direct));
+      check(std::fabs(f1_off) < 0.2, who + " -> a switched-off filter is skipped, audio not lost", fmt("%.2f dB", f1_off));
+      check(std::fabs(dual_all_off) < 0.2, who + " -> both filters off passes the audio", fmt("%.2f dB", dual_all_off));
+    }
+
+    // The two inputs route independently.
+    {
+      Rig rig;
+      setFilter(rig, 1, true, 40.0f);
+      rig.set("input_destination", static_cast<float>(kFilter1));
+      rig.set("sidechain_destination", static_cast<float>(kDirect));
+      Generator tone = sine(probe);
+      Generator silence = [](int, float& l, float& r) { l = r = 0.0f; };
+      Stereo both = rig.render(kSampleRate, tone, 64, &tone);
+      double level = db(rms(both.left, kSampleRate / 2) / (kAmp / std::sqrt(2.0)));
+      // Main is filtered away, sidechain passes: about unity (one tone at full level).
+      check(std::fabs(level) < 1.0, "inputs route independently (main filtered, sidechain direct)",
+            fmt("%.2f dB", level));
+      Rig none;
+      Stereo silent = none.render(kSampleRate, silence, 64, &silence);
+      check(silent.peak() < 1e-4, "silent inputs give silence", fmt("peak %.6f", silent.peak()));
+    }
+
+    // Direct Out skips the effect rack; Effects does not.
+    {
+      Rig baseline;
+      Stereo reference = baseline.render(kSampleRate * 2, sine(440.0f));
+
+      auto difference = [&](int destination) {
+        Rig rig;
+        rig.set("distortion_on", 1.0f);
+        rig.set("distortion_drive", 20.0f);
+        rig.set("input_destination", static_cast<float>(destination));
+        Stereo out = rig.render(kSampleRate * 2, sine(440.0f));
+        double diff = 0.0;
+        size_t n = 0;
+        for (size_t i = kSampleRate; i < reference.left.size(); ++i, ++n)
+          diff += std::pow(static_cast<double>(out.left[i]) - reference.left[i], 2.0);
+        return std::sqrt(diff / std::max<size_t>(n, 1));
+      };
+
+      double through_effects = difference(kEffects);
+      double direct_out = difference(kDirect);
+      check(through_effects > 0.005, "Effects destination runs the effect rack", fmt("difference rms %.4f", through_effects));
+      check(direct_out < 0.002, "Direct Out destination skips the effect rack", fmt("difference rms %.5f", direct_out));
+    }
+
+    // Serial filters still cascade for the new routing (input -> Filter 1+2, Filter 2 fed by Filter 1).
+    {
+      Rig single;
+      setFilter(single, 1, true, 60.0f);
+      single.set("input_destination", static_cast<float>(kFilter1));
+      double one = single.sineGainDbOn(false, 600.0f);
+
+      Rig serial;
+      setFilter(serial, 1, true, 60.0f);
+      setFilter(serial, 2, true, 60.0f);
+      serial.set("filter_2_filter_input", 1.0f);
+      serial.set("input_destination", static_cast<float>(kDual));
+      double cascade = serial.sineGainDbOn(false, 600.0f);
+      check(cascade < one - 3.0, "serial routing still cascades with destinations", fmt("%.2f vs %.2f dB", cascade, one));
+    }
   }
 
   double highBandEnergy(const Stereo& s, size_t start) {
@@ -520,7 +630,8 @@ namespace {
 
     // Controls the GUI touches directly (Advanced tab and header): touching them used to crash the plugin.
     Rig gui_rig;
-    for (const char* name : { "mpe_enabled", "view_spectrogram", "voice_transpose", "voice_tune", "bypass" })
+    for (const char* name : { "mpe_enabled", "view_spectrogram", "voice_transpose", "voice_tune", "bypass",
+                              "input_destination", "sidechain_destination" })
       check(gui_rig.controls.count(name) == 1, std::string("GUI control exists: ") + name);
 
     // Parameters the GUI/host can set but the engine lacks: reported so they are visible (the control lookup
@@ -574,6 +685,7 @@ int main() {
     testEffects();
     testOversampling();
     testModulation();
+    testInputRouting();
     testPlaceholders();
     testCpu();
   }

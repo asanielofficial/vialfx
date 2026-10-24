@@ -293,6 +293,12 @@ namespace vital {
       ValueDetails::kLinear, false, "%", "Sidechain Spectral Morph", nullptr },
     { "sidechain_distortion_amount", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Sidechain Distortion", nullptr },
+    // Where each input goes: Filter 1, Filter 2, Filter 1+2, Effects, Direct Out (same list as the synth's
+    // oscillator destinations). Default is both filters, which passes audio through whichever filters are on.
+    { "input_destination", 0x000500, 0.0, constants::kNumSourceDestinations - 1, 2.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Input Destination", strings::kDestinationNames },
+    { "sidechain_destination", 0x000500, 0.0, constants::kNumSourceDestinations - 1, 2.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Sidechain Destination", strings::kDestinationNames },
 #endif
     { "phaser_on", 0x000000, 0.0, 1.0, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Phaser Switch", strings::kOffOnNames },

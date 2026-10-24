@@ -9,23 +9,30 @@
 #pragma once
 
 #include "processor.h"
+#include "synth_constants.h"
 #include "utils.h"
 #include "value.h"
 
 namespace vital {
 
-  // Decides which of Filter 1 / Filter 2 hears the input audio and whether it bypasses both.
+  // Routes the two audio inputs (main and sidechain) to the filters, the effects, or straight to the output.
   //
-  //  - Neither filter on:        input goes straight through (kRawOut).
-  //  - Parallel (default):       input feeds every filter that is on; their outputs are summed.
-  //  - Serial Filter 1 -> 2:     Filter 2's "filter input" switch is on: input only enters Filter 1.
-  //  - Serial Filter 2 -> 1:     Filter 1's "filter input" switch is on: input only enters Filter 2.
+  // Each input has a destination, the same list the synth uses for its oscillators:
+  //  - Filter 1 / Filter 2 / Filter 1+2: the input feeds those filters (a filter that is switched off is
+  //    skipped; if every chosen filter is off the input goes to the effects instead of vanishing).
+  //  - Effects:     the input skips the filters and enters the effect rack.
+  //  - Direct out:  the input skips the filters and the effect rack and is added at the output.
+  //
+  // Serial routing (a filter's FIL1/FIL2 switch) is applied afterwards, exactly as before:
+  //  - Serial Filter 1 -> 2: Filter 2's "filter input" switch is on: it hears Filter 1 rather than the input.
+  //  - Serial Filter 2 -> 1: Filter 1's "filter input" switch is on: it hears Filter 2 rather than the input.
   //
   // This mirrors how FiltersModule combines its two inputs, so the filters module itself is unchanged.
   class AudioFilterRouter : public Processor {
     public:
       enum {
         kAudio,
+        kSidechain,
         kNumInputs
       };
 
@@ -33,12 +40,14 @@ namespace vital {
         kToFilter1,
         kToFilter2,
         kRawOut,
+        kDirectOut,
         kNumOutputs
       };
 
       AudioFilterRouter() : Processor(kNumInputs, kNumOutputs),
                             filter_1_on_(nullptr), filter_2_on_(nullptr),
-                            filter_1_from_filter_2_(nullptr), filter_2_from_filter_1_(nullptr) { }
+                            filter_1_from_filter_2_(nullptr), filter_2_from_filter_1_(nullptr),
+                            main_destination_(nullptr), sidechain_destination_(nullptr) { }
 
       Processor* clone() const override { return new AudioFilterRouter(*this); }
 
@@ -50,58 +59,80 @@ namespace vital {
         filter_2_from_filter_1_ = filter_2_from_filter_1;
       }
 
+      void setDestinations(const Value* main_destination, const Value* sidechain_destination) {
+        main_destination_ = main_destination;
+        sidechain_destination_ = sidechain_destination;
+      }
+
       void process(int num_samples) override {
-        const poly_float* audio = input(kAudio)->source->buffer;
+        const poly_float* main = input(kAudio)->source->buffer;
+        const poly_float* side = input(kSidechain)->source->buffer;
         poly_float* to_filter_1 = output(kToFilter1)->buffer;
         poly_float* to_filter_2 = output(kToFilter2)->buffer;
         poly_float* raw = output(kRawOut)->buffer;
+        poly_float* direct = output(kDirectOut)->buffer;
 
         if (filter_1_on_ == nullptr || filter_2_on_ == nullptr ||
-            filter_1_from_filter_2_ == nullptr || filter_2_from_filter_1_ == nullptr) {
+            filter_1_from_filter_2_ == nullptr || filter_2_from_filter_1_ == nullptr ||
+            main_destination_ == nullptr || sidechain_destination_ == nullptr) {
           utils::zeroBuffer(to_filter_1, num_samples);
           utils::zeroBuffer(to_filter_2, num_samples);
-          utils::copyBuffer(raw, audio, num_samples);
+          utils::copyBuffer(raw, main, num_samples);
+          utils::zeroBuffer(direct, num_samples);
           return;
         }
 
         // Same truthiness the filters use themselves (FilterModule: on > 0.5, FiltersModule: != 0).
         bool filter_1_on = filter_1_on_->value() > 0.5f;
         bool filter_2_on = filter_2_on_->value() > 0.5f;
+
+        utils::zeroBuffer(to_filter_1, num_samples);
+        utils::zeroBuffer(to_filter_2, num_samples);
+        utils::zeroBuffer(raw, num_samples);
+        utils::zeroBuffer(direct, num_samples);
+
+        const poly_float* sources[2] = { main, side };
+        const Value* destinations[2] = { main_destination_, sidechain_destination_ };
+        for (int i = 0; i < 2; ++i) {
+          int destination = static_cast<int>(destinations[i]->value());
+          bool wants_1 = destination == constants::kFilter1 || destination == constants::kDualFilters;
+          bool wants_2 = destination == constants::kFilter2 || destination == constants::kDualFilters;
+          bool to_1 = wants_1 && filter_1_on;
+          bool to_2 = wants_2 && filter_2_on;
+
+          if (destination == constants::kDirectOut)
+            addBuffer(direct, sources[i], num_samples);
+          else if (to_1 || to_2) {
+            if (to_1)
+              addBuffer(to_filter_1, sources[i], num_samples);
+            if (to_2)
+              addBuffer(to_filter_2, sources[i], num_samples);
+          }
+          else
+            addBuffer(raw, sources[i], num_samples);
+        }
+
+        // Serial routing: the filter being fed by the other filter stops listening to the inputs.
         bool serial_backward = filter_1_from_filter_2_->value() != 0.0f && filter_1_on;
         bool serial_forward = !serial_backward && filter_2_from_filter_1_->value() != 0.0f && filter_2_on;
-
-        bool audio_to_1 = true;
-        bool audio_to_2 = true;
-        if (serial_backward) {
-          audio_to_2 = true;
-          audio_to_1 = !filter_2_on;
-        }
-        else if (serial_forward) {
-          audio_to_1 = true;
-          audio_to_2 = !filter_1_on;
-        }
-
-        if (audio_to_1)
-          utils::copyBuffer(to_filter_1, audio, num_samples);
-        else
+        if (serial_backward && filter_2_on)
           utils::zeroBuffer(to_filter_1, num_samples);
-
-        if (audio_to_2)
-          utils::copyBuffer(to_filter_2, audio, num_samples);
-        else
+        else if (serial_forward && filter_1_on)
           utils::zeroBuffer(to_filter_2, num_samples);
-
-        if (!filter_1_on && !filter_2_on)
-          utils::copyBuffer(raw, audio, num_samples);
-        else
-          utils::zeroBuffer(raw, num_samples);
       }
 
     private:
+      static void addBuffer(poly_float* destination, const poly_float* source, int num_samples) {
+        for (int i = 0; i < num_samples; ++i)
+          destination[i] += source[i];
+      }
+
       const Value* filter_1_on_;
       const Value* filter_2_on_;
       const Value* filter_1_from_filter_2_;
       const Value* filter_2_from_filter_1_;
+      const Value* main_destination_;
+      const Value* sidechain_destination_;
 
       JUCE_LEAK_DETECTOR(AudioFilterRouter)
   };

@@ -77,9 +77,12 @@ class SynthPlugin : public SynthBase, public AudioProcessor, public ValueBridge:
 #if VITAL_FX
     static BusesProperties getBusesProperties();
     void fillEffectInput(AudioSampleBuffer& buffer, int num_samples, int sample_offset);
+    // Returns false (and leaves effect_sidechain_ untouched) when the host has no sidechain connected.
+    bool fillSidechainInput(AudioSampleBuffer& buffer, int num_samples, int sample_offset);
 
     // Interleaved stereo input handed to the effects engine: lanes are (L, R, L, R).
     vital::poly_float effect_input_[vital::kMaxBufferSize];
+    vital::poly_float effect_sidechain_[vital::kMaxBufferSize];
 #endif
 
     ValueBridge* bypass_parameter_;

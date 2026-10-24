@@ -116,6 +116,9 @@ class SynthBase : public MidiManager::Listener {
     MidiKeyboardState* getKeyboardState() { return keyboard_state_.get(); }
     const vital::poly_float* getOscilloscopeMemory() { return oscilloscope_memory_; }
     const vital::StereoMemory* getAudioMemory() { return audio_memory_.get(); }
+    // Recent audio of the effect build's two inputs (for the input panels' spectrum displays).
+    const vital::StereoMemory* getInputMemory() { return input_memory_.get(); }
+    const vital::StereoMemory* getSidechainMemory() { return sidechain_memory_.get(); }
     const vital::StereoMemory* getEqualizerMemory();
     vital::ModulationConnectionBank& getModulationBank();
     void notifyOversamplingChanged();
@@ -154,8 +157,10 @@ class SynthBase : public MidiManager::Listener {
     }
 
     void processAudio(AudioSampleBuffer* buffer, int channels, int samples, int offset);
+    // sidechain_buffer is the second input of the effect build (nullptr when the host has none connected).
     void processAudioWithInput(AudioSampleBuffer* buffer, const vital::poly_float* input_buffer,
-                               int channels, int samples, int offset);
+                               int channels, int samples, int offset,
+                               const vital::poly_float* sidechain_buffer = nullptr);
     void writeAudio(AudioSampleBuffer* buffer, int channels, int samples, int offset);
     void processMidi(MidiBuffer& buffer, int start_sample = 0, int end_sample = 0);
     void processKeyboardEvents(MidiBuffer& buffer, int num_samples);
@@ -173,6 +178,8 @@ class SynthBase : public MidiManager::Listener {
     vital::poly_float oscilloscope_memory_[2 * vital::kOscilloscopeMemoryResolution];
     vital::poly_float oscilloscope_memory_write_[2 * vital::kOscilloscopeMemoryResolution];
     std::unique_ptr<vital::StereoMemory> audio_memory_;
+    std::unique_ptr<vital::StereoMemory> input_memory_;
+    std::unique_ptr<vital::StereoMemory> sidechain_memory_;
     vital::mono_float last_played_note_;
     int last_num_pressed_;
     vital::mono_float memory_reset_period_;

@@ -136,6 +136,26 @@ void SynthPlugin::fillEffectInput(AudioSampleBuffer& buffer, int num_samples, in
   for (int i = 0; i < num_samples; ++i)
     effect_input_[i] = vital::poly_float(left[i], right[i]);
 }
+
+bool SynthPlugin::fillSidechainInput(AudioSampleBuffer& buffer, int num_samples, int sample_offset) {
+  if (getBusCount(true) < 2)
+    return false;
+
+  AudioProcessor::Bus* bus = getBus(true, 1);
+  if (bus == nullptr || !bus->isEnabled())
+    return false;
+
+  AudioSampleBuffer side_input = getBusBuffer(buffer, true, 1);
+  int num_inputs = side_input.getNumChannels();
+  if (num_inputs == 0)
+    return false;
+
+  const float* left = side_input.getReadPointer(0, sample_offset);
+  const float* right = side_input.getReadPointer(num_inputs > 1 ? 1 : 0, sample_offset);
+  for (int i = 0; i < num_samples; ++i)
+    effect_sidechain_[i] = vital::poly_float(left[i], right[i]);
+  return true;
+}
 #endif
 
 bool SynthPlugin::acceptsMidi() const {
@@ -214,7 +234,9 @@ void SynthPlugin::processBlock(AudioSampleBuffer& buffer, MidiBuffer& midi_messa
 #if VITAL_FX
     // Input must be captured before the engine writes to the (shared) buffer.
     fillEffectInput(buffer, num_samples, sample_offset);
-    processAudioWithInput(&buffer, effect_input_, num_channels, num_samples, sample_offset);
+    bool has_sidechain = fillSidechainInput(buffer, num_samples, sample_offset);
+    processAudioWithInput(&buffer, effect_input_, num_channels, num_samples, sample_offset,
+                          has_sidechain ? effect_sidechain_ : nullptr);
 #else
     processAudio(&buffer, num_channels, num_samples, sample_offset);
 #endif

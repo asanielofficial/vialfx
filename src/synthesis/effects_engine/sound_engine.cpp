@@ -35,6 +35,7 @@
 namespace vital {
 
   SoundEngine::SoundEngine() : SynthModule(0, 1), modulation_handler_(nullptr), audio_input_(nullptr),
+                               sidechain_input_(nullptr), sidechain_in_(nullptr), silence_(),
                                filter_router_(nullptr), filters_module_(nullptr), upsampler_(nullptr),
                                last_oversampling_amount_(-1), last_sample_rate_(-1), peak_meter_(nullptr) {
     init();
@@ -60,6 +61,8 @@ namespace vital {
     createBaseControl("input_distortion_amount");
     createBaseControl("sidechain_spectral_morph_amount");
     createBaseControl("sidechain_distortion_amount");
+    Value* input_destination = createBaseControl("input_destination");
+    Value* sidechain_destination = createBaseControl("sidechain_destination");
     oversampling_ = createBaseControl("oversampling");
     legato_ = createBaseControl("legato");
 
@@ -98,8 +101,13 @@ namespace vital {
     audio_input_ = new Upsampler();
     addIdleProcessor(audio_input_);
 
+    sidechain_input_ = new Upsampler();
+    addIdleProcessor(sidechain_input_);
+
     filter_router_ = new AudioFilterRouter();
     filter_router_->plug(audio_input_, AudioFilterRouter::kAudio);
+    filter_router_->plug(sidechain_input_, AudioFilterRouter::kSidechain);
+    filter_router_->setDestinations(input_destination, sidechain_destination);
     addProcessor(filter_router_);
 
     filters_module_ = new FiltersModule();
@@ -151,8 +159,14 @@ namespace vital {
     decimator->plug(effect_chain_);
     addProcessor(decimator);
 
+    // Inputs routed to "direct out" skip the filters and the effects and join the signal here.
+    Add* with_direct = new Add();
+    with_direct->plug(decimator, 0);
+    with_direct->plug(filter_router_->output(AudioFilterRouter::kDirectOut), 1);
+    addProcessor(with_direct);
+
     StereoEncoder* decoder = new StereoEncoder(true);
-    decoder->plug(decimator, StereoEncoder::kAudio);
+    decoder->plug(with_direct, StereoEncoder::kAudio);
     decoder->plug(stereo_routing, StereoEncoder::kEncodingValue);
     decoder->plug(stereo_mode, StereoEncoder::kMode);
     addProcessor(decoder);
@@ -292,10 +306,15 @@ namespace vital {
     modulation_handler_->setLegato(legato_->value());
 
     audio_input_->processWithInput(audio_in, num_samples);
+    sidechain_input_->processWithInput(sidechain_in_ ? sidechain_in_ : silence_, num_samples);
     ProcessorRouter::process(num_samples);
 
     for (auto& status_source : data_->status_outputs)
       status_source.second->update();
+  }
+
+  void SoundEngine::setSidechainInput(const poly_float* audio) {
+    sidechain_in_ = audio;
   }
 
   void SoundEngine::correctToTime(double seconds) {

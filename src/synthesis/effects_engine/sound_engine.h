@@ -48,6 +48,8 @@ namespace vital {
 
       void init() override;
       void processWithInput(const poly_float* audio_in, int num_samples) override;
+      // Sidechain audio for the next processWithInput call (nullptr = silence). Must stay valid until then.
+      void setSidechainInput(const poly_float* audio);
       void correctToTime(double seconds) override;
 
       int getNumPressedNotes();
@@ -103,6 +105,9 @@ namespace vital {
     private:
       EffectsModulationHandler* modulation_handler_;
       Upsampler* audio_input_;
+      Upsampler* sidechain_input_;
+      const poly_float* sidechain_in_;
+      poly_float silence_[kMaxBufferSize];
       AudioFilterRouter* filter_router_;
       FiltersModule* filters_module_;
       AudioUpsampler* upsampler_;

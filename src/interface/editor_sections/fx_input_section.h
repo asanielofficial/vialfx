@@ -18,18 +18,37 @@
 
 #include "JuceHeader.h"
 
+#include "oscilloscope.h"
+#include "open_gl_image_component.h"
+#include "paths.h"
+#include "skin.h"
+#include "synth_button.h"
+#include "synth_constants.h"
+#include "synth_gui_interface.h"
 #include "synth_section.h"
 #include "synth_slider.h"
+#include "synth_strings.h"
 
 // Panel for one audio input of the effect build ("INPUT" or "SIDECHAIN"), laid out like an oscillator
-// panel: title on the left, the two big morph knobs on the right. The middle is left free for a display.
-// The knobs are bound to parameters but do nothing yet.
+// panel: title on the left, a live spectrum display in the middle with the routing dropdown under it, and
+// the two big morph knobs on the right. The knobs are bound to parameters but do nothing yet.
+//
+// The dropdown picks where the input goes (Filter 1, Filter 2, Filter 1+2, Effects or Direct Out), the same
+// list the synth uses for its oscillators; the filters' INPUT / SIDECHAIN buttons mirror it.
 class FxInputSection : public SynthSection {
   public:
     static constexpr float kKnobAreaWidthRatio = 0.38f;
+    static constexpr int kNumDestinations = vital::constants::kNumSourceDestinations;
+
+    class Listener {
+      public:
+        virtual ~Listener() { }
+        virtual void inputDestinationChanged(FxInputSection* section, int destination) = 0;
+    };
 
     // prefix is "input" or "sidechain".
-    FxInputSection(String title, const std::string& prefix) : SynthSection(title) {
+    FxInputSection(String title, const std::string& prefix) : SynthSection(title), prefix_(prefix),
+                                                              current_destination_(vital::constants::kDualFilters) {
       spectral_morph_ = std::make_unique<SynthSlider>(prefix + "_spectral_morph_amount");
       addSlider(spectral_morph_.get());
       spectral_morph_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
@@ -42,10 +61,53 @@ class FxInputSection : public SynthSection {
       distortion_->setKnobSizeScale(1.5f);
       distortion_->setPopupPrefix("Distortion: ");
 
+      spectrogram_ = std::make_unique<Spectrogram>();
+      addOpenGlComponent(spectrogram_.get());
+      spectrogram_->setMinFrequency(20.0f);
+      spectrogram_->setMaxFrequency(20000.0f);
+      spectrogram_->setMinDb(-60.0f);
+      spectrogram_->setMaxDb(0.0f);
+
+      destination_selector_ = std::make_unique<ShapeButton>("Destination", Colour(0xff666666),
+                                                            Colour(0xffaaaaaa), Colour(0xff888888));
+      addAndMakeVisible(destination_selector_.get());
+      destination_selector_->addListener(this);
+      destination_selector_->setTriggeredOnMouseDown(true);
+      destination_selector_->setShape(Path(), true, true, true);
+
+      destination_text_ = std::make_unique<PlainTextComponent>("Destination Text", "---");
+      addOpenGlComponent(destination_text_.get());
+
+      prev_destination_ = std::make_unique<OpenGlShapeButton>("Prev Destination");
+      addAndMakeVisible(prev_destination_.get());
+      addOpenGlComponent(prev_destination_->getGlComponent());
+      prev_destination_->addListener(this);
+      prev_destination_->setShape(Paths::prev());
+
+      next_destination_ = std::make_unique<OpenGlShapeButton>("Next Destination");
+      addAndMakeVisible(next_destination_.get());
+      addOpenGlComponent(next_destination_->getGlComponent());
+      next_destination_->addListener(this);
+      next_destination_->setShape(Paths::next());
+
       setSkinOverride(Skin::kOscillator);
+      updateDestinationText();
     }
 
     virtual ~FxInputSection() { }
+
+    void addListener(Listener* listener) { listeners_.push_back(listener); }
+
+    int getDestination() const { return current_destination_; }
+
+    // Called by the filters' INPUT / SIDECHAIN buttons.
+    void toggleFilterInput(int filter_index, bool on) {
+      vital::constants::SourceDestination destination = (vital::constants::SourceDestination)current_destination_;
+      if (filter_index == 0)
+        setDestination(vital::constants::toggleFilter1(destination, on));
+      else
+        setDestination(vital::constants::toggleFilter2(destination, on));
+    }
 
     void paintBackground(Graphics& g) override {
       if (getWidth() == 0)
@@ -56,6 +118,9 @@ class FxInputSection : public SynthSection {
       paintKnobShadows(g);
       paintChildrenBackgrounds(g);
       paintBorder(g);
+
+      g.setColour(findColour(Skin::kTextComponentBackground, true));
+      g.fillRoundedRectangle(destination_selector_->getBounds().toFloat(), findValue(Skin::kLabelBackgroundRounding));
 
       setLabelFont(g);
       drawLabelForComponent(g, TRANS("SPECTRAL"), spectral_morph_.get());
@@ -70,17 +135,120 @@ class FxInputSection : public SynthSection {
 
       int widget_margin = getWidgetMargin();
       int label_height = findValue(Skin::kLabelBackgroundHeight);
+      int title_width = getTitleWidth();
       int knob_width = getWidth() * kKnobAreaWidthRatio;
       int knob_y = widget_margin;
       int knob_height = getHeight() - label_height - 2 * widget_margin;
 
       placeKnobsInArea(Rectangle<int>(getWidth() - knob_width, knob_y, knob_width, knob_height + widget_margin),
                        { spectral_morph_.get(), distortion_.get() });
+
+      // Spectrum display in the middle, routing dropdown underneath it.
+      int display_x = title_width + widget_margin;
+      int display_width = std::max(0, getWidth() - knob_width - display_x - widget_margin);
+      int destination_y = getHeight() - label_height - widget_margin;
+      int display_height = std::max(0, destination_y - 2 * widget_margin);
+      spectrogram_->setBounds(display_x, widget_margin, display_width, display_height);
+      spectrogram_->setColour(Skin::kBody, findColour(Skin::kBackground, true));
+
+      destination_selector_->setBounds(display_x, destination_y, display_width, label_height);
+      destination_text_->setBounds(destination_selector_->getBounds());
+      destination_text_->setTextSize(findValue(Skin::kLabelHeight));
+      destination_text_->setColor(findColour(Skin::kBodyText, true));
+
+      int browse_width = label_height;
+      prev_destination_->setBounds(display_x, destination_y, browse_width, browse_width);
+      next_destination_->setBounds(display_x + display_width - browse_width, destination_y,
+                                   browse_width, browse_width);
+      connectMemory();
+    }
+
+    void visibilityChanged() override {
+      SynthSection::visibilityChanged();
+      connectMemory();
+    }
+
+    void parentHierarchyChanged() override {
+      SynthSection::parentHierarchyChanged();
+      connectMemory();
+    }
+
+    void setAllValues(vital::control_map& controls) override {
+      SynthSection::setAllValues(controls);
+      auto destination = controls.find(prefix_ + "_destination");
+      if (destination != controls.end() && destination->second) {
+        current_destination_ = clampDestination(static_cast<int>(destination->second->value()));
+        notifyDestination();
+      }
+      connectMemory();
+    }
+
+    void buttonClicked(Button* clicked_button) override {
+      if (clicked_button == destination_selector_.get()) {
+        PopupItems options;
+        for (int i = 0; i < kNumDestinations; ++i)
+          options.addItem(i, strings::kDestinationMenuNames[i]);
+
+        Point<int> position(destination_selector_->getX(), destination_selector_->getBottom());
+        showPopupSelector(this, position, options, [=](int selection) { setDestination(selection); });
+      }
+      else if (clicked_button == prev_destination_.get())
+        setDestination((current_destination_ + kNumDestinations - 1) % kNumDestinations);
+      else if (clicked_button == next_destination_.get())
+        setDestination((current_destination_ + 1) % kNumDestinations);
+      else
+        SynthSection::buttonClicked(clicked_button);
     }
 
   private:
+    static int clampDestination(int destination) {
+      return std::max(0, std::min(destination, kNumDestinations - 1));
+    }
+
+    void connectMemory() {
+      if (memory_connected_)
+        return;
+
+      SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
+      if (parent == nullptr || parent->getSynth() == nullptr)
+        return;
+
+      spectrogram_->setAudioMemory(prefix_ == "input" ? parent->getSynth()->getInputMemory()
+                                                      : parent->getSynth()->getSidechainMemory());
+      memory_connected_ = true;
+    }
+
+    void updateDestinationText() {
+      destination_text_->setText(strings::kDestinationNames[clampDestination(current_destination_)]);
+    }
+
+    void notifyDestination() {
+      updateDestinationText();
+      for (Listener* listener : listeners_)
+        listener->inputDestinationChanged(this, current_destination_);
+    }
+
+    void setDestination(int destination) {
+      current_destination_ = clampDestination(destination);
+      notifyDestination();
+
+      SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
+      if (parent && parent->getSynth())
+        parent->getSynth()->valueChangedInternal(prefix_ + "_destination", current_destination_);
+    }
+
+    std::string prefix_;
+    int current_destination_;
+    bool memory_connected_ = false;
+    std::vector<Listener*> listeners_;
+
     std::unique_ptr<SynthSlider> spectral_morph_;
     std::unique_ptr<SynthSlider> distortion_;
+    std::unique_ptr<Spectrogram> spectrogram_;
+    std::unique_ptr<ShapeButton> destination_selector_;
+    std::unique_ptr<PlainTextComponent> destination_text_;
+    std::unique_ptr<OpenGlShapeButton> prev_destination_;
+    std::unique_ptr<OpenGlShapeButton> next_destination_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FxInputSection)
 };

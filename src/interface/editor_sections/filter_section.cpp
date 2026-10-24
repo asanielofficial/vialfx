@@ -343,10 +343,17 @@ void FilterSection::positionTopBottom() {
   float input_height = (knob_section_height - 2 * (widget_margin + internal_margin)) / 3.0f;
   int osc_y = knob_y + widget_margin;
 
-  osc1_input_->setBounds(widget_margin, osc_y, input_width, input_height);
-  osc2_input_->setBounds(inputs_width - widget_margin - input_width, osc_y, input_width, input_height);
-
   int other_y = knob_y + (knob_section_height - input_height) / 2.0f;
+  if (audio_inputs_) {
+    // Two wide buttons: INPUT on top, SIDECHAIN below it.
+    int wide_width = inputs_width - 2 * widget_margin;
+    osc1_input_->setBounds(widget_margin, osc_y, wide_width, input_height);
+    osc2_input_->setBounds(widget_margin, other_y, wide_width, input_height);
+  }
+  else {
+    osc1_input_->setBounds(widget_margin, osc_y, input_width, input_height);
+    osc2_input_->setBounds(inputs_width - widget_margin - input_width, osc_y, input_width, input_height);
+  }
   osc3_input_->setBounds(widget_margin, other_y, input_width, input_height);
   sample_input_->setBounds(inputs_width - widget_margin - input_width, other_y, input_width, input_height);
 
@@ -537,6 +544,20 @@ void FilterSection::hideSourceInputs() {
     input->setVisible(false);
     input->getGlComponent()->setVisible(false);
   }
+}
+
+void FilterSection::useAudioInputs() {
+  audio_inputs_ = true;
+  for (OpenGlToggleButton* input : { osc3_input_.get(), sample_input_.get() }) {
+    if (input == nullptr)
+      continue;
+    input->setVisible(false);
+    input->getGlComponent()->setVisible(false);
+  }
+
+  osc1_input_->setText("INPUT");
+  osc2_input_->setText("SIDECHAIN");
+  resized();
 }
 
 void FilterSection::setSampleInput(bool input) {

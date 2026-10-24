@@ -23,25 +23,28 @@
 #include "synth_section.h"
 
 // VOICE tab of the effect build: the main input and sidechain input panels on top, and the two filters
-// side by side below them, where the synth shows its filters under the oscillators. There are no oscillators or sample source to route, so those buttons are hidden; the
-// serial buttons (FIL1/FIL2) still choose between parallel and serial routing.
-class FxVoiceInterface : public SynthSection, public FilterSection::Listener {
+// side by side below them, where the synth shows its filters under the oscillators. The filters' source
+// buttons are INPUT and SIDECHAIN, and the serial buttons (FIL1/FIL2) still choose between parallel and
+// serial routing.
+class FxVoiceInterface : public SynthSection, public FilterSection::Listener, public FxInputSection::Listener {
   public:
     FxVoiceInterface(const vital::output_map& mono_modulations, const vital::output_map& poly_modulations) :
         SynthSection("synthesis") {
       main_input_ = std::make_unique<FxInputSection>("INPUT", "input");
+      main_input_->addListener(this);
       addSubSection(main_input_.get());
 
       sidechain_input_ = std::make_unique<FxInputSection>("SIDECHAIN", "sidechain");
+      sidechain_input_->addListener(this);
       addSubSection(sidechain_input_.get());
 
       filter_section_1_ = std::make_unique<FilterSection>(1, mono_modulations, poly_modulations);
-      filter_section_1_->hideSourceInputs();
+      filter_section_1_->useAudioInputs();
       filter_section_1_->addListener(this);
       addSubSection(filter_section_1_.get());
 
       filter_section_2_ = std::make_unique<FilterSection>(2, mono_modulations, poly_modulations);
-      filter_section_2_->hideSourceInputs();
+      filter_section_2_->useAudioInputs();
       filter_section_2_->addListener(this);
       addSubSection(filter_section_2_.get());
 
@@ -85,8 +88,23 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener {
         filter_section_1_->clearFilterInput();
     }
 
-    void oscInputToggled(FilterSection* section, int index, bool on) override { }
+    // The filters' INPUT (index 0) and SIDECHAIN (index 1) buttons edit the matching input's destination.
+    void oscInputToggled(FilterSection* section, int index, bool on) override {
+      int filter_index = section == filter_section_1_.get() ? 0 : 1;
+      FxInputSection* input = index == 0 ? main_input_.get() : sidechain_input_.get();
+      input->toggleFilterInput(filter_index, on);
+    }
+
     void sampleInputToggled(FilterSection* section, bool on) override { }
+
+    // ...and the destination dropdowns light the filters' buttons.
+    void inputDestinationChanged(FxInputSection* section, int destination) override {
+      bool filter1_on = destination == vital::constants::kFilter1 || destination == vital::constants::kDualFilters;
+      bool filter2_on = destination == vital::constants::kFilter2 || destination == vital::constants::kDualFilters;
+      int index = section == main_input_.get() ? 0 : 1;
+      filter_section_1_->setOscillatorInput(index, filter1_on);
+      filter_section_2_->setOscillatorInput(index, filter2_on);
+    }
 
     FilterSection* getFilterSection1() { return filter_section_1_.get(); }
     FilterSection* getFilterSection2() { return filter_section_2_.get(); }
