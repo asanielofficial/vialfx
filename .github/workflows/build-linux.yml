@@ -125,4 +125,4 @@ jobs:
             grep -E "^#[0-9]+" smoke.log | head -30 | cut -c1-330 | while IFS= read -r l; do echo "::error::[smoke bt] $l"; done
             exit 1
           fi
-          grep -q "ALL OK" smoke.log || { echo "::error::GUI smoke test did not finish cleanly"; exit 1; }
+          grep -q "ALL OK" smoke.log || { tail -25 smoke.log | cut -c1-250 | while IFS= read -r l; do echo "::error::[smoke tail] $l"; done; exit 1; }
