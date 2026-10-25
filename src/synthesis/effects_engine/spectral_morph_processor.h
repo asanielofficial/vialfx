@@ -41,7 +41,8 @@ namespace vital {
   //   Smear                     smears each bin's energy into the bins above it
   //   Random Amplitudes         seeded random gain per bin
   //   Low Pass / High Pass      steep spectral filters, cutoff 20 Hz .. Nyquist (exponential)
-  //   Phase Disperse (bipolar)  quadratic phase: a frequency-dependent delay (chirp), either direction
+  //   Phase Disperse (bipolar)  a strong dispersive chirp (frequency-dependent delay), either direction:
+  //                             up delays the highs, down delays the lows
   //   Shepard Tone              octave-shifted copies crossfaded so the spectrum glides without end
   //   Spectral Time Skew        group delay that grows with the log of the frequency: high frequencies arrive late
   //   Vocode (bipolar)          imposes the spectral envelope of the other lane (the modulator) on this lane;
@@ -375,37 +376,36 @@ namespace vital {
           }
           break;
         }
-        case kPhaseDisperse: {
-          // A quadratic phase (a chirp that smears transients) plus a slow drift: every bin is shifted in
-          // frequency by an amount that grows with frequency (up to 100 Hz at the top), so sustained notes
-          // lose their harmonic alignment and shimmer, not only the transients.
-          float strength = a * kPi_ * n / 6.0f;
-          float hop_seconds = static_cast<float>(n / kOverlap) / sample_rate;
-          for (int k = 1; k <= bins; ++k) {
-            float x = static_cast<float>(k) / bins;
-            float drift = ch.drift[k] + 2.0f * kPi_ * a * 100.0f * x * hop_seconds;
-            drift = fmodf(drift, 2.0f * kPi_);
-            ch.drift[k] = drift;
-            rotate(spec, k, strength * x * x + drift);
-          }
-          break;
-        }
+        case kPhaseDisperse:
         case kTimeSkew: {
-          // Frequency-dependent group delay: each bin is read from an older frame, the higher the frequency
-          // the older (up to 16 hops, 4 FFT sizes, at full amount). Highs lag behind the lows, on sustained
-          // sounds as well as on transients.
+          // Frequency-dependent group delay, up to 15 hops (about 4 FFT sizes) at full amount. Each bin is read
+          // from an older frame (whole hops) and the remainder is a linear phase, so the delay is continuous.
+          //   Time Skew:      delay grows with the log of the frequency (highs lag behind the lows).
+          //   Phase Disperse: a strong chirp that works both ways: up, the highs are late (delay ~ sqrt of the
+          //                   frequency); down, the lows are late. On transients it turns a click into a sweep.
           int stride = n + 2;
           float* slot = ch.history.data() + ch.history_pos * stride;
           std::copy(spec, spec + stride, slot);
-          float norm = 1.0f / std::log2(1.0f + bins);
-          float max_hops = a * (kHistoryFrames - 1);
+          const int hop = n / kOverlap;
+          float max_delay = static_cast<float>((kHistoryFrames - 1) * hop);
+          float log_norm = 1.0f / std::log2(1.0f + bins);
           for (int k = 1; k <= bins; ++k) {
-            int hops = static_cast<int>(max_hops * std::log2(1.0f + k) * norm + 0.5f);
-            hops = std::min(hops, ch.history_filled);
+            float curve;
+            if (mode_ == kTimeSkew)
+              curve = std::log2(1.0f + k) * log_norm;
+            else {
+              float root = sqrtf(static_cast<float>(k) / bins);
+              curve = a >= 0.0f ? root : 1.0f - root;
+            }
+            float delay = std::fabs(a) * max_delay * curve;
+            int hops = std::min(static_cast<int>(delay / hop), ch.history_filled);
+            float remainder = mode_ == kTimeSkew ? 0.0f : delay - static_cast<float>(static_cast<int>(delay / hop)) * hop;
             int index = (ch.history_pos - hops + kHistoryFrames) % kHistoryFrames;
             const float* old = ch.history.data() + index * stride;
             spec[2 * k] = old[2 * k];
             spec[2 * k + 1] = old[2 * k + 1];
+            if (remainder > 0.0f)
+              rotate(spec, k, -2.0f * kPi_ * k * remainder / n);
           }
           ch.history_pos = (ch.history_pos + 1) % kHistoryFrames;
           ch.history_filled = std::min(ch.history_filled + 1, kHistoryFrames - 1);

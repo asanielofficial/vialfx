@@ -1132,7 +1132,7 @@ namespace {
         Rig impulse_rig;
         impulse_rig.set("fft_size", static_cast<float>(index));
         impulse_rig.set("input_spectral_morph_type", static_cast<float>(mode));
-        impulse_rig.set("input_spectral_morph_amount", mode == 0 ? 0.0f : mode == 6 ? 0.002f : 0.5005f);
+        impulse_rig.set("input_spectral_morph_amount", mode == 0 ? 0.0f : mode == 6 ? 0.002f : 0.50011f);
         Generator impulse = [](int i, float& l, float& r) { l = r = (i == 100) ? 0.5f : 0.0f; };
         Stereo out = impulse_rig.render(size + 2000, impulse);
         size_t peak_at = 0;
@@ -1341,8 +1341,11 @@ namespace {
         if (knob == 0.75f && mode == 11)
           check(spec > 10.0, "Vocode at 75% clearly reshapes the spectrum (tonal modulator)", fmt("%.1f dB", spec));
         if (knob == 0.75f && mode == 8)
-          check(click_out.peak() < 0.3f && spec > 6.0, "Phase Disperse at 75% smears transients and detunes sustained notes",
-                fmt("click peak %.2f, saw %.1f dB", click_out.peak(), spec));
+          check(click_out.peak() < 0.3f, "Phase Disperse at 75% smears transients",
+                fmt("click peak %.2f", click_out.peak()));
+        if (knob == 0.25f && mode == 8)
+          check(click_out.peak() < 0.3f, "Phase Disperse works in the other direction too (25%)",
+                fmt("click peak %.2f", click_out.peak()));
         if (knob == 0.75f && mode == 10)
           check(click_out.peak() < 0.4f, "Spectral Time Skew at 75% smears transients", fmt("click peak %.2f", click_out.peak()));
       }
@@ -1375,6 +1378,54 @@ namespace {
     double normal = brightness(0.0f), skewed = brightness(1.0f);
     check(skewed < 0.6 * normal, "Time Skew delays the highs on sustained material",
           fmt("brightness %.2f -> %.2f", normal, skewed));
+  }
+
+  void testModulatorIndependentOfLevel() {
+    std::printf("\n== Modulator lane works with its level at zero ==\n");
+    Generator tone = sine(440.0f);
+    Generator mod = saw(137.0f);
+    struct Case { const char* name; const char* type; float mode; const char* amount; float value; };
+    Case cases[] = {
+      { "FM", "input_distortion_type", 6.0f, "input_distortion_amount", 0.8f },
+      { "RM", "input_distortion_type", 7.0f, "input_distortion_amount", 0.8f },
+      { "Vocode", "input_spectral_morph_type", 11.0f, "input_spectral_morph_amount", 0.9f },
+    };
+    for (const Case& c : cases) {
+      Rig ref;
+      Stereo reference = ref.render(30000, tone);
+      for (float level : { 1.0f, 0.0f }) {
+        Rig rig;
+        rig.set("sidechain_on", 1.0f);
+        rig.set("sidechain_level", level);
+        rig.set(c.type, c.mode);
+        rig.set(c.amount, c.value);
+        Generator m = saw(137.0f);
+        Stereo out = rig.render(30000, tone, 64, &m);
+        double diff = 0.0;
+        for (size_t i = 15000; i < out.left.size(); ++i)
+          diff += std::pow(static_cast<double>(out.left[i]) - reference.left[i], 2.0);
+        diff = std::sqrt(diff / 15000.0);
+        check(out.finite() && rms(out.left, 15000) > 0.01 && diff > 0.01,
+              std::string(c.name) + " modulates the main lane with the sidechain level at " + (level > 0 ? "unity" : "zero"),
+              fmt("rms %.4f, difference %.4f", rms(out.left, 15000), diff));
+      }
+      // Level zero keeps the sidechain signal itself out of the mix.
+      Rig quiet;
+      quiet.set("sidechain_on", 1.0f);
+      quiet.set("sidechain_level", 0.0f);
+      quiet.set("input_on", 0.0f);
+      Generator m2 = saw(137.0f);
+      Stereo silent = quiet.render(20000, tone, 64, &m2);
+      check(rms(silent.left, 10000) < 1e-4, "sidechain at level zero is not heard itself", fmt("%.6f", rms(silent.left, 10000)));
+      // Switched off, it no longer modulates.
+      Rig off;
+      off.set(c.type, c.mode);
+      off.set(c.amount, c.value);
+      Generator m3 = saw(137.0f);
+      Stereo gone = off.render(30000, tone, 64, &m3);
+      if (c.mode == 6.0f || c.mode == 7.0f)
+        check(rms(gone.left, 15000) < 1e-3, std::string(c.name) + " is silent while the sidechain lane is switched off");
+    }
   }
 
   void testPlaceholders() {
@@ -1456,6 +1507,7 @@ int main() {
     testSpectral();
     testSpectralAudibility();
     testTimeSkewSustained();
+    testModulatorIndependentOfLevel();
     testPlaceholders();
     testCpu();
   }

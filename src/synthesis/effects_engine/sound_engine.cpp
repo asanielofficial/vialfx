@@ -128,17 +128,25 @@ namespace vital {
     main_lane->plug(input_pan, AudioLane::kPan);
     addProcessor(main_lane);
 
-    AudioLane* sidechain_lane = new AudioLane();
-    sidechain_lane->plug(sidechain_input_, AudioLane::kAudio);
-    sidechain_lane->plug(sidechain_on, AudioLane::kOn);
-    sidechain_lane->plug(sidechain_level, AudioLane::kLevel);
-    sidechain_lane->plug(sidechain_pan, AudioLane::kPan);
-    addProcessor(sidechain_lane);
+    // The sidechain lane's modulation path is independent of its level and pan (like an oscillator B whose
+    // level is down: it still modulates). Only its on switch gates it. The level and pan are applied last,
+    // to the signal that goes on to the filters / effects.
+    Value* unity_level = new Value(1.0f);
+    Value* centre_pan = new Value(0.0f);
+    Value* always_on = new Value(1.0f);
+    addIdleProcessor(unity_level);
+    addIdleProcessor(centre_pan);
+    addIdleProcessor(always_on);
 
-    // Spectral morph sits between each lane and its warp. Both stages delay by one FFT size, so the lanes stay aligned.
-    // Vocode on the main lane uses the sidechain lane (before its own spectral stage) as the modulator.
+    AudioLane* sidechain_gate = new AudioLane();
+    sidechain_gate->plug(sidechain_input_, AudioLane::kAudio);
+    sidechain_gate->plug(sidechain_on, AudioLane::kOn);
+    sidechain_gate->plug(unity_level, AudioLane::kLevel);
+    sidechain_gate->plug(centre_pan, AudioLane::kPan);
+    addProcessor(sidechain_gate);
+
     SpectralMorphProcessor* sidechain_spectral = new SpectralMorphProcessor(false);
-    sidechain_spectral->plug(sidechain_lane, SpectralMorphProcessor::kAudio);
+    sidechain_spectral->plug(sidechain_gate, SpectralMorphProcessor::kAudio);
     sidechain_spectral->plug(sidechain_spectral_mode, SpectralMorphProcessor::kMode);
     sidechain_spectral->plug(sidechain_spectral_amount, SpectralMorphProcessor::kAmount);
     sidechain_spectral->plug(fft_size, SpectralMorphProcessor::kFftSize);
@@ -149,7 +157,7 @@ namespace vital {
     main_spectral->plug(input_spectral_mode, SpectralMorphProcessor::kMode);
     main_spectral->plug(input_spectral_amount, SpectralMorphProcessor::kAmount);
     main_spectral->plug(fft_size, SpectralMorphProcessor::kFftSize);
-    main_spectral->plug(sidechain_lane, SpectralMorphProcessor::kModulator);
+    main_spectral->plug(sidechain_gate, SpectralMorphProcessor::kModulator);
     addProcessor(main_spectral);
 
     // The sidechain lane warps first; the main lane's FM and RM modes use its result as their modulator.
@@ -158,6 +166,13 @@ namespace vital {
     sidechain_warp->plug(sidechain_warp_mode, WaveWarp::kMode);
     sidechain_warp->plug(sidechain_warp_amount, WaveWarp::kAmount);
     addProcessor(sidechain_warp);
+
+    AudioLane* sidechain_out = new AudioLane();
+    sidechain_out->plug(sidechain_warp, AudioLane::kAudio);
+    sidechain_out->plug(always_on, AudioLane::kOn);
+    sidechain_out->plug(sidechain_level, AudioLane::kLevel);
+    sidechain_out->plug(sidechain_pan, AudioLane::kPan);
+    addProcessor(sidechain_out);
 
     WaveWarp* main_warp = new WaveWarp(true);
     main_warp->plug(main_spectral, WaveWarp::kAudio);
@@ -174,7 +189,7 @@ namespace vital {
     main_tap->plug(main_warp, AudioTap::kAudio);
     addProcessor(main_tap);
     AudioTap* sidechain_tap = new AudioTap(sidechain_memory_.get());
-    sidechain_tap->plug(sidechain_warp, AudioTap::kAudio);
+    sidechain_tap->plug(sidechain_out, AudioTap::kAudio);
     addProcessor(sidechain_tap);
 
     filter_router_ = new AudioFilterRouter();

@@ -17,15 +17,17 @@ It is built from GPLv3 synthesizer source code (see [NOTICE.md](NOTICE.md) for t
   the amount is a modulation target). Modes: Sync and Formant (wavefolders), Quantize (bit and sample-rate
   reduction), Bend and Squeeze (waveshapers), Pulse (asymmetric clipper), and on the main input only FM and RM,
   where the sidechain lane modulates the main lane. The sidechain lane is warped first; FM and RM on the main
-  input are silent while the sidechain lane is switched off. Sync, Formant, Bend and Squeeze are bipolar like the
+  input are silent while the sidechain lane is switched off. The sidechain lane modulates at full strength
+  whatever its level and pan are (like an oscillator B turned down): only its on switch gates it, and the
+  level and pan apply to the signal that goes on to the filters and effects. Sync, Formant, Bend and Squeeze are bipolar like the
   original distortions (knob centre is neutral); the other modes are neutral at zero. The waveshapers work
   relative to the signal's own level, so they bite at quiet levels too. The input spectrum displays show each
   lane after its level, pan and warp.
 - **Spectral morph (v0.3):** each input has a spectral mode and amount (the left-hand knob on its panel; the
   amount is a modulation target). The stage is a Hann-windowed overlap-add FFT (75% overlap) that sits
   between the lane and its warp. Modes: Formant Scale, Harmonic Stretch, Inharmonic Stretch, Smear, Random
-  Amplitudes, Low Pass, High Pass, Phase Disperse (a chirp plus a frequency-dependent detune, so sustained
-  notes shimmer too), Shepard Tone, Spectral Time Skew (a frequency-dependent group delay of up to 16 frames:
+  Amplitudes, Low Pass, High Pass, Phase Disperse (a strong two-way disperser: up delays the highs, down
+  delays the lows, turning clicks into sweeps), Shepard Tone, Spectral Time Skew (a frequency-dependent group delay of up to 16 frames:
   the highs lag behind the lows), and on the main input only Vocode, which imposes the sidechain lane's spectral envelope on
   the main lane. Formant Scale, Harmonic/Inharmonic Stretch, Phase Disperse and Vocode are bipolar (knob
   centre is neutral). The FFT size is set on the ADVANCED tab (256, 512, 1024 default, 2048) with a live
