@@ -31,7 +31,7 @@
 
 // Panel for one audio input of the effect build ("INPUT" or "SIDECHAIN"), laid out like an oscillator
 // panel: title on the left, a live spectrum display in the middle with the routing dropdown under it, and
-// the two big morph knobs on the right. The knobs are bound to parameters but do nothing yet.
+// the two big knobs on the right (spectral morph and distortion warp), each with its mode selector underneath.
 //
 // The dropdown picks where the input goes (Filter 1, Filter 2, Filter 1+2, Effects or Direct Out), the same
 // list the synth uses for its oscillators; the filters' INPUT / SIDECHAIN buttons mirror it.
@@ -49,9 +49,9 @@ class FxInputSection : public SynthSection {
 
     // prefix is "input" or "sidechain". num_warp_modes is how many distortion warp modes the lane offers
     // (the main lane has all 8; the sidechain has no modulator lane for FM and RM, so it offers 6).
-    FxInputSection(String title, const std::string& prefix, int num_warp_modes = 8) :
+    FxInputSection(String title, const std::string& prefix, int num_warp_modes = 8, int num_spectral_modes = 12) :
         SynthSection(title), prefix_(prefix), current_destination_(vital::constants::kDualFilters),
-        num_warp_modes_(num_warp_modes) {
+        num_warp_modes_(num_warp_modes), num_spectral_modes_(num_spectral_modes) {
       spectral_morph_ = std::make_unique<SynthSlider>(prefix + "_spectral_morph_amount");
       addSlider(spectral_morph_.get());
       spectral_morph_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
@@ -130,6 +130,28 @@ class FxInputSection : public SynthSection {
       next_warp_->addListener(this);
       next_warp_->setShape(Paths::next());
 
+      spectral_selector_ = std::make_unique<ShapeButton>("Spectral Mode", Colour(0xff666666),
+                                                         Colour(0xffaaaaaa), Colour(0xff888888));
+      addAndMakeVisible(spectral_selector_.get());
+      spectral_selector_->addListener(this);
+      spectral_selector_->setTriggeredOnMouseDown(true);
+      spectral_selector_->setShape(Path(), true, true, true);
+
+      spectral_text_ = std::make_unique<PlainTextComponent>("Spectral Text", strings::kFxSpectralNames[0]);
+      addOpenGlComponent(spectral_text_.get());
+
+      prev_spectral_ = std::make_unique<OpenGlShapeButton>("Prev Spectral");
+      addAndMakeVisible(prev_spectral_.get());
+      addOpenGlComponent(prev_spectral_->getGlComponent());
+      prev_spectral_->addListener(this);
+      prev_spectral_->setShape(Paths::prev());
+
+      next_spectral_ = std::make_unique<OpenGlShapeButton>("Next Spectral");
+      addAndMakeVisible(next_spectral_.get());
+      addOpenGlComponent(next_spectral_->getGlComponent());
+      next_spectral_->addListener(this);
+      next_spectral_->setShape(Paths::next());
+
       setSkinOverride(Skin::kOscillator);
       updateDestinationText();
     }
@@ -166,9 +188,10 @@ class FxInputSection : public SynthSection {
       drawLabelConnectionForComponents(g, level_.get(), pan_.get());
       drawLabelForComponent(g, TRANS("LEVEL"), level_.get());
       drawLabelForComponent(g, TRANS("PAN"), pan_.get());
-      drawLabelForComponent(g, TRANS("SPECTRAL"), spectral_morph_.get());
-      // The distortion knob's label is the warp mode selector.
+      // The labels under the two big knobs are their mode selectors.
       g.setColour(findColour(Skin::kTextComponentBackground, true));
+      g.fillRoundedRectangle(getLabelBackgroundBounds(spectral_morph_.get()).toFloat(),
+                             findValue(Skin::kLabelBackgroundRounding));
       g.fillRoundedRectangle(getLabelBackgroundBounds(distortion_.get()).toFloat(),
                              findValue(Skin::kLabelBackgroundRounding));
     }
@@ -221,6 +244,17 @@ class FxInputSection : public SynthSection {
       next_warp_->setBounds(warp_bounds.getRight() - warp_browse, warp_bounds.getY(), warp_browse, warp_browse);
       int warp_menu_x = prev_warp_->getRight();
       warp_selector_->setBounds(warp_menu_x, warp_bounds.getY(), next_warp_->getX() - warp_menu_x, warp_browse);
+      Rectangle<int> spectral_bounds = getLabelBackgroundBounds(spectral_morph_.get());
+      int spectral_browse = spectral_bounds.getHeight();
+      spectral_text_->setBounds(spectral_bounds);
+      spectral_text_->setTextSize(findValue(Skin::kLabelHeight));
+      spectral_text_->setColor(findColour(Skin::kBodyText, true));
+      prev_spectral_->setBounds(spectral_bounds.getX(), spectral_bounds.getY(), spectral_browse, spectral_browse);
+      next_spectral_->setBounds(spectral_bounds.getRight() - spectral_browse, spectral_bounds.getY(),
+                                spectral_browse, spectral_browse);
+      int spectral_menu_x = prev_spectral_->getRight();
+      spectral_selector_->setBounds(spectral_menu_x, spectral_bounds.getY(),
+                                    next_spectral_->getX() - spectral_menu_x, spectral_browse);
       connectMemory();
     }
 
@@ -247,6 +281,12 @@ class FxInputSection : public SynthSection {
         warp_text_->setText(strings::kWarpNames[current_warp_]);
         updateWarpKnob();
       }
+      auto spectral = controls.find(prefix_ + "_spectral_morph_type");
+      if (spectral != controls.end() && spectral->second) {
+        current_spectral_ = clampSpectral(static_cast<int>(spectral->second->value()));
+        spectral_text_->setText(strings::kFxSpectralNames[current_spectral_]);
+        updateSpectralKnob();
+      }
       connectMemory();
     }
 
@@ -267,6 +307,18 @@ class FxInputSection : public SynthSection {
         Point<int> position(warp_selector_->getX(), warp_selector_->getBottom());
         showPopupSelector(this, position, options, [=](int selection) { setWarp(selection); });
       }
+      else if (clicked_button == spectral_selector_.get()) {
+        PopupItems options;
+        for (int i = 0; i < num_spectral_modes_; ++i)
+          options.addItem(i, strings::kFxSpectralNames[i]);
+
+        Point<int> position(spectral_selector_->getX(), spectral_selector_->getBottom());
+        showPopupSelector(this, position, options, [=](int selection) { setSpectral(selection); });
+      }
+      else if (clicked_button == prev_spectral_.get())
+        setSpectral((current_spectral_ + num_spectral_modes_ - 1) % num_spectral_modes_);
+      else if (clicked_button == next_spectral_.get())
+        setSpectral((current_spectral_ + 1) % num_spectral_modes_);
       else if (clicked_button == prev_warp_.get())
         setWarp((current_warp_ + num_warp_modes_ - 1) % num_warp_modes_);
       else if (clicked_button == next_warp_.get())
@@ -294,6 +346,32 @@ class FxInputSection : public SynthSection {
       distortion_->setBipolar(bipolar);
       distortion_->setDoubleClickReturnValue(true, bipolar ? 0.5f : 0.0f);
       distortion_->redoImage();
+    }
+
+    int clampSpectral(int mode) const { return std::max(0, std::min(mode, num_spectral_modes_ - 1)); }
+
+    // Formant Scale, Harmonic Stretch, Inharmonic Stretch, Phase Disperse and Vocode are centred (bipolar).
+    static bool isBipolarSpectral(int mode) { return mode == 1 || mode == 2 || mode == 3 || mode == 8 || mode == 11; }
+
+    void updateSpectralKnob() {
+      bool bipolar = isBipolarSpectral(current_spectral_);
+      spectral_morph_->setBipolar(bipolar);
+      spectral_morph_->setDoubleClickReturnValue(true, bipolar ? 0.5f : 0.0f);
+      spectral_morph_->redoImage();
+    }
+
+    void setSpectral(int mode) {
+      bool was_bipolar = isBipolarSpectral(current_spectral_);
+      current_spectral_ = clampSpectral(mode);
+      spectral_text_->setText(strings::kFxSpectralNames[current_spectral_]);
+      updateSpectralKnob();
+
+      if (was_bipolar != isBipolarSpectral(current_spectral_))
+        spectral_morph_->setValue(isBipolarSpectral(current_spectral_) ? 0.5f : 0.0f, sendNotificationSync);
+
+      SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
+      if (parent && parent->getSynth())
+        parent->getSynth()->valueChangedInternal(prefix_ + "_spectral_morph_type", current_spectral_);
     }
 
     void setWarp(int mode) {
@@ -346,7 +424,9 @@ class FxInputSection : public SynthSection {
     std::string prefix_;
     int current_destination_;
     int num_warp_modes_;
+    int num_spectral_modes_;
     int current_warp_ = 0;
+    int current_spectral_ = 0;
     bool memory_connected_ = false;
     std::vector<Listener*> listeners_;
 
@@ -360,6 +440,10 @@ class FxInputSection : public SynthSection {
     std::unique_ptr<PlainTextComponent> destination_text_;
     std::unique_ptr<OpenGlShapeButton> prev_destination_;
     std::unique_ptr<OpenGlShapeButton> next_destination_;
+    std::unique_ptr<ShapeButton> spectral_selector_;
+    std::unique_ptr<PlainTextComponent> spectral_text_;
+    std::unique_ptr<OpenGlShapeButton> prev_spectral_;
+    std::unique_ptr<OpenGlShapeButton> next_spectral_;
     std::unique_ptr<ShapeButton> warp_selector_;
     std::unique_ptr<PlainTextComponent> warp_text_;
     std::unique_ptr<OpenGlShapeButton> prev_warp_;

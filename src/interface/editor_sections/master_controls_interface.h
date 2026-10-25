@@ -25,6 +25,7 @@
 class TextSelector;
 class DisplaySettings;
 class OversampleSettings;
+class FftSettings;
 class VoiceSettings;
 class OutputDisplays;
 class OscillatorSection;
@@ -80,6 +81,9 @@ class MasterControlsInterface  : public SynthSection {
     std::unique_ptr<OscillatorAdvancedSection> oscillator_advanceds_[vital::kNumOscillators];
     std::unique_ptr<DisplaySettings> display_settings_;
     std::unique_ptr<OversampleSettings> oversample_settings_;
+#if VITAL_FX
+    std::unique_ptr<FftSettings> fft_settings_;
+#endif
     std::unique_ptr<VoiceSettings> voice_settings_;
     std::unique_ptr<OutputDisplays> output_displays_;
 

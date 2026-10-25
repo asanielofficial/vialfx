@@ -327,6 +327,25 @@ namespace strings {
     "RM"
   };
 
+  // Spectral morph modes of the effect build's input lanes (the sidechain lane offers the first eleven;
+  // Vocode needs the other lane as its modulator).
+  const std::string kFxSpectralNames[] = {
+    "None",
+    "Formant Scale",
+    "Harmonic Stretch",
+    "Inharmonic Stretch",
+    "Smear",
+    "Random Amplitudes",
+    "Low Pass",
+    "High Pass",
+    "Phase Disperse",
+    "Shepard Tone",
+    "Spectral Time Skew",
+    "Vocode"
+  };
+
+  const std::string kFftSizeNames[] = { "256", "512", "1024", "2048" };
+
   const std::string kSpectralMorphNames[] = {
     "None",
     "Vocode",

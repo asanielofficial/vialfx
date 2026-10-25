@@ -51,6 +51,8 @@ namespace vital {
       // Sidechain audio for the next processWithInput call (nullptr = silence). Must stay valid until then.
       void setSidechainInput(const poly_float* audio);
       // Recent audio of each input lane after its level, pan and warp (for the spectrum displays).
+      // Constant latency of the spectral stage (the FFT size), in samples. Safe to call from any thread.
+      int getLatencySamples() const;
       const StereoMemory* getInputMemory();
       const StereoMemory* getSidechainMemory();
       void correctToTime(double seconds) override;
@@ -109,6 +111,7 @@ namespace vital {
       EffectsModulationHandler* modulation_handler_;
       Upsampler* audio_input_;
       Upsampler* sidechain_input_;
+      Value* fft_size_ = nullptr;
       std::shared_ptr<StereoMemory> input_memory_;
       std::shared_ptr<StereoMemory> sidechain_memory_;
       const poly_float* sidechain_in_;

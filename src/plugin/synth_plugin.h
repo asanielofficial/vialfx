@@ -18,12 +18,14 @@
 
 #include "JuceHeader.h"
 
+#include <atomic>
 #include "synth_base.h"
 #include "value_bridge.h"
 
 class ValueBridge;
 
-class SynthPlugin : public SynthBase, public AudioProcessor, public ValueBridge::Listener {
+class SynthPlugin : public SynthBase, public AudioProcessor, public ValueBridge::Listener,
+                    private AsyncUpdater {
   public:
     static constexpr int kSetProgramWaitMilliseconds = 500;
 
@@ -73,7 +75,15 @@ class SynthPlugin : public SynthBase, public AudioProcessor, public ValueBridge:
 
     void parameterChanged(std::string name, vital::mono_float value) override;
 
+    // Latency of the spectral stage as last reported to the host.
+    int getReportedLatency() const { return reported_latency_.load(); }
+
   private:
+    void handleAsyncUpdate() override { setLatencySamples(reported_latency_.load()); }
+    void checkLatency();
+
+    std::atomic<int> reported_latency_ { -1 };
+
 #if VITAL_FX
     static BusesProperties getBusesProperties();
     void fillEffectInput(AudioSampleBuffer& buffer, int num_samples, int sample_offset);

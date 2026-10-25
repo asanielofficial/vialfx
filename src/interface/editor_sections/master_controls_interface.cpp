@@ -384,6 +384,127 @@ class OversampleSettings : public SynthSection {
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OversampleSettings)
 };
 
+#if VITAL_FX
+// Size of the FFT behind the spectral morph, with the latency it adds. The latency is reported to the host, so
+// the DAW's delay compensation keeps the plugin in time; the readout follows the setting live.
+class FftSettings : public SynthSection, private Timer {
+  public:
+    FftSettings() : SynthSection("FFT SIZE") {
+      setSidewaysHeading(false);
+
+      for (int i = 0; i < kNumSizes; ++i) {
+        buttons_[i] = std::make_unique<OpenGlToggleButton>("");
+        buttons_[i]->addListener(this);
+        buttons_[i]->setLookAndFeel(TextLookAndFeel::instance());
+        buttons_[i]->setButtonText(String(256 << i));
+        addAndMakeVisible(buttons_[i].get());
+        addOpenGlComponent(buttons_[i]->getGlComponent());
+      }
+
+      latency_text_ = std::make_unique<PlainTextComponent>("Latency Text", "");
+      addOpenGlComponent(latency_text_.get());
+    }
+
+    ~FftSettings() { stopTimer(); }
+
+    void setAllValues(vital::control_map& controls) override {
+      SynthSection::setAllValues(controls);
+      auto size = controls.find("fft_size");
+      if (size != controls.end() && size->second)
+        select(static_cast<int>(size->second->value()));
+    }
+
+    void paintBackground(Graphics& g) override {
+      SynthSection::paintBackground(g);
+
+      g.setColour(findColour(Skin::kTextComponentBackground, true));
+      float rounding = findValue(Skin::kLabelBackgroundRounding);
+      for (auto& button : buttons_)
+        g.fillRoundedRectangle(button->getBounds().toFloat(), rounding);
+    }
+
+    void paintBackgroundShadow(Graphics& g) override { paintTabShadow(g); }
+
+    void resized() override {
+      SynthSection::resized();
+
+      int widget_margin = getWidgetMargin();
+      int title_width = getTitleWidth();
+      int x = widget_margin;
+      int y = title_width + widget_margin;
+      int width = getWidth() - 2 * widget_margin;
+      int text_height = std::max(1, findValue(Skin::kLabelBackgroundHeight));
+      int button_height = std::max(1, getHeight() - y - text_height - 2 * widget_margin);
+      int button_width = (width - (kNumSizes - 1) * widget_margin) / kNumSizes;
+      for (int i = 0; i < kNumSizes; ++i)
+        buttons_[i]->setBounds(x + i * (button_width + widget_margin), y, button_width, button_height);
+
+      latency_text_->setBounds(x, y + button_height + widget_margin, width, text_height);
+      latency_text_->setTextSize(findValue(Skin::kLabelHeight));
+      latency_text_->setColor(findColour(Skin::kBodyText, true));
+    }
+
+    void visibilityChanged() override {
+      SynthSection::visibilityChanged();
+      if (isShowing())
+        startTimerHz(8);
+      else
+        stopTimer();
+    }
+
+    void buttonClicked(Button* clicked_button) override {
+      for (int i = 0; i < kNumSizes; ++i) {
+        if (clicked_button == buttons_[i].get()) {
+          SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
+          if (parent)
+            parent->getSynth()->valueChangedInternal("fft_size", i);
+          select(i);
+          return;
+        }
+      }
+    }
+
+  private:
+    static constexpr int kNumSizes = 4;
+
+    void timerCallback() override {
+      SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
+      if (parent == nullptr || parent->getSynth() == nullptr)
+        return;
+
+      auto& controls = parent->getSynth()->getControls();
+      auto size = controls.find("fft_size");
+      if (size != controls.end() && size->second)
+        select(static_cast<int>(size->second->value() + 0.5f));
+    }
+
+    void select(int index) {
+      index = std::max(0, std::min(index, kNumSizes - 1));
+      for (int i = 0; i < kNumSizes; ++i)
+        buttons_[i]->setToggleState(i == index, NotificationType::dontSendNotification);
+
+      int samples = 256 << index;
+      int sample_rate = 44100;
+      SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
+      if (parent && parent->getSynth() && parent->getSynth()->getSampleRate() > 0)
+        sample_rate = parent->getSynth()->getSampleRate();
+
+      String text = "Latency: " + String(samples) + " samples (" +
+                    String(1000.0 * samples / sample_rate, 1) + " ms)";
+      if (text != shown_text_) {
+        shown_text_ = text;
+        latency_text_->setText(text.toStdString());
+      }
+    }
+
+    std::unique_ptr<OpenGlToggleButton> buttons_[kNumSizes];
+    std::unique_ptr<PlainTextComponent> latency_text_;
+    String shown_text_;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FftSettings)
+};
+#endif
+
 class DisplaySettings : public SynthSection {
   public:
     DisplaySettings() : SynthSection("DISPLAY") {
@@ -594,6 +715,11 @@ MasterControlsInterface::MasterControlsInterface(
   oversample_settings_ = std::make_unique<OversampleSettings>();
   addSubSection(oversample_settings_.get());
 
+#if VITAL_FX
+  fft_settings_ = std::make_unique<FftSettings>();
+  addSubSection(fft_settings_.get());
+#endif
+
   display_settings_ = std::make_unique<DisplaySettings>();
   addSubSection(display_settings_.get());
 
@@ -624,9 +750,17 @@ void MasterControlsInterface::resized() {
   int oversample_x = voice_settings_->getRight() + padding;
   int display_height = getTitleWidth() + getWidgetMargin() + 1.5 * getKnobSectionHeight();
   int oversample_height = settings_height - display_height - padding;
+#if VITAL_FX
+  int fft_height = display_height;
+  oversample_height -= fft_height + padding;
+#endif
 
   oversample_settings_->setBounds(oversample_x, settings_top, panel_width, oversample_height);
   int display_y = oversample_settings_->getBottom() + padding;
+#if VITAL_FX
+  fft_settings_->setBounds(oversample_x, display_y, panel_width, fft_height);
+  display_y = fft_settings_->getBottom() + padding;
+#endif
   display_settings_->setBounds(oversample_x, display_y, panel_width, display_height);
 
   int displays_x = display_settings_->getRight() + padding;

@@ -1109,6 +1109,170 @@ namespace {
           fmt("range %.3f..%.3f", later.first, later.second));
   }
 
+
+  void testSpectral() {
+    std::printf("\n== Spectral morph (STFT stage, 11 modes + Vocode) ==\n");
+    const char* names[] = { "None", "Formant Scale", "Harmonic Stretch", "Inharmonic Stretch", "Smear",
+                            "Random Amplitudes", "Low Pass", "High Pass", "Phase Disperse", "Shepard Tone",
+                            "Spectral Time Skew", "Vocode" };
+    auto bipolar = [](int mode) { return mode == 1 || mode == 2 || mode == 3 || mode == 8 || mode == 11; };
+    auto neutral_amount = [&](int mode) { return bipolar(mode) ? 0.5f : 0.0f; };
+    Generator silence = [](int, float& l, float& r) { l = r = 0.0f; };
+
+    // Latency is the FFT size, reported by the engine for every size, and it is constant.
+    for (int index = 0; index < 4; ++index) {
+      int size = 256 << index;
+      Rig rig;
+      rig.set("fft_size", static_cast<float>(index));
+      check(rig.engine->getLatencySamples() == size, "latency reported for FFT size " + std::to_string(size),
+            fmt("%.0f", rig.engine->getLatencySamples()));
+
+      // Measured: an impulse comes out exactly `size` samples later, neutral and with an active mode.
+      for (int mode : { 0, 6, 8 }) {
+        Rig impulse_rig;
+        impulse_rig.set("fft_size", static_cast<float>(index));
+        impulse_rig.set("input_spectral_morph_type", static_cast<float>(mode));
+        impulse_rig.set("input_spectral_morph_amount", mode == 0 ? 0.0f : mode == 6 ? 0.002f : 0.5005f);
+        Generator impulse = [](int i, float& l, float& r) { l = r = (i == 100) ? 0.5f : 0.0f; };
+        Stereo out = impulse_rig.render(size + 2000, impulse);
+        size_t peak_at = 0;
+        float best = 0.0f;
+        for (size_t i = 0; i < out.left.size(); ++i) {
+          if (std::fabs(out.left[i]) > best) { best = std::fabs(out.left[i]); peak_at = i; }
+        }
+        check(std::llabs(static_cast<long long>(peak_at) - (100 + size)) <= 1 && out.finite(),
+              "impulse delayed by exactly " + std::to_string(size) + " samples (mode " + names[mode] + ")",
+              fmt("peak at %.0f, expected %.0f", static_cast<double>(peak_at), 100.0 + size));
+      }
+    }
+
+    // Neutral: the audio is the input, delayed, bit for bit (both lanes).
+    for (int mode = 0; mode < 12; ++mode) {
+      Rig rig;
+      rig.set("input_spectral_morph_type", static_cast<float>(mode));
+      rig.set("input_spectral_morph_amount", neutral_amount(mode));
+      rig.set("sidechain_on", 1.0f);
+      Generator gen = noise();
+      Stereo out = rig.render(8000, gen, 64, &silence);
+      Rig ref;
+      Stereo reference = ref.render(8000, noise());
+      double diff = 0.0;
+      for (size_t i = 0; i < out.left.size(); ++i)
+        diff = std::max(diff, static_cast<double>(std::fabs(out.left[i] - reference.left[i])));
+      check(diff < 1e-6, std::string(names[mode]) + " at its neutral amount is a pure delay", fmt("max diff %.8f", diff));
+    }
+
+    // The STFT itself reconstructs at unity gain (Low Pass just under Nyquist passes everything).
+    {
+      Rig rig;
+      rig.set("input_spectral_morph_type", 6.0f);
+      rig.set("input_spectral_morph_amount", 0.001f);
+      Stereo out = rig.render(kSampleRate, sine(500.0f));
+      Rig ref;
+      Stereo reference = ref.render(kSampleRate, sine(500.0f));
+      double ratio = rms(out.left, 20000) / rms(reference.left, 20000);
+      check(std::fabs(db(ratio)) < 0.1, "overlap-add reconstruction has unity gain", fmt("%.4f dB", db(ratio)));
+    }
+
+    // Every mode changes the sound, on both lanes, at every FFT size, and stays finite and bounded.
+    for (int index = 0; index < 4; ++index) {
+      Rig ref;
+      ref.set("fft_size", static_cast<float>(index));
+      Stereo reference = ref.render(30000, noise());
+      for (int lane = 0; lane < 2; ++lane) {
+        std::string prefix = lane ? "sidechain" : "input";
+        for (int mode = 1; mode < (lane ? 11 : 12); ++mode) {
+          Rig rig;
+          rig.set("fft_size", static_cast<float>(index));
+          rig.set("sidechain_on", 1.0f);
+          rig.set(prefix + "_spectral_morph_type", static_cast<float>(mode));
+          float amount = bipolar(mode) ? 0.9f : 0.7f;
+          rig.set(prefix + "_spectral_morph_amount", amount);
+          Generator tone_b = sine(300.0f);
+          Stereo out = lane ? rig.render(30000, silence, 64, &tone_b) : rig.render(30000, noise(), 64, &tone_b);
+          // the sidechain lane renders its own noise instead
+          if (lane) {
+            Generator n = noise();
+            Rig lane_rig;
+            lane_rig.set("fft_size", static_cast<float>(index));
+            lane_rig.set("sidechain_on", 1.0f);
+            lane_rig.set("input_on", 0.0f);
+            lane_rig.set("sidechain_spectral_morph_type", static_cast<float>(mode));
+            lane_rig.set("sidechain_spectral_morph_amount", amount);
+            out = lane_rig.render(30000, silence, 64, &n);
+            Rig lane_ref;
+            lane_ref.set("fft_size", static_cast<float>(index));
+            lane_ref.set("sidechain_on", 1.0f);
+            lane_ref.set("input_on", 0.0f);
+            Generator n2 = noise();
+            reference = lane_ref.render(30000, silence, 64, &n2);
+          }
+          double diff = 0.0;
+          for (size_t i = 15000; i < out.left.size(); ++i)
+            diff += std::pow(static_cast<double>(out.left[i]) - reference.left[i], 2.0);
+          diff = std::sqrt(diff / 15000.0);
+          if (index == 2 || !(mode == 10 && index == 0)) {
+            check(out.finite() && out.peak() < 3.0f && diff > 0.002,
+                  std::string(names[mode]) + " morphs the " + (lane ? "sidechain" : "main") + " lane at FFT " +
+                  std::to_string(256 << index), fmt("difference rms %.4f, peak %.3f", diff, out.peak()));
+          }
+        }
+      }
+    }
+
+    // Vocode: the modulator's spectrum shapes the main lane. A silent modulator removes the sound at full depth.
+    {
+      Rig rig;
+      rig.set("input_spectral_morph_type", 11.0f);
+      rig.set("input_spectral_morph_amount", 1.0f);
+      Stereo out = rig.render(30000, noise());  // sidechain lane off
+      Rig ref;
+      Stereo reference = ref.render(30000, noise());
+      check(rms(out.left, 15000) < 0.05 * rms(reference.left, 15000), "Vocode with the modulator lane off is silent at full depth",
+            fmt("%.5f", rms(out.left, 15000)));
+    }
+
+    // Parameter changes while running never click or blow up (random sweeps of mode, amount and FFT size).
+    {
+      Rig rig;
+      rig.set("sidechain_on", 1.0f);
+      Generator gen = noise();
+      Generator side = sine(220.0f);
+      float peak = 0.0f;
+      bool finite = true;
+      uint32_t state = 7;
+      for (int block = 0; block < 400; ++block) {
+        state = state * 1664525u + 1013904223u;
+        rig.set("input_spectral_morph_type", static_cast<float>((state >> 8) % 12));
+        rig.set("input_spectral_morph_amount", ((state >> 12) & 255) / 255.0f);
+        rig.set("sidechain_spectral_morph_type", static_cast<float>((state >> 16) % 11));
+        rig.set("sidechain_spectral_morph_amount", ((state >> 20) & 255) / 255.0f);
+        if (block % 50 == 0)
+          rig.set("fft_size", static_cast<float>((state >> 6) % 4));
+        Stereo out = rig.render(256, gen, 64, &side);
+        finite = finite && out.finite();
+        peak = std::max(peak, out.peak());
+      }
+      check(finite && peak < 8.0f, "random mode / amount / FFT size changes stay finite", fmt("peak %.3f", peak));
+    }
+
+    // Block size independence.
+    {
+      Stereo outputs[2];
+      int blocks[2] = { 64, 100 };
+      for (int k = 0; k < 2; ++k) {
+        Rig rig;
+        rig.set("input_spectral_morph_type", 4.0f);
+        rig.set("input_spectral_morph_amount", 0.6f);
+        outputs[k] = rig.render(20000, noise(), blocks[k]);
+      }
+      double diff = 0.0;
+      for (size_t i = 0; i < outputs[0].left.size(); ++i)
+        diff = std::max(diff, static_cast<double>(std::fabs(outputs[0].left[i] - outputs[1].left[i])));
+      check(diff < 1e-5, "output does not depend on the host block size", fmt("max diff %.8f", diff));
+    }
+  }
+
   void testPlaceholders() {
     std::printf("\n== Input panel placeholder controls ==\n");
     // Placeholder input-panel parameters must exist in the engine so the GUI and presets can bind to them.
@@ -1185,6 +1349,7 @@ int main() {
     testLanes();
     testModulationMatrix();
     testWarp();
+    testSpectral();
     testPlaceholders();
     testCpu();
   }

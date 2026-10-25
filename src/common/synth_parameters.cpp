@@ -101,6 +101,10 @@ namespace {
       return sizeof(strings::kSpectralMorphNames) / sizeof(strings::kSpectralMorphNames[0]);
     if (lookup == strings::kStereoModeNames)
       return sizeof(strings::kStereoModeNames) / sizeof(strings::kStereoModeNames[0]);
+    if (lookup == strings::kFxSpectralNames)
+      return sizeof(strings::kFxSpectralNames) / sizeof(strings::kFxSpectralNames[0]);
+    if (lookup == strings::kFftSizeNames)
+      return sizeof(strings::kFftSizeNames) / sizeof(strings::kFftSizeNames[0]);
     if (lookup == strings::kWarpNames)
       return sizeof(strings::kWarpNames) / sizeof(strings::kWarpNames[0]);
     if (lookup == strings::kDestinationNames)
@@ -309,6 +313,16 @@ namespace vital {
       ValueDetails::kIndexed, false, "", "Input Warp Mode", strings::kWarpNames },
     { "sidechain_distortion_type", 0x000000, 0.0, 5.0, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Sidechain Warp Mode", strings::kWarpNames },
+    // Spectral morph mode (the knob amount is input_spectral_morph_amount / sidechain_spectral_morph_amount).
+    // Vocode (the last mode) uses the sidechain lane, so only the main lane offers it.
+    { "input_spectral_morph_type", 0x000000, 0.0, 11.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Input Spectral Mode", strings::kFxSpectralNames },
+    { "sidechain_spectral_morph_type", 0x000000, 0.0, 10.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Sidechain Spectral Mode", strings::kFxSpectralNames },
+    // FFT size of the spectral stage: 256 / 512 / 1024 / 2048. Also its latency in samples, which is
+    // reported to the host.
+    { "fft_size", 0x000000, 0.0, 3.0, 2.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "FFT Size", strings::kFftSizeNames },
     { "input_on", 0x000000, 0.0, 1.0, 1.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Input Switch", strings::kOffOnNames },
     { "input_level", 0x000000, 0.0, 1.41421356237, 1.0, 0.0, 1.0,

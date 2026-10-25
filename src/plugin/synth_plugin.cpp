@@ -49,6 +49,7 @@ SynthPlugin::SynthPlugin() {
 }
 
 SynthPlugin::~SynthPlugin() {
+  cancelPendingUpdate();
   midi_manager_ = nullptr;
   keyboard_state_ = nullptr;
 }
@@ -190,7 +191,22 @@ const String SynthPlugin::getProgramName(int index) {
   return editor->getSynth()->getPresetName();
 }
 
+// The spectral stage always delays by one FFT size. The host must know before it plays, and again whenever the
+// FFT size changes, so the latency is set at prepare time and re-checked every block. (JUCE's own
+// getLatencySamples() is a plain getter of what setLatencySamples() was last given, so this class's
+// SynthBase::getEngineLatencySamples() is the engine's live value.)
+void SynthPlugin::checkLatency() {
+  int latency = SynthBase::getEngineLatencySamples();
+  if (latency != reported_latency_.load()) {
+    reported_latency_ = latency;
+    triggerAsyncUpdate();
+  }
+}
+
 void SynthPlugin::prepareToPlay(double sample_rate, int buffer_size) {
+  int latency = SynthBase::getEngineLatencySamples();
+  reported_latency_ = latency;
+  setLatencySamples(latency);
   engine_->setSampleRate(sample_rate);
   engine_->updateAllModulationSwitches();
   midi_manager_->setSampleRate(sample_rate);
@@ -206,6 +222,8 @@ void SynthPlugin::processBlock(AudioSampleBuffer& buffer, MidiBuffer& midi_messa
     processBlockBypassed(buffer, midi_messages);
     return;
   }
+
+  checkLatency();
 
   int total_samples = buffer.getNumSamples();
   int num_channels = getTotalNumOutputChannels();

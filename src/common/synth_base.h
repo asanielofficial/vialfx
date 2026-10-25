@@ -119,6 +119,8 @@ class SynthBase : public MidiManager::Listener {
     // Recent audio of the effect build's two inputs (for the input panels' spectrum displays).
     const vital::StereoMemory* getInputMemory();
     const vital::StereoMemory* getSidechainMemory();
+    // Constant latency of the spectral stage in samples (the FFT size); 0 outside the FX build.
+    int getEngineLatencySamples();
     const vital::StereoMemory* getEqualizerMemory();
     vital::ModulationConnectionBank& getModulationBank();
     void notifyOversamplingChanged();

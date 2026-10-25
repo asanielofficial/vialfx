@@ -23,6 +23,7 @@
 #include "decimator.h"
 #include "effects_input_stage.h"
 #include "wave_warp.h"
+#include "spectral_morph_processor.h"
 #include "filters_module.h"
 #include "upsampler.h"
 #include "modulation_connection_processor.h"
@@ -58,8 +59,12 @@ namespace vital {
     createBaseControl("voice_amplitude");  // voice section knob; there is no voice audio in an effect
 
     // Placeholder controls for the input panels; nothing reads them until spectral morph / distortion exist.
-    createBaseControl("input_spectral_morph_amount");
-    createBaseControl("sidechain_spectral_morph_amount");
+    Output* input_spectral_amount = createMonoModControl("input_spectral_morph_amount");
+    Output* sidechain_spectral_amount = createMonoModControl("sidechain_spectral_morph_amount");
+    Value* input_spectral_mode = createBaseControl("input_spectral_morph_type");
+    Value* sidechain_spectral_mode = createBaseControl("sidechain_spectral_morph_type");
+    Value* fft_size = createBaseControl("fft_size");
+    fft_size_ = fft_size;
     Value* input_destination = createBaseControl("input_destination");
     Value* sidechain_destination = createBaseControl("sidechain_destination");
 
@@ -130,15 +135,32 @@ namespace vital {
     sidechain_lane->plug(sidechain_pan, AudioLane::kPan);
     addProcessor(sidechain_lane);
 
+    // Spectral morph sits between each lane and its warp. Both stages delay by one FFT size, so the lanes stay aligned.
+    // Vocode on the main lane uses the sidechain lane (before its own spectral stage) as the modulator.
+    SpectralMorphProcessor* sidechain_spectral = new SpectralMorphProcessor(false);
+    sidechain_spectral->plug(sidechain_lane, SpectralMorphProcessor::kAudio);
+    sidechain_spectral->plug(sidechain_spectral_mode, SpectralMorphProcessor::kMode);
+    sidechain_spectral->plug(sidechain_spectral_amount, SpectralMorphProcessor::kAmount);
+    sidechain_spectral->plug(fft_size, SpectralMorphProcessor::kFftSize);
+    addProcessor(sidechain_spectral);
+
+    SpectralMorphProcessor* main_spectral = new SpectralMorphProcessor(true);
+    main_spectral->plug(main_lane, SpectralMorphProcessor::kAudio);
+    main_spectral->plug(input_spectral_mode, SpectralMorphProcessor::kMode);
+    main_spectral->plug(input_spectral_amount, SpectralMorphProcessor::kAmount);
+    main_spectral->plug(fft_size, SpectralMorphProcessor::kFftSize);
+    main_spectral->plug(sidechain_lane, SpectralMorphProcessor::kModulator);
+    addProcessor(main_spectral);
+
     // The sidechain lane warps first; the main lane's FM and RM modes use its result as their modulator.
     WaveWarp* sidechain_warp = new WaveWarp(false);
-    sidechain_warp->plug(sidechain_lane, WaveWarp::kAudio);
+    sidechain_warp->plug(sidechain_spectral, WaveWarp::kAudio);
     sidechain_warp->plug(sidechain_warp_mode, WaveWarp::kMode);
     sidechain_warp->plug(sidechain_warp_amount, WaveWarp::kAmount);
     addProcessor(sidechain_warp);
 
     WaveWarp* main_warp = new WaveWarp(true);
-    main_warp->plug(main_lane, WaveWarp::kAudio);
+    main_warp->plug(main_spectral, WaveWarp::kAudio);
     main_warp->plug(input_warp_mode, WaveWarp::kMode);
     main_warp->plug(input_warp_amount, WaveWarp::kAmount);
     main_warp->plug(sidechain_warp, WaveWarp::kModulator);
@@ -362,6 +384,12 @@ namespace vital {
 
     for (auto& status_source : data_->status_outputs)
       status_source.second->update();
+  }
+
+  int SoundEngine::getLatencySamples() const {
+    if (fft_size_ == nullptr)
+      return 0;
+    return SpectralMorphProcessor::fftSizeFromIndex(static_cast<int>(fft_size_->value() + 0.5f));
   }
 
   const StereoMemory* SoundEngine::getInputMemory() { return input_memory_.get(); }

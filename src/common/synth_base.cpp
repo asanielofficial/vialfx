@@ -756,6 +756,14 @@ const vital::StereoMemory* SynthBase::getInputMemory() {
 #endif
 }
 
+int SynthBase::getEngineLatencySamples() {
+#if VITAL_FX
+  return engine_->getLatencySamples();
+#else
+  return 0;
+#endif
+}
+
 const vital::StereoMemory* SynthBase::getSidechainMemory() {
 #if VITAL_FX
   return engine_->getSidechainMemory();
