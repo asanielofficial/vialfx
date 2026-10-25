@@ -24,8 +24,9 @@ It is built from GPLv3 synthesizer source code (see [NOTICE.md](NOTICE.md) for t
 - **Spectral morph (v0.3):** each input has a spectral mode and amount (the left-hand knob on its panel; the
   amount is a modulation target). The stage is a Hann-windowed overlap-add FFT (75% overlap) that sits
   between the lane and its warp. Modes: Formant Scale, Harmonic Stretch, Inharmonic Stretch, Smear, Random
-  Amplitudes, Low Pass, High Pass, Phase Disperse, Shepard Tone, Spectral Time Skew (a frequency-dependent
-  group delay), and on the main input only Vocode, which imposes the sidechain lane's spectral envelope on
+  Amplitudes, Low Pass, High Pass, Phase Disperse (a chirp plus a frequency-dependent detune, so sustained
+  notes shimmer too), Shepard Tone, Spectral Time Skew (a frequency-dependent group delay of up to 16 frames:
+  the highs lag behind the lows), and on the main input only Vocode, which imposes the sidechain lane's spectral envelope on
   the main lane. Formant Scale, Harmonic/Inharmonic Stretch, Phase Disperse and Vocode are bipolar (knob
   centre is neutral). The FFT size is set on the ADVANCED tab (256, 512, 1024 default, 2048) with a live
   latency readout. The stage always delays the audio by one FFT size, whatever the mode, so the latency is

@@ -1273,6 +1273,110 @@ namespace {
     }
   }
 
+
+  // Magnitude-spectrum distance (dB rms over 40 Hz..12 kHz) between two renders, from an 8192-point FFT.
+  double spectrumDistance(const std::vector<float>& a, const std::vector<float>& b, size_t start) {
+    const int n = 8192;
+    juce::dsp::FFT fft(13);
+    std::vector<float> fa(2 * n, 0.0f), fb(2 * n, 0.0f);
+    for (int i = 0; i < n; ++i) {
+      float w = 0.5f - 0.5f * std::cos(2.0f * kPi * i / n);
+      fa[i] = a[start + i] * w;
+      fb[i] = b[start + i] * w;
+    }
+    fft.performRealOnlyForwardTransform(fa.data());
+    fft.performRealOnlyForwardTransform(fb.data());
+    double sum = 0.0;
+    int count = 0;
+    for (int k = static_cast<int>(40.0 * n / kSampleRate); k < static_cast<int>(12000.0 * n / kSampleRate); ++k) {
+      double ma = std::hypot(fa[2 * k], fa[2 * k + 1]) + 1e-6;
+      double mb = std::hypot(fb[2 * k], fb[2 * k + 1]) + 1e-6;
+      double d = 20.0 * std::log10(ma / mb);
+      sum += d * d;
+      ++count;
+    }
+    return std::sqrt(sum / count);
+  }
+
+  Generator saw(float frequency) {
+    return [frequency](int i, float& l, float& r) {
+      float phase = std::fmod(frequency * i / kSampleRate, 1.0f);
+      l = r = kAmp * (2.0f * phase - 1.0f);
+    };
+  }
+
+  // Short clicks every 0.25 s: transients show group delay and dispersion.
+  Generator clicks() {
+    return [](int i, float& l, float& r) { l = r = (i % 11025 == 0) ? 0.8f : 0.0f; };
+  }
+
+  void testSpectralAudibility() {
+    std::printf("\n== Spectral morph: audibility on musical material ==\n");
+    const char* names[] = { "None", "Formant Scale", "Harmonic Stretch", "Inharmonic Stretch", "Smear",
+                            "Random Amplitudes", "Low Pass", "High Pass", "Phase Disperse", "Shepard Tone",
+                            "Spectral Time Skew", "Vocode" };
+    for (int mode : { 8, 10, 11 }) {
+      for (float amount : { 0.75f, 1.0f, 0.25f }) {
+        float knob = (mode == 8 || mode == 11) ? amount : amount;
+        Rig ref;
+        ref.set("sidechain_on", 1.0f);
+        Generator carrier = saw(110.0f), mod = (mode == 11) ? sine(800.0f) : saw(165.0f);
+        Stereo reference = ref.render(60000, carrier, 64, &mod);
+        Rig rig;
+        rig.set("sidechain_on", 1.0f);
+        rig.set("input_spectral_morph_type", static_cast<float>(mode));
+        rig.set("input_spectral_morph_amount", knob);
+        Generator carrier2 = saw(110.0f), mod2 = (mode == 11) ? sine(800.0f) : saw(165.0f);
+        Stereo out = rig.render(60000, carrier2, 64, &mod2);
+        double spec = spectrumDistance(out.left, reference.left, 40000);
+        // clicks: peak after / before
+        Rig cref;
+        Stereo click_ref = cref.render(60000, clicks());
+        Rig crig;
+        crig.set("input_spectral_morph_type", static_cast<float>(mode));
+        crig.set("input_spectral_morph_amount", knob);
+        Stereo click_out = crig.render(60000, clicks());
+        std::printf("   %-20s knob %.2f: saw spectrum change %5.1f dB rms | click peak %.2f -> %.2f\n",
+                    names[mode], knob, spec, click_ref.peak(), click_out.peak());
+        if (knob == 0.75f && mode == 11)
+          check(spec > 10.0, "Vocode at 75% clearly reshapes the spectrum (tonal modulator)", fmt("%.1f dB", spec));
+        if (knob == 0.75f && mode == 8)
+          check(click_out.peak() < 0.3f && spec > 6.0, "Phase Disperse at 75% smears transients and detunes sustained notes",
+                fmt("click peak %.2f, saw %.1f dB", click_out.peak(), spec));
+        if (knob == 0.75f && mode == 10)
+          check(click_out.peak() < 0.4f, "Spectral Time Skew at 75% smears transients", fmt("click peak %.2f", click_out.peak()));
+      }
+    }
+  }
+
+  void testTimeSkewSustained() {
+    // A noise burst starting at 5000: with Time Skew the highs arrive late, so the burst's first 3000 samples
+    // are much duller (less first-difference energy relative to level) than without.
+    Generator burst = [](int i, float& l, float& r) {
+      static uint32_t state = 99;
+      state = state * 1664525u + 1013904223u;
+      float v = kAmp * ((state >> 8) / 8388608.0f - 1.0f);
+      l = r = i >= 5000 ? v : 0.0f;
+    };
+    auto brightness = [&](float amount) {
+      Rig rig;
+      if (amount > 0.0f) {
+        rig.set("input_spectral_morph_type", 10.0f);
+        rig.set("input_spectral_morph_amount", amount);
+      }
+      Stereo out = rig.render(14000, burst);
+      double plain = 0.0, diff = 0.0;
+      for (int i = 6200; i < 8200; ++i) {
+        plain += out.left[i] * out.left[i];
+        diff += std::pow(out.left[i] - out.left[i - 1], 2.0);
+      }
+      return std::sqrt(diff / std::max(plain, 1e-12));
+    };
+    double normal = brightness(0.0f), skewed = brightness(1.0f);
+    check(skewed < 0.6 * normal, "Time Skew delays the highs on sustained material",
+          fmt("brightness %.2f -> %.2f", normal, skewed));
+  }
+
   void testPlaceholders() {
     std::printf("\n== Input panel placeholder controls ==\n");
     // Placeholder input-panel parameters must exist in the engine so the GUI and presets can bind to them.
@@ -1350,6 +1454,8 @@ int main() {
     testModulationMatrix();
     testWarp();
     testSpectral();
+    testSpectralAudibility();
+    testTimeSkewSustained();
     testPlaceholders();
     testCpu();
   }

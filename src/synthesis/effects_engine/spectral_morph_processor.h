@@ -108,6 +108,8 @@ namespace vital {
           channels_[c].in.assign(kMaxFftSize, 0.0f);
           channels_[c].mod.assign(kMaxFftSize, 0.0f);
           channels_[c].acc.assign(kMaxFftSize, 0.0f);
+          channels_[c].history.assign(kHistoryFrames * (kMaxFftSize + 2), 0.0f);
+          channels_[c].drift.assign(kMaxFftSize / 2 + 2, 0.0f);
         }
         work_.assign(2 * kMaxFftSize + 4, 0.0f);
         mod_work_.assign(2 * kMaxFftSize + 4, 0.0f);
@@ -184,10 +186,16 @@ namespace vital {
       static constexpr int kDefaultSeed = 4;
       static constexpr float kPi_ = 3.14159265358979323846f;
 
+      static constexpr int kHistoryFrames = 16;
+
       struct Channel {
         std::vector<float> in, mod, acc;
+        // Spectral Time Skew: the last frames' spectra. Phase Disperse: each bin's accumulated phase drift.
+        std::vector<float> history, drift;
         int write = 0;
         int read = 0;
+        int history_pos = 0;
+        int history_filled = 0;
       };
 
       void setFftSize(int index) {
@@ -197,6 +205,10 @@ namespace vital {
           std::fill(ch.in.begin(), ch.in.end(), 0.0f);
           std::fill(ch.mod.begin(), ch.mod.end(), 0.0f);
           std::fill(ch.acc.begin(), ch.acc.end(), 0.0f);
+          std::fill(ch.history.begin(), ch.history.end(), 0.0f);
+          std::fill(ch.drift.begin(), ch.drift.end(), 0.0f);
+          ch.history_pos = 0;
+          ch.history_filled = 0;
           ch.write = 0;
           ch.read = 0;
         }
@@ -364,22 +376,39 @@ namespace vital {
           break;
         }
         case kPhaseDisperse: {
-          float strength = a * kPi_ * n / 16.0f;
+          // A quadratic phase (a chirp that smears transients) plus a slow drift: every bin is shifted in
+          // frequency by an amount that grows with frequency (up to 100 Hz at the top), so sustained notes
+          // lose their harmonic alignment and shimmer, not only the transients.
+          float strength = a * kPi_ * n / 6.0f;
+          float hop_seconds = static_cast<float>(n / kOverlap) / sample_rate;
           for (int k = 1; k <= bins; ++k) {
             float x = static_cast<float>(k) / bins;
-            rotate(spec, k, strength * x * x);
+            float drift = ch.drift[k] + 2.0f * kPi_ * a * 100.0f * x * hop_seconds;
+            drift = fmodf(drift, 2.0f * kPi_);
+            ch.drift[k] = drift;
+            rotate(spec, k, strength * x * x + drift);
           }
           break;
         }
         case kTimeSkew: {
-          // Group delay tau(k) = a * (n / 8) * log2(1 + k) / log2(1 + bins); the phase is its integral.
-          float max_delay = a * n / 8.0f;
+          // Frequency-dependent group delay: each bin is read from an older frame, the higher the frequency
+          // the older (up to 16 hops, 4 FFT sizes, at full amount). Highs lag behind the lows, on sustained
+          // sounds as well as on transients.
+          int stride = n + 2;
+          float* slot = ch.history.data() + ch.history_pos * stride;
+          std::copy(spec, spec + stride, slot);
           float norm = 1.0f / std::log2(1.0f + bins);
-          float phase = 0.0f;
+          float max_hops = a * (kHistoryFrames - 1);
           for (int k = 1; k <= bins; ++k) {
-            phase -= 2.0f * kPi_ / n * max_delay * std::log2(1.0f + k) * norm;
-            rotate(spec, k, phase);
+            int hops = static_cast<int>(max_hops * std::log2(1.0f + k) * norm + 0.5f);
+            hops = std::min(hops, ch.history_filled);
+            int index = (ch.history_pos - hops + kHistoryFrames) % kHistoryFrames;
+            const float* old = ch.history.data() + index * stride;
+            spec[2 * k] = old[2 * k];
+            spec[2 * k + 1] = old[2 * k + 1];
           }
+          ch.history_pos = (ch.history_pos + 1) % kHistoryFrames;
+          ch.history_filled = std::min(ch.history_filled + 1, kHistoryFrames - 1);
           break;
         }
         case kShepardTone: {
@@ -411,7 +440,7 @@ namespace vital {
           fft->transformRealForward(mod_work_.data());
           computePolar(mod_work_.data());
           // mag_ now holds the modulator; envelope of both.
-          int half = a > 0.0f ? std::max(1, n / 256) : std::max(2, n / 32);
+          int half = a > 0.0f ? std::max(1, n / 1024) : std::max(2, n / 32);
           smoothEnvelope(mag_.data(), env2_.data(), bins, half);
           for (int k = 0; k <= bins; ++k) {
             float re = spec[2 * k], im = spec[2 * k + 1];
@@ -421,8 +450,8 @@ namespace vital {
           float depth = std::min(std::fabs(a), 1.0f);
           for (int k = 0; k <= bins; ++k) {
             float gain = env2_[k] / (env_[k] + 1e-9f);
-            gain = std::min(gain, float(kMaxGain));
-            gain = 1.0f + depth * (gain - 1.0f);
+            gain = std::max(1e-3f, std::min(gain, 4.0f * float(kMaxGain)));
+            gain = powf(gain, depth);  // interpolated in dB, so partial depths are clearly audible
             spec[2 * k] *= gain;
             spec[2 * k + 1] *= gain;
           }
