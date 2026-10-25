@@ -433,7 +433,7 @@ class FftSettings : public SynthSection, private Timer {
       int x = widget_margin;
       int y = title_width + widget_margin;
       int width = getWidth() - 2 * widget_margin;
-      int text_height = std::max(1, findValue(Skin::kLabelBackgroundHeight));
+      int text_height = std::max(1, static_cast<int>(findValue(Skin::kLabelBackgroundHeight)));
       int button_height = std::max(1, getHeight() - y - text_height - 2 * widget_margin);
       int button_width = (width - (kNumSizes - 1) * widget_margin) / kNumSizes;
       for (int i = 0; i < kNumSizes; ++i)
