@@ -773,33 +773,13 @@ namespace {
       check(peak > 0.2f, "the input display memory carries the lane audio", fmt("peak %.4f", peak));
     }
 
-    // Quantize reaches its maximum at 75% of the knob; beyond that nothing changes.
-    {
-      auto quantized = [&](float knob) {
-        Rig rig;
-        rig.set("input_distortion_type", 2.0f);
-        rig.set("input_distortion_amount", knob);
-        return rig.render(kSampleRate / 2, tone);
-      };
-      Stereo at_full = quantized(0.75f);
-      Stereo at_top = quantized(1.0f);
-      Stereo at_half = quantized(0.4f);
-      double same = 0.0, differs = 0.0;
-      for (size_t i = 0; i < at_full.left.size(); ++i) {
-        same = std::max(same, static_cast<double>(std::fabs(at_full.left[i] - at_top.left[i])));
-        differs = std::max(differs, static_cast<double>(std::fabs(at_full.left[i] - at_half.left[i])));
-      }
-      check(same < 1e-6 && differs > 0.01, "quantize reaches its maximum at 75% of the knob",
-            fmt("75%% vs 100%% %.6f, 75%% vs 40%% %.4f", same, differs));
-    }
-
-    // Bend and Pulse bite on music-like (noisy, low crest factor) material, not just on a sine.
-    for (int mode : { 3, 5 }) {
+    // Bend bites on music-like (noisy, low crest factor) material, not just on a sine.
+    for (int mode : { 3 }) {
       Rig reference_rig;
       Stereo reference = reference_rig.render(kSampleRate, noise());
       Rig rig;
       rig.set("input_distortion_type", static_cast<float>(mode));
-      rig.set("input_distortion_amount", mode == 3 ? 0.9f : 0.6f);
+      rig.set("input_distortion_amount", 0.9f);
       Stereo out = rig.render(kSampleRate, noise());
       double diff = 0.0, ref = 0.0;
       for (size_t i = kSampleRate / 2; i < out.left.size(); ++i) {

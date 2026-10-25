@@ -74,7 +74,6 @@ namespace vital {
       static constexpr int kLanes = poly_float::kSize;
       static constexpr float kReleaseSeconds = 0.15f;
       static constexpr float kLevelSeconds = 0.03f;      // averaging time of the level the shapers work relative to
-      static constexpr float kQuantizeFullAmount = 0.75f; // knob position where quantize reaches its maximum
       static constexpr float kMinReference = 0.01f;   // below about -40 dB the signal is not scaled up further
 
       // uses_modulator: whether this instance has a modulator lane to read (the main lane has one).
@@ -84,6 +83,7 @@ namespace vital {
           held_[lane] = 0.0f;
           envelope_[lane] = 0.0f;
           modulator_envelope_[lane] = 0.0f;
+          average_[lane] = 0.0f;
           for (int i = 0; i < kFmBufferSize; ++i)
             history_[i][lane] = 0.0f;
         }
@@ -138,11 +138,9 @@ namespace vital {
             return std::copysign(std::pow(magnitude, power), x);
           }
           case kPulse: {
-            // The positive half is driven into an ever-lower ceiling and the waveform is pushed up, which
-            // narrows the positive "pulse" while the negative half stays open.
-            float ceiling = 1.0f - 0.85f * amount;
-            float y = std::min(x * (1.0f + 5.0f * amount) + 0.3f * amount, ceiling);
-            return std::max(y, -1.0f) - 0.3f * amount;
+            float ceiling = 1.0f - 0.7f * amount;
+            float y = std::min(x * (1.0f + 3.0f * amount), ceiling);
+            return std::max(y, -1.0f);
           }
           default:
             return x;
@@ -204,10 +202,14 @@ namespace vital {
                 result[lane] = x + amount * (x * scaled - x);
             }
             else {
-              // Work relative to the signal's average level (about 2x its mean absolute value, which is the
-              // peak for a sine). Louder moments then push into the folds, bends and clips.
-              envelope_[lane] += level_smoothing * (std::fabs(x) - envelope_[lane]);
-              float reference = std::max(2.0f * envelope_[lane], float(kMinReference));
+              envelope_[lane] = std::max(std::fabs(x), envelope_[lane] * release);
+              float reference = std::max(envelope_[lane], float(kMinReference));
+              if (mode == kBend) {
+                // Bend works relative to the average level (about 2x the mean absolute value, which is the
+                // peak for a sine), so it also bites on dense material whose peaks are rare.
+                average_[lane] += level_smoothing * (std::fabs(x) - average_[lane]);
+                reference = std::max(2.0f * average_[lane], float(kMinReference));
+              }
               result[lane] = reference * shape(mode, x / reference, amount);
             }
           }
@@ -228,11 +230,7 @@ namespace vital {
 
       int holdPeriod(float amount) const { return 1 + static_cast<int>(amount * amount * 15.0f); }
 
-      // The knob reaches the maximum quantize setting at kQuantizeFullAmount.
-      static float quantizeAmount(float knob) { return std::min(knob / kQuantizeFullAmount, 1.0f); }
-
-      float quantize(float x, float knob, int lane) {
-        float amount = quantizeAmount(knob);
+      float quantize(float x, float amount, int lane) {
         if (hold_counter_ == 0) {
           float levels = std::pow(2.0f, 1.0f + (1.0f - amount) * 14.0f);
           held_[lane] = std::round(x * levels) / levels;
@@ -240,8 +238,8 @@ namespace vital {
         return held_[lane];
       }
 
-      void advanceHold(float knob) {
-        int period = holdPeriod(quantizeAmount(knob));
+      void advanceHold(float amount) {
+        int period = holdPeriod(amount);
         hold_counter_ = (hold_counter_ + 1) % period;
       }
 
@@ -262,6 +260,7 @@ namespace vital {
       float held_[kLanes];
       float envelope_[kLanes];
       float modulator_envelope_[kLanes];
+      float average_[kLanes];
       float history_[kFmBufferSize][kLanes];
 
       JUCE_LEAK_DETECTOR(WaveWarp)
