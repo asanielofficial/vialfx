@@ -136,6 +136,24 @@ json LoadSave::stateToJson(SynthBase* synth, const CriticalSection& critical_sec
 
   settings_data["lfos"] = lfos;
 
+#if VITAL_FX
+  // Drawn curves (Spectral Filter, Phaser, Flanger) and the dice seed of Random Amplitudes, per lane. Not
+  // parameters: they are saved here only, so they can be neither automated nor modulated.
+  {
+    json lanes;
+    for (int lane = 0; lane < 2; ++lane) {
+      json lane_data;
+      json curves;
+      for (int i = 0; i < vital::SoundEngine::kNumSpectralCurves; ++i)
+        curves.push_back(synth->getEngine()->getSpectralCurve(lane, i)->stateToJson());
+      lane_data["curves"] = curves;
+      lane_data["random_seed"] = synth->getEngine()->getRandomSeed(lane);
+      lanes.push_back(lane_data);
+    }
+    settings_data["spectral_drawings"] = lanes;
+  }
+#endif
+
   json data;
   data["synth_version"] = ProjectInfo::versionString;
   data["preset_name"] = synth->getPresetName().toStdString();
@@ -1046,6 +1064,26 @@ bool LoadSave::jsonToState(SynthBase* synth, std::map<std::string, String>& save
   loadSample(synth, sample);
   loadWavetables(synth, wavetables);
   loadLfos(synth, lfos);
+#if VITAL_FX
+  {
+    // Presets without drawings (older ones) get the defaults.
+    for (int lane = 0; lane < 2; ++lane) {
+      synth->getEngine()->resetSpectralDrawings(lane);
+      if (!settings.count("spectral_drawings") || !settings["spectral_drawings"].is_array() ||
+          static_cast<int>(settings["spectral_drawings"].size()) <= lane)
+        continue;
+
+      const json& lane_data = settings["spectral_drawings"][lane];
+      if (lane_data.count("curves") && lane_data["curves"].is_array()) {
+        for (int i = 0; i < vital::SoundEngine::kNumSpectralCurves &&
+                        i < static_cast<int>(lane_data["curves"].size()); ++i)
+          synth->getEngine()->getSpectralCurve(lane, i)->jsonToState(lane_data["curves"][i]);
+      }
+      if (lane_data.count("random_seed") && lane_data["random_seed"].is_number())
+        synth->getEngine()->setRandomSeed(lane, lane_data["random_seed"].get<uint32_t>());
+    }
+  }
+#endif
   loadSaveState(save_info, data);
   synth->checkOversampling();
   

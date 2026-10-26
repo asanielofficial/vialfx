@@ -322,6 +322,11 @@ void SynthBase::initEngine() {
   for (int i = 0; i < vital::kNumLfos; ++i)
     getLfoSource(i)->initTriangle();
 
+#if VITAL_FX
+  engine_->resetSpectralDrawings(0);
+  engine_->resetSpectralDrawings(1);
+#endif
+
   vital::control_map controls = engine_->getControls();
   for (auto& control : controls) {
     vital::ValueDetails details = vital::Parameters::getDetails(control.first);

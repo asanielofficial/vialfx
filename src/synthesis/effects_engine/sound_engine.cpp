@@ -63,6 +63,8 @@ namespace vital {
     Output* sidechain_spectral_amount = createMonoModControl("sidechain_spectral_morph_amount");
     Value* input_spectral_mode = createBaseControl("input_spectral_morph_type");
     Value* sidechain_spectral_mode = createBaseControl("sidechain_spectral_morph_type");
+    Output* input_spectral_rate = createMonoModControl("input_spectral_rate");
+    Output* sidechain_spectral_rate = createMonoModControl("sidechain_spectral_rate");
     Value* fft_size = createBaseControl("fft_size");
     fft_size_ = fft_size;
     Value* input_destination = createBaseControl("input_destination");
@@ -150,6 +152,7 @@ namespace vital {
     sidechain_spectral->plug(sidechain_spectral_mode, SpectralMorphProcessor::kMode);
     sidechain_spectral->plug(sidechain_spectral_amount, SpectralMorphProcessor::kAmount);
     sidechain_spectral->plug(fft_size, SpectralMorphProcessor::kFftSize);
+    sidechain_spectral->plug(sidechain_spectral_rate, SpectralMorphProcessor::kRate);
     addProcessor(sidechain_spectral);
 
     SpectralMorphProcessor* main_spectral = new SpectralMorphProcessor(true);
@@ -157,8 +160,20 @@ namespace vital {
     main_spectral->plug(input_spectral_mode, SpectralMorphProcessor::kMode);
     main_spectral->plug(input_spectral_amount, SpectralMorphProcessor::kAmount);
     main_spectral->plug(fft_size, SpectralMorphProcessor::kFftSize);
+    main_spectral->plug(input_spectral_rate, SpectralMorphProcessor::kRate);
     main_spectral->plug(sidechain_gate, SpectralMorphProcessor::kModulator);
     addProcessor(main_spectral);
+
+    // Drawn curves (Spectral Filter / Phaser / Flanger) and Random Amplitudes seeds, per lane.
+    spectral_[0] = main_spectral;
+    spectral_[1] = sidechain_spectral;
+    for (int lane = 0; lane < 2; ++lane) {
+      for (int i = 0; i < kNumSpectralCurves; ++i) {
+        spectral_curves_[lane][i] = std::make_unique<LineGenerator>();
+        spectral_[lane]->setCurve(i, spectral_curves_[lane][i].get());
+      }
+      resetSpectralDrawings(lane);
+    }
 
     // The sidechain lane warps first; the main lane's FM and RM modes use its result as their modulator.
     WaveWarp* sidechain_warp = new WaveWarp(false);
@@ -399,6 +414,37 @@ namespace vital {
 
     for (auto& status_source : data_->status_outputs)
       status_source.second->update();
+  }
+
+  // Flat gain, a rising phase ramp and a flat 70% comb depth: the starting point of each drawable mode.
+  void SoundEngine::resetSpectralCurve(int lane, int index) {
+    LineGenerator* curve = spectral_curves_[lane][index].get();
+    curve->initLinear();
+    if (index != 1) {
+      float level = index == 0 ? 0.5f : 0.7f;
+      curve->setNumPoints(2);
+      // (a line generator point is upside down: its value is 1 - y)
+      curve->setPoint(0, { 0.0f, 1.0f - level });
+      curve->setPoint(1, { 1.0f, 1.0f - level });
+      curve->setPower(0, 0.0f);
+      curve->setPower(1, 0.0f);
+    }
+    curve->render();
+  }
+
+  void SoundEngine::resetSpectralDrawings(int lane) {
+    for (int i = 0; i < kNumSpectralCurves; ++i)
+      resetSpectralCurve(lane, i);
+    setRandomSeed(lane, uint32_t(SpectralMorphProcessor::kDefaultSeed));
+  }
+
+  void SoundEngine::setRandomSeed(int lane, uint32_t seed) {
+    random_seeds_[lane] = seed;
+    spectral_[lane]->setSeed(seed);
+  }
+
+  LineGenerator* SoundEngine::getSpectralCurve(int lane, int index) {
+    return spectral_curves_[lane][index].get();
   }
 
   int SoundEngine::getLatencySamples() const {

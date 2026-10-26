@@ -14,6 +14,8 @@
 #include "synth_constants.h"
 #include "modulation_connection_processor.h"
 #include "memory.h"
+#include "line_generator.h"
+#include "spectral_morph_processor.h"
 
 #include <chrono>
 #include <cmath>
@@ -1114,8 +1116,8 @@ namespace {
     std::printf("\n== Spectral morph (STFT stage, 11 modes + Vocode) ==\n");
     const char* names[] = { "None", "Formant Scale", "Harmonic Stretch", "Inharmonic Stretch", "Smear",
                             "Random Amplitudes", "Low Pass", "High Pass", "Phase Disperse", "Shepard Tone",
-                            "Spectral Time Skew", "Vocode" };
-    auto bipolar = [](int mode) { return mode == 1 || mode == 2 || mode == 3 || mode == 8 || mode == 11; };
+                            "Spectral Time Skew", "Spectral Filter", "Spectral Phaser", "Spectral Flanger", "Vocode" };
+    auto bipolar = [](int mode) { return mode == 1 || mode == 2 || mode == 3 || mode == 8 || mode == 14; };
     auto neutral_amount = [&](int mode) { return bipolar(mode) ? 0.5f : 0.0f; };
     Generator silence = [](int, float& l, float& r) { l = r = 0.0f; };
 
@@ -1147,7 +1149,9 @@ namespace {
     }
 
     // Neutral: the audio is the input, delayed, bit for bit (both lanes).
-    for (int mode = 0; mode < 12; ++mode) {
+    for (int mode = 0; mode < 15; ++mode) {
+      if (mode >= 11 && mode <= 13)
+        continue;  // the drawable modes have no neutral knob position
       Rig rig;
       rig.set("input_spectral_morph_type", static_cast<float>(mode));
       rig.set("input_spectral_morph_amount", neutral_amount(mode));
@@ -1181,7 +1185,7 @@ namespace {
       Stereo reference = ref.render(30000, noise());
       for (int lane = 0; lane < 2; ++lane) {
         std::string prefix = lane ? "sidechain" : "input";
-        for (int mode = 1; mode < (lane ? 11 : 12); ++mode) {
+        for (int mode = 1; mode < (lane ? 14 : 15); ++mode) {
           Rig rig;
           rig.set("fft_size", static_cast<float>(index));
           rig.set("sidechain_on", 1.0f);
@@ -1223,7 +1227,7 @@ namespace {
     // Vocode: the modulator's spectrum shapes the main lane. A silent modulator removes the sound at full depth.
     {
       Rig rig;
-      rig.set("input_spectral_morph_type", 11.0f);
+      rig.set("input_spectral_morph_type", 14.0f);
       rig.set("input_spectral_morph_amount", 1.0f);
       Stereo out = rig.render(30000, noise());  // sidechain lane off
       Rig ref;
@@ -1243,9 +1247,9 @@ namespace {
       uint32_t state = 7;
       for (int block = 0; block < 400; ++block) {
         state = state * 1664525u + 1013904223u;
-        rig.set("input_spectral_morph_type", static_cast<float>((state >> 8) % 12));
+        rig.set("input_spectral_morph_type", static_cast<float>((state >> 8) % 15));
         rig.set("input_spectral_morph_amount", ((state >> 12) & 255) / 255.0f);
-        rig.set("sidechain_spectral_morph_type", static_cast<float>((state >> 16) % 11));
+        rig.set("sidechain_spectral_morph_type", static_cast<float>((state >> 16) % 14));
         rig.set("sidechain_spectral_morph_amount", ((state >> 20) & 255) / 255.0f);
         if (block % 50 == 0)
           rig.set("fft_size", static_cast<float>((state >> 6) % 4));
@@ -1314,19 +1318,19 @@ namespace {
     std::printf("\n== Spectral morph: audibility on musical material ==\n");
     const char* names[] = { "None", "Formant Scale", "Harmonic Stretch", "Inharmonic Stretch", "Smear",
                             "Random Amplitudes", "Low Pass", "High Pass", "Phase Disperse", "Shepard Tone",
-                            "Spectral Time Skew", "Vocode" };
-    for (int mode : { 8, 10, 11 }) {
+                            "Spectral Time Skew", "Spectral Filter", "Spectral Phaser", "Spectral Flanger", "Vocode" };
+    for (int mode : { 8, 10, 14 }) {
       for (float amount : { 0.75f, 1.0f, 0.25f }) {
-        float knob = (mode == 8 || mode == 11) ? amount : amount;
+        float knob = amount;
         Rig ref;
         ref.set("sidechain_on", 1.0f);
-        Generator carrier = saw(110.0f), mod = (mode == 11) ? sine(800.0f) : saw(165.0f);
+        Generator carrier = saw(110.0f), mod = (mode == 14) ? sine(800.0f) : saw(165.0f);
         Stereo reference = ref.render(60000, carrier, 64, &mod);
         Rig rig;
         rig.set("sidechain_on", 1.0f);
         rig.set("input_spectral_morph_type", static_cast<float>(mode));
         rig.set("input_spectral_morph_amount", knob);
-        Generator carrier2 = saw(110.0f), mod2 = (mode == 11) ? sine(800.0f) : saw(165.0f);
+        Generator carrier2 = saw(110.0f), mod2 = (mode == 14) ? sine(800.0f) : saw(165.0f);
         Stereo out = rig.render(60000, carrier2, 64, &mod2);
         double spec = spectrumDistance(out.left, reference.left, 40000);
         // clicks: peak after / before
@@ -1338,7 +1342,7 @@ namespace {
         Stereo click_out = crig.render(60000, clicks());
         std::printf("   %-20s knob %.2f: saw spectrum change %5.1f dB rms | click peak %.2f -> %.2f\n",
                     names[mode], knob, spec, click_ref.peak(), click_out.peak());
-        if (knob == 0.75f && mode == 11)
+        if (knob == 0.75f && mode == 14)
           check(spec > 10.0, "Vocode at 75% clearly reshapes the spectrum (tonal modulator)", fmt("%.1f dB", spec));
         if (knob == 0.75f && mode == 8)
           check(click_out.peak() < 0.3f, "Phase Disperse at 75% smears transients",
@@ -1388,7 +1392,7 @@ namespace {
     Case cases[] = {
       { "FM", "input_distortion_type", 6.0f, "input_distortion_amount", 0.8f },
       { "RM", "input_distortion_type", 7.0f, "input_distortion_amount", 0.8f },
-      { "Vocode", "input_spectral_morph_type", 11.0f, "input_spectral_morph_amount", 0.9f },
+      { "Vocode", "input_spectral_morph_type", 14.0f, "input_spectral_morph_amount", 0.9f },
     };
     for (const Case& c : cases) {
       Rig ref;
@@ -1425,6 +1429,194 @@ namespace {
       Stereo gone = off.render(30000, tone, 64, &m3);
       if (c.mode == 6.0f || c.mode == 7.0f)
         check(rms(gone.left, 15000) < 1e-3, std::string(c.name) + " is silent while the sidechain lane is switched off");
+    }
+  }
+
+  // Sets a drawn curve from a function of x (0..1 over 20 Hz .. 20 kHz) giving the 0..1 value.
+  void drawCurve(Rig& rig, int lane, int which, const std::function<float(float)>& f) {
+    LineGenerator* curve = rig.engine->getSpectralCurve(lane, which);
+    const int points = 64;
+    curve->setNumPoints(points);
+    for (int i = 0; i < points; ++i) {
+      float x = static_cast<float>(i) / (points - 1);
+      curve->setPoint(i, { x, 1.0f - f(x) });
+      curve->setPower(i, 0.0f);
+    }
+    curve->render();
+  }
+
+  // Energy above `hz` (first-difference as a cheap high-pass) relative to the whole signal.
+  double brightness(const std::vector<float>& x, size_t start) {
+    double plain = 0.0, diff = 0.0;
+    for (size_t i = start + 1; i < x.size(); ++i) {
+      plain += static_cast<double>(x[i]) * x[i];
+      diff += std::pow(static_cast<double>(x[i]) - x[i - 1], 2.0);
+    }
+    return std::sqrt(diff / std::max(plain, 1e-12));
+  }
+
+  void testDrawableAndDice() {
+    std::printf("\n== Dice seed and drawable spectral modes ==\n");
+
+    // Random Amplitudes: the seed picks the pattern; same seed = same sound; any FFT size.
+    auto randomAmps = [&](uint32_t seed, int fft_index) {
+      Rig rig;
+      rig.set("fft_size", static_cast<float>(fft_index));
+      rig.set("input_spectral_morph_type", 5.0f);
+      rig.set("input_spectral_morph_amount", 0.8f);
+      rig.engine->setRandomSeed(0, seed);
+      return rig.render(30000, noise());
+    };
+    Stereo a = randomAmps(1234u, 2), b = randomAmps(1234u, 2), c = randomAmps(98765u, 2);
+    double same = 0.0, other = 0.0;
+    for (size_t i = 15000; i < a.left.size(); ++i) {
+      same = std::max(same, static_cast<double>(std::fabs(a.left[i] - b.left[i])));
+      other += std::pow(static_cast<double>(a.left[i]) - c.left[i], 2.0);
+    }
+    other = std::sqrt(other / 15000.0);
+    check(same < 1e-6, "the same dice seed gives the same sound", fmt("max diff %.8f", same));
+    check(other > 0.02, "a new dice seed changes the pattern", fmt("rms difference %.4f", other));
+    Rig seed_rig;
+    seed_rig.engine->setRandomSeed(1, 424242u);
+    check(seed_rig.engine->getRandomSeed(1) == 424242u && seed_rig.engine->getRandomSeed(0) == 4u,
+          "seeds are stored per lane");
+    for (int index : { 0, 1, 3 }) {
+      Stereo s1 = randomAmps(77u, index);
+      check(s1.finite() && s1.peak() < 3.0f && rms(s1.left, 15000) > 0.01, "dice seed works at FFT size " + std::to_string(256 << index));
+    }
+
+    // The seed and the curves are not parameters: no host automation and no modulation target.
+    Rig rig;
+    check(rig.controls.count("input_random_seed") == 0 && rig.controls.count("sidechain_random_seed") == 0,
+          "the dice seed is not an automatable control");
+
+    // Spectral Filter: a drawn cut of everything above the middle of the axis removes the highs.
+    {
+      Rig flat;
+      flat.set("input_spectral_morph_type", 11.0f);
+      flat.set("input_spectral_morph_amount", 1.0f);
+      Stereo flat_out = flat.render(30000, noise());
+      Rig reference;
+      Stereo ref = reference.render(30000, noise());
+      double diff = 0.0;
+      for (size_t i = 15000; i < ref.left.size(); ++i)
+        diff = std::max(diff, static_cast<double>(std::fabs(flat_out.left[i] - ref.left[i])));
+      check(diff < 1e-3, "Spectral Filter with the flat curve fully drawn does not change the sound", fmt("max diff %.6f", diff));
+
+      Rig cut;
+      cut.set("input_spectral_morph_type", 11.0f);
+      cut.set("input_spectral_morph_amount", 1.0f);
+      drawCurve(cut, 0, 0, [](float x) { return x < 0.5f ? 0.5f : 0.0f; });  // -36 dB above ~630 Hz
+      Stereo cut_out = cut.render(30000, noise());
+      check(brightness(cut_out.left, 15000) < 0.5 * brightness(ref.left, 15000) && cut_out.finite(),
+            "Spectral Filter: the drawn curve removes the highs",
+            fmt("%.2f -> %.2f", brightness(ref.left, 15000), brightness(cut_out.left, 15000)));
+
+      Rig boost;
+      boost.set("input_spectral_morph_type", 11.0f);
+      boost.set("input_spectral_morph_amount", 1.0f);
+      drawCurve(boost, 0, 0, [](float x) { return x > 0.6f ? 0.8f : 0.5f; });
+      Stereo boost_out = boost.render(30000, noise());
+      check(rms(boost_out.left, 15000) > 1.5 * rms(ref.left, 15000) && boost_out.finite() && boost_out.peak() < 8.0f,
+            "Spectral Filter: the drawn curve boosts what is drawn above the middle",
+            fmt("rms %.3f -> %.3f", rms(ref.left, 15000), rms(boost_out.left, 15000)));
+
+      Rig automatic;
+      automatic.set("input_spectral_morph_type", 11.0f);
+      automatic.set("input_spectral_morph_amount", 0.0f);
+      Stereo auto_out = automatic.render(60000, noise());
+      check(auto_out.finite() && rms(auto_out.left, 30000) > 0.005, "Spectral Filter at morph 0 runs on its own (swept filter)");
+    }
+
+    // Spectral Phaser: the notches move with the rate LFO at morph 0 and stand still at morph 1.
+    {
+      auto render = [&](float morph, float rate, float seconds_offset) {
+        Rig rig;
+        rig.set("input_spectral_morph_type", 12.0f);
+        rig.set("input_spectral_morph_amount", morph);
+        rig.set("input_spectral_rate", rate);
+        return rig.render(70000, noise());
+      };
+      Stereo moving = render(0.0f, 1.0f, 0.0f);
+      Stereo fixed = render(1.0f, 1.0f, 0.0f);
+      // Loudness over time: fixed should be steady, moving should vary.
+      auto variation = [](const Stereo& out) {
+        double lo = 1e9, hi = 0.0;
+        for (size_t start = 20000; start + 4096 < out.left.size(); start += 4096) {
+          double level = 0.0;
+          for (size_t i = start; i < start + 4096; ++i)
+            level += out.left[i] * out.left[i];
+          level = std::sqrt(level / 4096.0);
+          lo = std::min(lo, level);
+          hi = std::max(hi, level);
+        }
+        return hi / std::max(lo, 1e-9);
+      };
+      double bright_moving = 0.0, bright_fixed = 0.0;
+      auto brightVariation = [](const Stereo& out) {
+        double lo = 1e9, hi = 0.0;
+        for (size_t start = 20000; start + 4096 < out.left.size(); start += 4096) {
+          std::vector<float> chunk(out.left.begin() + start, out.left.begin() + start + 4096);
+          double b = brightness(chunk, 0);
+          lo = std::min(lo, b);
+          hi = std::max(hi, b);
+        }
+        return hi / std::max(lo, 1e-9);
+      };
+      bright_moving = brightVariation(moving);
+      bright_fixed = brightVariation(fixed);
+      check(moving.finite() && fixed.finite() && moving.peak() < 3.0f && fixed.peak() < 3.0f,
+            "Spectral Phaser is finite and bounded");
+      check(bright_moving > 1.15 * bright_fixed, "Spectral Phaser: the rate LFO moves the notches at morph 0, the drawn curve is steady at morph 1",
+            fmt("variation %.2f vs %.2f", bright_moving, bright_fixed));
+      (void) variation;
+    }
+
+    // Spectral Flanger: depth 0 drawn = clean; full depth drawn = a comb that changes the sound.
+    {
+      Rig reference;
+      Stereo ref = reference.render(40000, noise());
+      Rig clean;
+      clean.set("input_spectral_morph_type", 13.0f);
+      clean.set("input_spectral_morph_amount", 1.0f);
+      drawCurve(clean, 0, 2, [](float) { return 0.0f; });
+      Stereo clean_out = clean.render(40000, noise());
+      double diff = 0.0;
+      for (size_t i = 20000; i < ref.left.size(); ++i)
+        diff = std::max(diff, static_cast<double>(std::fabs(clean_out.left[i] - ref.left[i])));
+      check(diff < 1e-3, "Spectral Flanger with zero drawn depth leaves the sound alone", fmt("max diff %.6f", diff));
+
+      Rig comb;
+      comb.set("input_spectral_morph_type", 13.0f);
+      comb.set("input_spectral_morph_amount", 1.0f);
+      drawCurve(comb, 0, 2, [](float) { return 1.0f; });
+      Stereo comb_out = comb.render(40000, noise());
+      double change = 0.0;
+      for (size_t i = 20000; i < ref.left.size(); ++i)
+        change += std::pow(static_cast<double>(comb_out.left[i]) - ref.left[i], 2.0);
+      change = std::sqrt(change / 20000.0);
+      check(comb_out.finite() && comb_out.peak() < 3.0f && change > 0.03, "Spectral Flanger with full drawn depth combs the sound",
+            fmt("rms difference %.4f", change));
+    }
+
+    // Changing mode, FFT size and curves while running stays finite.
+    {
+      Rig rig;
+      Generator gen = noise();
+      bool finite = true;
+      uint32_t state = 11;
+      for (int block = 0; block < 300; ++block) {
+        state = state * 1664525u + 1013904223u;
+        rig.set("input_spectral_morph_type", static_cast<float>(11 + (state >> 8) % 3));
+        rig.set("input_spectral_morph_amount", ((state >> 12) & 255) / 255.0f);
+        rig.set("input_spectral_rate", -4.0f + ((state >> 20) & 255) / 255.0f * 7.0f);
+        if (block % 40 == 0) {
+          rig.set("fft_size", static_cast<float>((state >> 4) % 4));
+          drawCurve(rig, 0, (state >> 6) % 3, [state](float x) { return std::fabs(std::sin(x * 9.0f + (state & 7))); });
+        }
+        finite = finite && rig.render(256, gen).finite();
+      }
+      check(finite, "drawable modes survive random mode, rate, FFT size and curve changes");
     }
   }
 
@@ -1508,6 +1700,7 @@ int main() {
     testSpectralAudibility();
     testTimeSkewSustained();
     testModulatorIndependentOfLevel();
+    testDrawableAndDice();
     testPlaceholders();
     testCpu();
   }

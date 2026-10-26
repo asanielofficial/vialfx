@@ -18,6 +18,7 @@
 
 #include "processor.h"
 #include "fourier_transform.h"
+#include "line_generator.h"
 #include "utils.h"
 #include "value.h"
 
@@ -55,6 +56,7 @@ namespace vital {
         kMode,
         kAmount,
         kFftSize,
+        kRate,
         kModulator,
         kNumInputs
       };
@@ -71,10 +73,14 @@ namespace vital {
         kPhaseDisperse,
         kShepardTone,
         kTimeSkew,
+        kSpectralFilter,   // drawable: per-bin gain curve
+        kSpectralPhaser,   // drawable: per-bin phase rotation curve
+        kSpectralFlanger,  // drawable: per-bin comb depth curve
         kVocode,
         kNumModes
       };
 
+      static constexpr uint32_t kDefaultSeed = 4;
       static constexpr int kNumFftSizes = 4;
       static constexpr int kMinFftBits = 8;
       static constexpr int kMaxFftSize = 1 << (kMinFftBits + kNumFftSizes - 1);
@@ -91,6 +97,12 @@ namespace vital {
                mode == kPhaseDisperse || mode == kVocode;
       }
 
+      // The three drawable modes: the knob is a morph between the automatic behaviour (0) and the drawn curve (1),
+      // so they are never "neutral".
+      static bool isDrawable(int mode) {
+        return mode == kSpectralFilter || mode == kSpectralPhaser || mode == kSpectralFlanger;
+      }
+
       // Knob 0..1 -> -1..1 for bipolar modes, unchanged otherwise.
       static float effectiveAmount(int mode, float knob) {
         knob = std::max(0.0f, std::min(knob, 1.0f));
@@ -100,6 +112,8 @@ namespace vital {
       static bool isNeutral(int mode, float amount) {
         if (mode <= kNone || mode >= kNumModes)
           return true;
+        if (isDrawable(mode))
+          return false;
         return std::fabs(amount) < 1e-4f;
       }
 
@@ -122,7 +136,8 @@ namespace vital {
         for (int i = 0; i < kNumFftSizes; ++i)
           transforms_[i] = std::make_shared<FourierTransform>(kMinFftBits + i);
         setFftSize(kDefaultFftIndex);
-        buildRandomTable(kDefaultSeed);
+        fillRandomTable(random_[0], uint32_t(kDefaultSeed));
+        fillRandomTable(random_[1], uint32_t(kDefaultSeed));
       }
 
       Processor* clone() const override { return new SpectralMorphProcessor(*this); }
@@ -130,7 +145,16 @@ namespace vital {
       // Latency in samples at the current FFT size. Safe to call from any thread.
       int latencySamples() const { return latency_; }
 
-      void setSeed(int seed) { buildRandomTable(seed); }
+      // Random Amplitudes: the seed picks the per-bin gain pattern. Safe to call from the message thread: the new
+      // pattern is built in the spare table and swapped in.
+      void setSeed(uint32_t seed) {
+        int spare = 1 - active_random_;
+        fillRandomTable(random_[spare], seed);
+        active_random_ = spare;
+      }
+
+      // Drawn curves (0..1 over 20 Hz..20 kHz on a log axis) for Spectral Filter, Phaser and Flanger.
+      void setCurve(int which, const LineGenerator* curve) { curves_[which] = curve; }
 
       void process(int num_samples) override {
         int size_index = static_cast<int>(input(kFftSize)->source->buffer[0][0] + 0.5f);
@@ -146,6 +170,8 @@ namespace vital {
         bool neutral = isNeutral(mode, amount);
         mode_ = mode;
         amount_ = amount;
+        float rate = std::max(0.0f, input(kRate)->source->buffer[0][0]);
+        rate_hz_ = std::min(rate, 50.0f);
 
         float target_mix = neutral ? 0.0f : 1.0f;
         float mix_step = (target_mix - mix_) / std::max(num_samples, 1);
@@ -178,13 +204,14 @@ namespace vital {
             hop_count_ = 0;
             processFrame(0);
             processFrame(1);
+            lfo_phase_ += rate_hz_ * hop / std::max(1.0f, static_cast<float>(getSampleRate()));
+            lfo_phase_ -= std::floor(lfo_phase_);
           }
         }
         mix_ = target_mix;
       }
 
     private:
-      static constexpr int kDefaultSeed = 4;
       static constexpr float kPi_ = 3.14159265358979323846f;
 
       static constexpr int kHistoryFrames = 16;
@@ -220,13 +247,44 @@ namespace vital {
         latency_ = size_;
       }
 
-      void buildRandomTable(int seed) {
-        random_.resize(kMaxFftSize / 2 + 2);
-        uint32_t state = 0x9E3779B9u * (uint32_t(seed) + 1u);
-        for (float& r : random_) {
+      static void fillRandomTable(std::vector<float>& table, uint32_t seed) {
+        table.resize(kMaxFftSize / 2 + 2);
+        uint32_t state = 0x9E3779B9u * (seed + 1u);
+        for (float& r : table) {
           state = state * 1664525u + 1013904223u;
           r = (state >> 8) * (2.0f / 16777216.0f) - 1.0f;
         }
+      }
+
+      // Drawn curve value (0..1) at bin k: the curve's x axis is log frequency, 20 Hz .. 20 kHz.
+      float curveAt(int which, int k, int bins, float sample_rate) const {
+        const LineGenerator* curve = curves_[which];
+        if (curve == nullptr)
+          return defaultCurve(which, k, bins, sample_rate);
+        float frequency = k * 0.5f * sample_rate / bins;
+        float x = std::log2(std::max(frequency, 20.0f) / 20.0f) / 9.96578428f;  // log2(1000)
+        x = std::max(0.0f, std::min(x, 1.0f));
+        const float* buffer = curve->getBuffer();
+        float position = x * (curve->resolution() - 1);
+        int i = static_cast<int>(position);
+        i = std::min(i, curve->resolution() - 2);
+        float t = position - i;
+        return buffer[i] + (buffer[i + 1] - buffer[i]) * t;
+      }
+
+      static float defaultCurve(int which, int k, int bins, float sample_rate) {
+        if (which == 0)
+          return 0.5f;
+        if (which == 2)
+          return 0.7f;
+        float frequency = k * 0.5f * sample_rate / bins;
+        float x = std::log2(std::max(frequency, 20.0f) / 20.0f) / 9.96578428f;
+        return std::max(0.0f, std::min(x, 1.0f));
+      }
+
+      // Same pattern in Hz at every FFT size.
+      float randomAt(int k, int bins) const {
+        return random_[active_random_][k * (kMaxFftSize / 2) / bins];
       }
 
       // Smoothed magnitude envelope (RMS over +-half_width bins) of mag[0..bins] into env.
@@ -269,6 +327,8 @@ namespace vital {
         spec[1] = 0.0f;
         spec[2 * bins + 1] = 0.0f;
       }
+
+      float lfoValue() const { return 0.5f + 0.5f * sinf(2.0f * kPi_ * lfo_phase_); }
 
       void rotate(float* spec, int k, float phase) {
         float c = cosf(phase), s = sinf(phase);
@@ -354,7 +414,7 @@ namespace vital {
         }
         case kRandomAmplitudes: {
           for (int k = 0; k <= bins; ++k) {
-            float gain = (1.0f + a) * std::max(1.0f - a - a * random_[k], 0.0f);
+            float gain = (1.0f + a) * std::max(1.0f - a - a * randomAt(k, bins), 0.0f);
             gain = std::min(gain, float(kMaxGain));
             spec[2 * k] *= gain;
             spec[2 * k + 1] *= gain;
@@ -406,6 +466,72 @@ namespace vital {
             spec[2 * k + 1] = old[2 * k + 1];
             if (remainder > 0.0f)
               rotate(spec, k, -2.0f * kPi_ * k * remainder / n);
+          }
+          ch.history_pos = (ch.history_pos + 1) % kHistoryFrames;
+          ch.history_filled = std::min(ch.history_filled + 1, kHistoryFrames - 1);
+          break;
+        }
+        case kSpectralFilter: {
+          // Gain in dB per bin. Morph 0: a resonant peak swept by the rate LFO (200 Hz .. 8 kHz). Morph 1: the
+          // drawn curve (+-36 dB, the middle is flat).
+          float morph = a;
+          float centre = 200.0f * powf(40.0f, lfoValue());
+          for (int k = 0; k <= bins; ++k) {
+            float frequency = std::max(k * 0.5f * sample_rate / bins, 1.0f);
+            float octaves = std::log2(frequency / centre) / 0.5f;
+            float automatic = 20.0f * expf(-0.5f * octaves * octaves) - 10.0f;
+            float drawn = (curveAt(0, k, bins, sample_rate) - 0.5f) * 72.0f;
+            float db = automatic + (drawn - automatic) * morph;
+            float gain = std::min(powf(10.0f, db / 20.0f), 16.0f);
+            spec[2 * k] *= gain;
+            spec[2 * k + 1] *= gain;
+          }
+          break;
+        }
+        case kSpectralPhaser: {
+          // Each bin is mixed with a phase-rotated copy of itself, which carves notches where the rotation reaches
+          // half a turn. The drawn curve (0..2 pi) is the rotation; morph 0: the rate LFO scales it (the notches
+          // sweep), morph 1: the curve alone governs.
+          float morph = a;
+          float scale = (1.0f - morph) * lfoValue() + morph;
+          for (int k = 1; k <= bins; ++k) {
+            float phase = 2.0f * kPi_ * curveAt(1, k, bins, sample_rate) * scale;
+            float c = cosf(phase), sn = sinf(phase);
+            float re = spec[2 * k], im = spec[2 * k + 1];
+            spec[2 * k] = 0.5f * (re + re * c - im * sn);
+            spec[2 * k + 1] = 0.5f * (im + re * sn + im * c);
+          }
+          break;
+        }
+        case kSpectralFlanger: {
+          // A comb per bin: the signal plus a delayed copy, the copy's level per bin is the drawn depth curve.
+          // The rate LFO sweeps the delay between 0.3 and 8 ms. Morph 0: depth is flat 70%; morph 1: the curve.
+          int stride = n + 2;
+          float* slot = ch.history.data() + ch.history_pos * stride;
+          std::copy(spec, spec + stride, slot);
+          const int hop = n / kOverlap;
+          float morph = a;
+          float delay = (0.3f + 7.7f * lfoValue()) * 0.001f * sample_rate;
+          delay = std::min(delay, static_cast<float>((kHistoryFrames - 1) * hop));
+          int whole = static_cast<int>(delay / hop);
+          float remainder = delay - static_cast<float>(whole) * hop;
+          int hops = std::min(whole, ch.history_filled);
+          int index = (ch.history_pos - hops + kHistoryFrames) % kHistoryFrames;
+          const float* old = ch.history.data() + index * stride;
+          for (int k = 0; k <= bins; ++k) {
+            float depth = 0.7f + (curveAt(2, k, bins, sample_rate) - 0.7f) * morph;
+            depth = std::max(0.0f, std::min(depth, 1.0f));
+            float dre = old[2 * k], dim = old[2 * k + 1];
+            if (k > 0 && remainder > 0.0f) {
+              float angle = -2.0f * kPi_ * k * remainder / n;
+              float c = cosf(angle), sn = sinf(angle);
+              float re = dre, im = dim;
+              dre = re * c - im * sn;
+              dim = re * sn + im * c;
+            }
+            float norm = 1.0f / (1.0f + depth);
+            spec[2 * k] = (spec[2 * k] + depth * dre) * norm;
+            spec[2 * k + 1] = (spec[2 * k + 1] + depth * dim) * norm;
           }
           ch.history_pos = (ch.history_pos + 1) % kHistoryFrames;
           ch.history_filled = std::min(ch.history_filled + 1, kHistoryFrames - 1);
@@ -478,9 +604,14 @@ namespace vital {
       int mode_ = kNone;
       float amount_ = 0.0f;
       float mix_ = 0.0f;
+      float rate_hz_ = 0.5f;
+      float lfo_phase_ = 0.0f;
+      int active_random_ = 0;
+      const LineGenerator* curves_[3] = { nullptr, nullptr, nullptr };
       int latency_ = 1024;
       Channel channels_[2];
-      std::vector<float> window_, work_, mod_work_, mag_, env_, env2_, prefix_, phase_, random_;
+      std::vector<float> window_, work_, mod_work_, mag_, env_, env2_, prefix_, phase_;
+      std::vector<float> random_[2];
       std::shared_ptr<FourierTransform> transforms_[kNumFftSizes];
 
       JUCE_LEAK_DETECTOR(SpectralMorphProcessor)

@@ -22,6 +22,8 @@
 #include "open_gl_image_component.h"
 #include "paths.h"
 #include "skin.h"
+#include "sound_engine.h"
+#include "spectral_warp_editor.h"
 #include "synth_button.h"
 #include "synth_constants.h"
 #include "synth_gui_interface.h"
@@ -49,7 +51,7 @@ class FxInputSection : public SynthSection {
 
     // prefix is "input" or "sidechain". num_warp_modes is how many distortion warp modes the lane offers
     // (the main lane has all 8; the sidechain has no modulator lane for FM and RM, so it offers 6).
-    FxInputSection(String title, const std::string& prefix, int num_warp_modes = 8, int num_spectral_modes = 12) :
+    FxInputSection(String title, const std::string& prefix, int num_warp_modes = 8, int num_spectral_modes = 15) :
         SynthSection(title), prefix_(prefix), current_destination_(vital::constants::kDualFilters),
         num_warp_modes_(num_warp_modes), num_spectral_modes_(num_spectral_modes) {
       spectral_morph_ = std::make_unique<SynthSlider>(prefix + "_spectral_morph_amount");
@@ -152,6 +154,13 @@ class FxInputSection : public SynthSection {
       next_spectral_->addListener(this);
       next_spectral_->setShape(Paths::next());
 
+      tool_button_ = std::make_unique<OpenGlShapeButton>("Spectral Tool");
+      addAndMakeVisible(tool_button_.get());
+      addOpenGlComponent(tool_button_->getGlComponent());
+      tool_button_->addListener(this);
+      tool_button_->setShape(Paths::pencil());
+      tool_button_->setVisible(false);
+
       setSkinOverride(Skin::kOscillator);
       updateDestinationText();
     }
@@ -159,6 +168,9 @@ class FxInputSection : public SynthSection {
     virtual ~FxInputSection() { }
 
     void addListener(Listener* listener) { listeners_.push_back(listener); }
+
+    // The popup that draws the Spectral Filter / Phaser / Flanger curves (owned by the full interface).
+    void setSpectralEditor(SpectralWarpEditor* editor) { spectral_editor_ = editor; }
 
     int getDestination() const { return current_destination_; }
 
@@ -255,6 +267,10 @@ class FxInputSection : public SynthSection {
       int spectral_menu_x = prev_spectral_->getRight();
       spectral_selector_->setBounds(spectral_menu_x, spectral_bounds.getY(),
                                     next_spectral_->getX() - spectral_menu_x, spectral_browse);
+
+      // The dice (Random Amplitudes) or pencil (drawable modes) button sits in the corner of the spectral knob.
+      int tool_size = std::max(1, static_cast<int>(label_height * 1.2f));
+      tool_button_->setBounds(spectral_morph_->getX() + widget_margin, spectral_morph_->getY(), tool_size, tool_size);
       connectMemory();
     }
 
@@ -287,6 +303,7 @@ class FxInputSection : public SynthSection {
         spectral_text_->setText(strings::kFxSpectralNames[current_spectral_]);
         updateSpectralKnob();
       }
+      updateToolButton();
       connectMemory();
     }
 
@@ -315,6 +332,8 @@ class FxInputSection : public SynthSection {
         Point<int> position(spectral_selector_->getX(), spectral_selector_->getBottom());
         showPopupSelector(this, position, options, [=](int selection) { setSpectral(selection); });
       }
+      else if (clicked_button == tool_button_.get())
+        useTool();
       else if (clicked_button == prev_spectral_.get())
         setSpectral((current_spectral_ + num_spectral_modes_ - 1) % num_spectral_modes_);
       else if (clicked_button == next_spectral_.get())
@@ -351,7 +370,52 @@ class FxInputSection : public SynthSection {
     int clampSpectral(int mode) const { return std::max(0, std::min(mode, num_spectral_modes_ - 1)); }
 
     // Formant Scale, Harmonic Stretch, Inharmonic Stretch, Phase Disperse and Vocode are centred (bipolar).
-    static bool isBipolarSpectral(int mode) { return mode == 1 || mode == 2 || mode == 3 || mode == 8 || mode == 11; }
+    static bool isBipolarSpectral(int mode) { return mode == 1 || mode == 2 || mode == 3 || mode == 8 || mode == 14; }
+
+    static constexpr int kRandomAmplitudesMode = 5;
+    static constexpr int kFirstDrawableMode = 11;  // Spectral Filter, Phaser, Flanger
+
+    // A die: a rounded square with five holes.
+    static Path dicePath() {
+      Path path;
+      path.setUsingNonZeroWinding(false);
+      path.addRoundedRectangle(0.15f, 0.15f, 0.7f, 0.7f, 0.14f);
+      const float pips[5][2] = { { 0.3f, 0.3f }, { 0.7f, 0.3f }, { 0.5f, 0.5f }, { 0.3f, 0.7f }, { 0.7f, 0.7f } };
+      for (const auto& pip : pips)
+        path.addEllipse(pip[0] - 0.055f, pip[1] - 0.055f, 0.11f, 0.11f);
+      return path;
+    }
+
+    bool isDrawableMode() const {
+      return current_spectral_ >= kFirstDrawableMode && current_spectral_ < kFirstDrawableMode + 3;
+    }
+
+    // Dice for Random Amplitudes, pencil for the three drawable modes, nothing for the rest.
+    void updateToolButton() {
+      bool dice = current_spectral_ == kRandomAmplitudesMode;
+      tool_button_->setVisible(dice || isDrawableMode());
+      if (dice)
+        tool_button_->setShape(dicePath());
+      else if (isDrawableMode())
+        tool_button_->setShape(Paths::pencil());
+    }
+
+    int lane() const { return prefix_ == "input" ? 0 : 1; }
+
+    void useTool() {
+      SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
+      if (parent == nullptr || parent->getSynth() == nullptr)
+        return;
+
+      if (current_spectral_ == kRandomAmplitudesMode) {
+        // A new seed: the pattern of Random Amplitudes changes at once and is saved with the preset.
+        uint32_t seed = static_cast<uint32_t>(Random::getSystemRandom().nextInt()) & 0x7fffffffu;
+        parent->getSynth()->getEngine()->setRandomSeed(lane(), seed);
+        parent->notifyChange();
+      }
+      else if (isDrawableMode() && spectral_editor_)
+        spectral_editor_->showCurve(lane(), current_spectral_ - kFirstDrawableMode);
+    }
 
     void updateSpectralKnob() {
       bool bipolar = isBipolarSpectral(current_spectral_);
@@ -368,6 +432,7 @@ class FxInputSection : public SynthSection {
 
       if (was_bipolar != isBipolarSpectral(current_spectral_))
         spectral_morph_->setValue(isBipolarSpectral(current_spectral_) ? 0.5f : 0.0f, sendNotificationSync);
+      updateToolButton();
 
       SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
       if (parent && parent->getSynth())
@@ -427,6 +492,7 @@ class FxInputSection : public SynthSection {
     int num_spectral_modes_;
     int current_warp_ = 0;
     int current_spectral_ = 0;
+    SpectralWarpEditor* spectral_editor_ = nullptr;
     bool memory_connected_ = false;
     std::vector<Listener*> listeners_;
 
@@ -440,6 +506,7 @@ class FxInputSection : public SynthSection {
     std::unique_ptr<PlainTextComponent> destination_text_;
     std::unique_ptr<OpenGlShapeButton> prev_destination_;
     std::unique_ptr<OpenGlShapeButton> next_destination_;
+    std::unique_ptr<OpenGlShapeButton> tool_button_;
     std::unique_ptr<ShapeButton> spectral_selector_;
     std::unique_ptr<PlainTextComponent> spectral_text_;
     std::unique_ptr<OpenGlShapeButton> prev_spectral_;

@@ -36,6 +36,7 @@ class AboutSection;
 class BankExporter;
 class BendSection;
 class DeleteSection;
+class SpectralWarpEditor;
 class ExpiredSection;
 class ExtraModSection;
 class HeaderSection;
@@ -201,6 +202,7 @@ class FullInterface : public SynthSection, public AuthenticationSection::Listene
     std::unique_ptr<BankExporter> bank_exporter_;
     std::unique_ptr<SaveSection> save_section_;
     std::unique_ptr<DeleteSection> delete_section_;
+    std::unique_ptr<SpectralWarpEditor> spectral_warp_editor_;
     std::unique_ptr<DownloadSection> download_section_;
     std::unique_ptr<ExpiredSection> expired_section_;
     SynthSection* full_screen_section_;

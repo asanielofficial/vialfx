@@ -31,6 +31,7 @@ namespace vital {
   class EffectsModulationHandler;
   class FiltersModule;
   class Sample;
+  class SpectralMorphProcessor;
   class StereoMemory;
   class SynthLfo;
   class Upsampler;
@@ -53,6 +54,15 @@ namespace vital {
       // Recent audio of each input lane after its level, pan and warp (for the spectrum displays).
       // Constant latency of the spectral stage (the FFT size), in samples. Safe to call from any thread.
       int getLatencySamples() const;
+
+      // Drawn spectral curves and Random Amplitudes seed of each lane (0 = main, 1 = sidechain). Saved with
+      // the preset; not parameters, so they cannot be automated or modulated.
+      static constexpr int kNumSpectralCurves = 3;
+      LineGenerator* getSpectralCurve(int lane, int index);
+      void resetSpectralCurve(int lane, int index);
+      void resetSpectralDrawings(int lane);
+      void setRandomSeed(int lane, uint32_t seed);
+      uint32_t getRandomSeed(int lane) const { return random_seeds_[lane]; }
       const StereoMemory* getInputMemory();
       const StereoMemory* getSidechainMemory();
       void correctToTime(double seconds) override;
@@ -112,6 +122,9 @@ namespace vital {
       Upsampler* audio_input_;
       Upsampler* sidechain_input_;
       Value* fft_size_ = nullptr;
+      SpectralMorphProcessor* spectral_[2] = { nullptr, nullptr };
+      std::unique_ptr<LineGenerator> spectral_curves_[2][kNumSpectralCurves];
+      uint32_t random_seeds_[2] = { 0, 0 };
       std::shared_ptr<StereoMemory> input_memory_;
       std::shared_ptr<StereoMemory> sidechain_memory_;
       const poly_float* sidechain_in_;

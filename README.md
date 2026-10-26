@@ -5,7 +5,7 @@ inputs (main and sidechain) that can each be routed to the filters, the effects 
 It is built from GPLv3 synthesizer source code (see [NOTICE.md](NOTICE.md) for the origin of the code).
 
 > **Status:** version 0.1.0, early development. It builds as a VST3 on Linux and Windows in CI and passes
-> pluginval. The spectral morph engine (phase 4 of v0.3) is in; the drawable spectral warps come next.
+> pluginval. The spectral suite (v0.3) is in: morph engine, dice button and drawable spectral warps.
 
 ## What it does today
 
@@ -28,11 +28,17 @@ It is built from GPLv3 synthesizer source code (see [NOTICE.md](NOTICE.md) for t
   between the lane and its warp. Modes: Formant Scale, Harmonic Stretch, Inharmonic Stretch, Smear, Random
   Amplitudes, Low Pass, High Pass, Phase Disperse (a strong two-way disperser: up delays the highs, down
   delays the lows, turning clicks into sweeps), Shepard Tone, Spectral Time Skew (a frequency-dependent group delay of up to 16 frames:
-  the highs lag behind the lows), and on the main input only Vocode, which imposes the sidechain lane's spectral envelope on
+  the highs lag behind the lows), three drawable modes (below), and on the main input only Vocode, which imposes the sidechain lane's spectral envelope on
   the main lane. Formant Scale, Harmonic/Inharmonic Stretch, Phase Disperse and Vocode are bipolar (knob
   centre is neutral). The FFT size is set on the ADVANCED tab (256, 512, 1024 default, 2048) with a live
   latency readout. The stage always delays the audio by one FFT size, whatever the mode, so the latency is
   constant; it is reported to the host for delay compensation and both lanes stay aligned.
+- **Dice and drawable modes (v0.3):** Random Amplitudes has a dice button on the lane that picks a new seed;
+  the pattern is the same in Hz at every FFT size. Spectral Filter (gain per frequency), Spectral Phaser (phase
+  rotation per frequency) and Spectral Flanger (comb depth per frequency) have a pencil button that opens one
+  shared drawing popup (frequency on a log axis, 20 Hz to 20 kHz; a rate knob lives in the popup). The spectral
+  knob morphs from the automatic behaviour (0) to your drawn curve (1). The curves and the dice seed are saved
+  with each lane in the preset, not as parameters, so they cannot be automated or modulated.
 - **Filters:** two filters with the full set of filter models, in parallel or serial (FIL1/FIL2 buttons).
   Key tracking follows the last played MIDI note.
 - **Effects rack:** chorus, compressor, delay, distortion, EQ, filter, flanger, phaser and reverb, in a
@@ -51,7 +57,7 @@ It is built from GPLv3 synthesizer source code (see [NOTICE.md](NOTICE.md) for t
 | --- | --- |
 | v0.1 | Base FX: plugin shell, filters and effects rack, two-lane layout, GUI cleanup and modulation matrix (done) |
 | v0.2 | Distortion warp (done) |
-| v0.3 | Spectral processing: morph engine (done), drawable spectral warps (next) |
+| v0.3 | Spectral processing: morph engine, dice button and drawable spectral warps (done) |
 
 ## Building
 

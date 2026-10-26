@@ -315,10 +315,16 @@ namespace vital {
       ValueDetails::kIndexed, false, "", "Sidechain Warp Mode", strings::kWarpNames },
     // Spectral morph mode (the knob amount is input_spectral_morph_amount / sidechain_spectral_morph_amount).
     // Vocode (the last mode) uses the sidechain lane, so only the main lane offers it.
-    { "input_spectral_morph_type", 0x000000, 0.0, 11.0, 0.0, 0.0, 1.0,
+    { "input_spectral_morph_type", 0x000000, 0.0, 14.0, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Input Spectral Mode", strings::kFxSpectralNames },
-    { "sidechain_spectral_morph_type", 0x000000, 0.0, 10.0, 0.0, 0.0, 1.0,
+    { "sidechain_spectral_morph_type", 0x000000, 0.0, 13.0, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Sidechain Spectral Mode", strings::kFxSpectralNames },
+    // Rate of the LFO behind Spectral Filter, Phaser and Flanger (the drawn curves and the Random Amplitudes seed
+    // are saved with the preset but are not parameters: they cannot be automated or modulated).
+    { "input_spectral_rate", 0x000000, -4.32, 3.32, -1.0, 0.0, 1.0,
+      ValueDetails::kExponential, false, " Hz", "Input Spectral Rate", nullptr },
+    { "sidechain_spectral_rate", 0x000000, -4.32, 3.32, -1.0, 0.0, 1.0,
+      ValueDetails::kExponential, false, " Hz", "Sidechain Spectral Rate", nullptr },
     // FFT size of the spectral stage: 256 / 512 / 1024 / 2048. Also its latency in samples, which is
     // reported to the host.
     { "fft_size", 0x000000, 0.0, 3.0, 2.0, 0.0, 1.0,

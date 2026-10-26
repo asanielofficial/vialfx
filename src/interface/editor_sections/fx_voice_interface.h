@@ -34,7 +34,7 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
       main_input_->addListener(this);
       addSubSection(main_input_.get());
 
-      sidechain_input_ = std::make_unique<FxInputSection>("SIDECHAIN", "sidechain", 6, 11);
+      sidechain_input_ = std::make_unique<FxInputSection>("SIDECHAIN", "sidechain", 6, 14);
       sidechain_input_->addListener(this);
       addSubSection(sidechain_input_.get());
 
@@ -104,6 +104,12 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
       int index = section == main_input_.get() ? 0 : 1;
       filter_section_1_->setOscillatorInput(index, filter1_on);
       filter_section_2_->setOscillatorInput(index, filter2_on);
+    }
+
+    // Hands the drawing popup (owned by the full interface) to both input panels.
+    void setSpectralEditor(SpectralWarpEditor* editor) {
+      main_input_->setSpectralEditor(editor);
+      sidechain_input_->setSpectralEditor(editor);
     }
 
     FilterSection* getFilterSection1() { return filter_section_1_.get(); }
