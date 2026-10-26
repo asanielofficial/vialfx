@@ -74,7 +74,8 @@ FullInterface::FullInterface(SynthGuiData* synth_data) : SynthSection("full_inte
   else {
     // Effect build: the VOICE tab holds the two filters.
     fx_voice_interface_ = std::make_unique<FxVoiceInterface>(synth_data->mono_modulations,
-                                                             synth_data->poly_modulations);
+                                                             synth_data->poly_modulations,
+                                                             synth_data->synth->getEngine());
     addSubSection(fx_voice_interface_.get());
   }
 
@@ -171,16 +172,6 @@ FullInterface::FullInterface(SynthGuiData* synth_data) : SynthSection("full_inte
   addChildComponent(delete_section_.get());
   preset_browser_->setDeleteSection(delete_section_.get());
 
-#if VITAL_FX
-  if (fx_voice_interface_) {
-    // Popup for drawing the Spectral Filter / Phaser / Flanger curves.
-    spectral_warp_editor_ = std::make_unique<SpectralWarpEditor>(synth_data->synth->getEngine());
-    addSubSection(spectral_warp_editor_.get(), false);
-    addChildComponent(spectral_warp_editor_.get());
-    fx_voice_interface_->setSpectralEditor(spectral_warp_editor_.get());
-  }
-#endif
-
   download_section_ = std::make_unique<DownloadSection>("download_section", &auth_);
   addSubSection(download_section_.get(), false);
   addChildComponent(download_section_.get());
@@ -210,8 +201,6 @@ FullInterface::FullInterface(SynthGuiData* synth_data) : SynthSection("full_inte
   about_section_->toFront(true);
   save_section_->toFront(true);
   delete_section_->toFront(true);
-  if (spectral_warp_editor_)
-    spectral_warp_editor_->toFront(true);
   popup_browser_->toFront(true);
   popup_selector_->toFront(true);
   dual_popup_selector_->toFront(true);
@@ -521,8 +510,6 @@ void FullInterface::resized() {
   update_check_section_->setBounds(bounds);
   save_section_->setBounds(bounds);
   delete_section_->setBounds(bounds);
-  if (spectral_warp_editor_)
-    spectral_warp_editor_->setBounds(bounds);
   download_section_->setBounds(bounds);
 
   Rectangle<int> browse_bounds(main_bounds.getX(), main_bounds.getY(),

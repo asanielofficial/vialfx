@@ -20,6 +20,7 @@
 
 #include "filter_section.h"
 #include "fx_input_section.h"
+#include "spectral_warp_editor.h"
 #include "synth_section.h"
 
 // VOICE tab of the effect build: the main input and sidechain input panels on top, and the two filters
@@ -28,8 +29,8 @@
 // serial routing.
 class FxVoiceInterface : public SynthSection, public FilterSection::Listener, public FxInputSection::Listener {
   public:
-    FxVoiceInterface(const vital::output_map& mono_modulations, const vital::output_map& poly_modulations) :
-        SynthSection("synthesis") {
+    FxVoiceInterface(const vital::output_map& mono_modulations, const vital::output_map& poly_modulations,
+                     vital::SoundEngine* engine) : SynthSection("synthesis") {
       main_input_ = std::make_unique<FxInputSection>("INPUT", "input");
       main_input_->addListener(this);
       addSubSection(main_input_.get());
@@ -47,6 +48,18 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
       filter_section_2_->useAudioInputs();
       filter_section_2_->addListener(this);
       addSubSection(filter_section_2_.get());
+
+      // The curve editor for Spectral Filter / Phaser / Flanger docks over the filters (below the input panels, so
+      // the lane panels and the modulation sources stay usable while it is open).
+      spectral_editor_ = std::make_unique<SpectralWarpEditor>(engine);
+      addSubSection(spectral_editor_.get());
+      spectral_editor_->setVisible(false);
+      spectral_editor_->setVisibilityCallback([this](bool shown) {
+        filter_section_1_->setVisible(!shown);
+        filter_section_2_->setVisible(!shown);
+      });
+      main_input_->setSpectralEditor(spectral_editor_.get());
+      sidechain_input_->setSpectralEditor(spectral_editor_.get());
 
       setOpaque(false);
     }
@@ -76,6 +89,7 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
       int filter_height = getHeight() - filter_y;
       filter_section_1_->setBounds(0, filter_y, width_left, filter_height);
       filter_section_2_->setBounds(width_left + padding, filter_y, width_right, filter_height);
+      spectral_editor_->setBounds(0, filter_y, getWidth(), filter_height);
       SynthSection::resized();
     }
 
@@ -106,12 +120,6 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
       filter_section_2_->setOscillatorInput(index, filter2_on);
     }
 
-    // Hands the drawing popup (owned by the full interface) to both input panels.
-    void setSpectralEditor(SpectralWarpEditor* editor) {
-      main_input_->setSpectralEditor(editor);
-      sidechain_input_->setSpectralEditor(editor);
-    }
-
     FilterSection* getFilterSection1() { return filter_section_1_.get(); }
     FilterSection* getFilterSection2() { return filter_section_2_.get(); }
 
@@ -120,6 +128,7 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
     std::unique_ptr<FxInputSection> sidechain_input_;
     std::unique_ptr<FilterSection> filter_section_1_;
     std::unique_ptr<FilterSection> filter_section_2_;
+    std::unique_ptr<SpectralWarpEditor> spectral_editor_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FxVoiceInterface)
 };

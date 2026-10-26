@@ -56,7 +56,7 @@ namespace vital {
         kMode,
         kAmount,
         kFftSize,
-        kRate,
+        kPosition,
         kModulator,
         kNumInputs
       };
@@ -170,8 +170,7 @@ namespace vital {
         bool neutral = isNeutral(mode, amount);
         mode_ = mode;
         amount_ = amount;
-        float rate = std::max(0.0f, input(kRate)->source->buffer[0][0]);
-        rate_hz_ = std::min(rate, 50.0f);
+        position_target_ = std::max(0.0f, std::min(input(kPosition)->source->buffer[0][0], 1.0f));
 
         float target_mix = neutral ? 0.0f : 1.0f;
         float mix_step = (target_mix - mix_) / std::max(num_samples, 1);
@@ -204,8 +203,8 @@ namespace vital {
             hop_count_ = 0;
             processFrame(0);
             processFrame(1);
-            lfo_phase_ += rate_hz_ * hop / std::max(1.0f, static_cast<float>(getSampleRate()));
-            lfo_phase_ -= std::floor(lfo_phase_);
+            // The position is a modulatable parameter (an LFO can drive it); glide towards it between frames.
+            position_ += (position_target_ - position_) * 0.4f;
           }
         }
         mix_ = target_mix;
@@ -328,7 +327,7 @@ namespace vital {
         spec[2 * bins + 1] = 0.0f;
       }
 
-      float lfoValue() const { return 0.5f + 0.5f * sinf(2.0f * kPi_ * lfo_phase_); }
+      float position() const { return position_; }
 
       void rotate(float* spec, int k, float phase) {
         float c = cosf(phase), s = sinf(phase);
@@ -472,10 +471,10 @@ namespace vital {
           break;
         }
         case kSpectralFilter: {
-          // Gain in dB per bin. Morph 0: a resonant peak swept by the rate LFO (200 Hz .. 8 kHz). Morph 1: the
+          // Gain in dB per bin. Morph 0: a resonant peak whose frequency follows the position slider (200 Hz .. 8 kHz). Morph 1: the
           // drawn curve (+-36 dB, the middle is flat).
           float morph = a;
-          float centre = 200.0f * powf(40.0f, lfoValue());
+          float centre = 200.0f * powf(40.0f, position());
           for (int k = 0; k <= bins; ++k) {
             float frequency = std::max(k * 0.5f * sample_rate / bins, 1.0f);
             float octaves = std::log2(frequency / centre) / 0.5f;
@@ -490,10 +489,10 @@ namespace vital {
         }
         case kSpectralPhaser: {
           // Each bin is mixed with a phase-rotated copy of itself, which carves notches where the rotation reaches
-          // half a turn. The drawn curve (0..2 pi) is the rotation; morph 0: the rate LFO scales it (the notches
-          // sweep), morph 1: the curve alone governs.
+          // half a turn. The drawn curve (0..2 pi) is the rotation; morph 0: the position slider scales it (the notches
+          // move), morph 1: the curve alone governs.
           float morph = a;
-          float scale = (1.0f - morph) * lfoValue() + morph;
+          float scale = (1.0f - morph) * position() + morph;
           for (int k = 1; k <= bins; ++k) {
             float phase = 2.0f * kPi_ * curveAt(1, k, bins, sample_rate) * scale;
             float c = cosf(phase), sn = sinf(phase);
@@ -505,13 +504,13 @@ namespace vital {
         }
         case kSpectralFlanger: {
           // A comb per bin: the signal plus a delayed copy, the copy's level per bin is the drawn depth curve.
-          // The rate LFO sweeps the delay between 0.3 and 8 ms. Morph 0: depth is flat 70%; morph 1: the curve.
+          // The position slider sets the delay between 0.3 and 8 ms. Morph 0: depth is flat 70%; morph 1: the curve.
           int stride = n + 2;
           float* slot = ch.history.data() + ch.history_pos * stride;
           std::copy(spec, spec + stride, slot);
           const int hop = n / kOverlap;
           float morph = a;
-          float delay = (0.3f + 7.7f * lfoValue()) * 0.001f * sample_rate;
+          float delay = (0.3f + 7.7f * position()) * 0.001f * sample_rate;
           delay = std::min(delay, static_cast<float>((kHistoryFrames - 1) * hop));
           int whole = static_cast<int>(delay / hop);
           float remainder = delay - static_cast<float>(whole) * hop;
@@ -604,8 +603,8 @@ namespace vital {
       int mode_ = kNone;
       float amount_ = 0.0f;
       float mix_ = 0.0f;
-      float rate_hz_ = 0.5f;
-      float lfo_phase_ = 0.0f;
+      float position_target_ = 0.5f;
+      float position_ = 0.5f;
       int active_random_ = 0;
       const LineGenerator* curves_[3] = { nullptr, nullptr, nullptr };
       int latency_ = 1024;

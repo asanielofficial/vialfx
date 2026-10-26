@@ -63,8 +63,8 @@ namespace vital {
     Output* sidechain_spectral_amount = createMonoModControl("sidechain_spectral_morph_amount");
     Value* input_spectral_mode = createBaseControl("input_spectral_morph_type");
     Value* sidechain_spectral_mode = createBaseControl("sidechain_spectral_morph_type");
-    Output* input_spectral_rate = createMonoModControl("input_spectral_rate");
-    Output* sidechain_spectral_rate = createMonoModControl("sidechain_spectral_rate");
+    Output* input_spectral_position = createMonoModControl("input_spectral_position");
+    Output* sidechain_spectral_position = createMonoModControl("sidechain_spectral_position");
     Value* fft_size = createBaseControl("fft_size");
     fft_size_ = fft_size;
     Value* input_destination = createBaseControl("input_destination");
@@ -152,7 +152,7 @@ namespace vital {
     sidechain_spectral->plug(sidechain_spectral_mode, SpectralMorphProcessor::kMode);
     sidechain_spectral->plug(sidechain_spectral_amount, SpectralMorphProcessor::kAmount);
     sidechain_spectral->plug(fft_size, SpectralMorphProcessor::kFftSize);
-    sidechain_spectral->plug(sidechain_spectral_rate, SpectralMorphProcessor::kRate);
+    sidechain_spectral->plug(sidechain_spectral_position, SpectralMorphProcessor::kPosition);
     addProcessor(sidechain_spectral);
 
     SpectralMorphProcessor* main_spectral = new SpectralMorphProcessor(true);
@@ -160,7 +160,7 @@ namespace vital {
     main_spectral->plug(input_spectral_mode, SpectralMorphProcessor::kMode);
     main_spectral->plug(input_spectral_amount, SpectralMorphProcessor::kAmount);
     main_spectral->plug(fft_size, SpectralMorphProcessor::kFftSize);
-    main_spectral->plug(input_spectral_rate, SpectralMorphProcessor::kRate);
+    main_spectral->plug(input_spectral_position, SpectralMorphProcessor::kPosition);
     main_spectral->plug(sidechain_gate, SpectralMorphProcessor::kModulator);
     addProcessor(main_spectral);
 

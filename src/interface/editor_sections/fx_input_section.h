@@ -268,9 +268,12 @@ class FxInputSection : public SynthSection {
       spectral_selector_->setBounds(spectral_menu_x, spectral_bounds.getY(),
                                     next_spectral_->getX() - spectral_menu_x, spectral_browse);
 
-      // The dice (Random Amplitudes) or pencil (drawable modes) button sits in the corner of the spectral knob.
-      int tool_size = std::max(1, static_cast<int>(label_height * 1.2f));
-      tool_button_->setBounds(spectral_morph_->getX() + widget_margin, spectral_morph_->getY(), tool_size, tool_size);
+      // The dice (Random Amplitudes) or pencil (drawable modes) button sits to the right of the spectral knob,
+      // level with its centre.
+      int tool_size = std::max(1, static_cast<int>(spectral_morph_->getHeight() * 0.3f));
+      tool_button_->setBounds(spectral_morph_->getRight() - tool_size - widget_margin,
+                              spectral_morph_->getY() + (spectral_morph_->getHeight() - tool_size) / 2,
+                              tool_size, tool_size);
       connectMemory();
     }
 

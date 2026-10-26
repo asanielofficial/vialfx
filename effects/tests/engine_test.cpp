@@ -1528,17 +1528,26 @@ namespace {
       check(auto_out.finite() && rms(auto_out.left, 30000) > 0.005, "Spectral Filter at morph 0 runs on its own (swept filter)");
     }
 
-    // Spectral Phaser: the notches move with the rate LFO at morph 0 and stand still at morph 1.
+    // Spectral Phaser: the notches follow the position slider at morph 0 and stand still at morph 1.
     {
-      auto render = [&](float morph, float rate, float seconds_offset) {
+      // The position slider is swept up and down (as an LFO modulating it would).
+      auto render = [&](float morph) {
         Rig rig;
         rig.set("input_spectral_morph_type", 12.0f);
         rig.set("input_spectral_morph_amount", morph);
-        rig.set("input_spectral_rate", rate);
-        return rig.render(70000, noise());
+        Generator gen = noise();
+        Stereo all;
+        for (int block = 0; block < 70; ++block) {
+          float t = block / 70.0f;
+          rig.set("input_spectral_position", 0.5f + 0.5f * std::sin(2.0f * kPi * 3.0f * t));
+          Stereo part = rig.render(1000, [&](int i, float& l, float& r) { gen(block * 1000 + i, l, r); });
+          all.left.insert(all.left.end(), part.left.begin(), part.left.end());
+          all.right.insert(all.right.end(), part.right.begin(), part.right.end());
+        }
+        return all;
       };
-      Stereo moving = render(0.0f, 1.0f, 0.0f);
-      Stereo fixed = render(1.0f, 1.0f, 0.0f);
+      Stereo moving = render(0.0f);
+      Stereo fixed = render(1.0f);
       // Loudness over time: fixed should be steady, moving should vary.
       auto variation = [](const Stereo& out) {
         double lo = 1e9, hi = 0.0;
@@ -1567,7 +1576,7 @@ namespace {
       bright_fixed = brightVariation(fixed);
       check(moving.finite() && fixed.finite() && moving.peak() < 3.0f && fixed.peak() < 3.0f,
             "Spectral Phaser is finite and bounded");
-      check(bright_moving > 1.15 * bright_fixed, "Spectral Phaser: the rate LFO moves the notches at morph 0, the drawn curve is steady at morph 1",
+      check(bright_moving > 1.15 * bright_fixed, "Spectral Phaser: the position slider moves the notches at morph 0, the drawn curve is steady at morph 1",
             fmt("variation %.2f vs %.2f", bright_moving, bright_fixed));
       (void) variation;
     }
@@ -1609,7 +1618,7 @@ namespace {
         state = state * 1664525u + 1013904223u;
         rig.set("input_spectral_morph_type", static_cast<float>(11 + (state >> 8) % 3));
         rig.set("input_spectral_morph_amount", ((state >> 12) & 255) / 255.0f);
-        rig.set("input_spectral_rate", -4.0f + ((state >> 20) & 255) / 255.0f * 7.0f);
+        rig.set("input_spectral_position", ((state >> 20) & 255) / 255.0f);
         if (block % 40 == 0) {
           rig.set("fft_size", static_cast<float>((state >> 4) % 4));
           drawCurve(rig, 0, (state >> 6) % 3, [state](float x) { return std::fabs(std::sin(x * 9.0f + (state & 7))); });
