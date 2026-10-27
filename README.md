@@ -39,9 +39,9 @@ It is built from GPLv3 synthesizer source code (see [NOTICE.md](NOTICE.md) for t
   is a modulation target: drag an LFO or any source onto
   it to walk smoothly through a chain of patterns derived from the seed. The pattern is the same in Hz at every
   FFT size. Spectral Filter (a resonant gain curve), Spectral Phaser (a resonant phaser whose notches follow the curve) and
-  Spectral Flanger (a regenerating comb whose depth follows the curve) have a pencil button that docks a curve editor over the filters, drawn like
+  Spectral Flanger (a regenerating, stereo-spread comb whose depth follows the curve; Position sweeps its delay) have a pencil button that docks a curve editor over the filters, drawn like
   the LFO editor (paint brush and patterns, grid sizes, smoothing, shape selector, frequency on a log axis from
-  20 Hz to 20 kHz; the shape menu also saves and opens your own shapes). A position slider along its bottom is a modulation target as well. The spectral knob of
+  20 Hz to 20 kHz; the shape menu also saves and opens your own shapes). A position slider along its bottom is a modulation target as well (for Spectral Filter it transposes the drawn curve up and down in frequency by up to four octaves). The spectral knob of
   these three modes is bipolar: the centre is the automatic behaviour, up morphs to your drawn curve and down
   to the curve flipped upside down. The curves and the dice seed are saved with each lane in the preset, not as
   parameters, so they cannot be automated (the dice switch and the shuffle bar are the automatable controls).

@@ -1,0 +1,88 @@
+name: Build VialFX (macOS)
+
+on:
+  push:
+    branches: [ main, 'vialfx-*' ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  vst3:
+    # The last Intel runner: the prebuilt Projucer of the JUCE version this project uses is an Intel binary. The plugin
+    # itself is built universal (arm64 + x86_64).
+    runs-on: macos-15-intel
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Engine test (headless DSP checks)
+        run: make -C effects/tests -j"$(sysctl -n hw.ncpu)"
+
+      - name: Get Projucer (JUCE 6.0.5)
+        run: |
+          curl -fsSL -o juce.zip https://github.com/juce-framework/JUCE/releases/download/6.0.5/juce-6.0.5-osx.zip
+          unzip -q juce.zip -d juce_download
+          ls juce_download/JUCE
+
+      - name: Generate the Xcode project
+        run: |
+          python3 - <<'EOF'
+          import re
+          p = 'effects/vial_fx.jucer'
+          s = open(p).read()
+          a = s.index('<XCODE_MAC')
+          b = s.index('</XCODE_MAC>')
+          block = s[a:b]
+          # Authentication is compiled out (NO_AUTH), so the closed-source Firebase frameworks, the Kerberos library and
+          # the original product's post-build step are not needed.
+          for attr in ('extraCustomFrameworks', 'frameworkSearchPaths', 'externalLibraries', 'postbuildCommand',
+                       'iosDevelopmentTeamID'):
+              block = re.sub(r'\s+' + attr + r'="[^"]*"', '', block)
+          block = block.replace('hardenedRuntime="1"', 'hardenedRuntime="0"')
+          block = block.replace('enablePluginBinaryCopyStep="1"', 'enablePluginBinaryCopyStep="0"')
+          block = block.replace('osxCompatibility="10.12 SDK"', 'osxCompatibility="10.13 SDK"')
+          s = s[:a] + block + s[b:]
+          open(p, 'w').write(s)
+          EOF
+          juce_download/JUCE/Projucer.app/Contents/MacOS/Projucer --resave effects/vial_fx.jucer
+          ls effects/builds/osx
+
+      - name: Build VialFX VST3 (universal, Release)
+        run: |
+          set +e
+          xcodebuild -project effects/builds/osx/VialFX.xcodeproj -scheme "VialFX - VST3" -configuration Release \
+            ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO MACOSX_DEPLOYMENT_TARGET=10.13 \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
+            GCC_TREAT_WARNINGS_AS_ERRORS=NO > build.log 2>&1
+          status=$?
+          if [ $status -ne 0 ]; then
+            grep -n -m 40 -E "error:|fatal error|undefined symbol|\*\*\* " build.log \
+              | cut -c1-450 | while IFS= read -r line; do echo "::error::${line}"; done
+            echo "::error::last lines: $(tail -n 8 build.log | tr '\n' '|' | cut -c1-700)"
+          fi
+          exit $status
+
+      - name: Check for Vital branding and service domains
+        run: |
+          set +e
+          BIN=$(find effects/builds/osx/build -name "VialFX" -path "*.vst3/Contents/MacOS/*" | head -1)
+          if [ -z "$BIN" ]; then echo "::error::no VST3 binary produced"; exit 1; fi
+          file "$BIN"
+          strings -a "$BIN" > binary_strings.txt
+          if grep -i -n -E "vital\.audio|account\.vital|store\.vital|forum\.vital|vital audio|tytel" binary_strings.txt | head -20 > hits.txt && [ -s hits.txt ]; then
+            while IFS= read -r l; do echo "::error::[binary] $l"; done < hits.txt
+            exit 1
+          fi
+          echo "branding check passed"
+
+      - name: Package
+        run: |
+          mkdir -p dist
+          VST3=$(find effects/builds/osx/build -name "VialFX.vst3" -maxdepth 4 | head -1)
+          ditto "$VST3" dist/VialFX.vst3
+          ls -R dist | head -20
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VialFX-macos-vst3
+          path: dist

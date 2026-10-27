@@ -279,12 +279,13 @@ namespace vital {
       }
 
       // Drawn curve value (0..1) at bin k: the curve's x axis is log frequency, 20 Hz .. 20 kHz.
-      float curveAt(int which, int k, int bins, float sample_rate) const {
+      // shift_octaves moves the curve along the frequency axis (the value at f is the curve's value at f / 2^shift).
+      float curveAt(int which, int k, int bins, float sample_rate, float shift_octaves = 0.0f) const {
         const LineGenerator* curve = curves_[which];
         if (curve == nullptr)
           return defaultCurve(which, k, bins, sample_rate);
         float frequency = k * 0.5f * sample_rate / bins;
-        float x = std::log2(std::max(frequency, 20.0f) / 20.0f) / 9.96578428f;  // log2(1000)
+        float x = (std::log2(std::max(frequency, 20.0f) / 20.0f) - shift_octaves) / 9.96578428f;  // log2(1000)
         x = std::max(0.0f, std::min(x, 1.0f));
         const float* buffer = curve->getBuffer();
         float position = x * (curve->resolution() - 1);
@@ -295,8 +296,8 @@ namespace vital {
       }
 
       // The drawn curve, or the same curve flipped upside down (value 1 - v) for the negative half of the knob.
-      float drawnCurve(int which, int k, int bins, float sample_rate, bool inverted) const {
-        float value = curveAt(which, k, bins, sample_rate);
+      float drawnCurve(int which, int k, int bins, float sample_rate, bool inverted, float shift_octaves = 0.0f) const {
+        float value = curveAt(which, k, bins, sample_rate, shift_octaves);
         return inverted ? 1.0f - value : value;
       }
 
@@ -521,15 +522,17 @@ namespace vital {
         case kSpectralFilter: {
           // Gain in dB per bin. Morph 0: a narrow, strongly resonant peak (+24 dB, the rest of the spectrum pulled down
           // 24 dB) whose frequency follows the position slider (100 Hz .. 12 kHz). Morph 1: the drawn curve (+-48 dB,
-          // the middle is flat).
+          // the middle is flat), moved up and down in frequency by the position slider.
           float morph = std::fabs(a);
           bool inverted = a < 0.0f;
           float centre = 100.0f * powf(120.0f, position());
+          // The position slider also transposes the drawn curve along the frequency axis, +-4 octaves (centre: as drawn).
+          float shift = (position() - 0.5f) * 8.0f;
           for (int k = 0; k <= bins; ++k) {
             float frequency = std::max(k * 0.5f * sample_rate / bins, 1.0f);
             float octaves = std::log2(frequency / centre) / 0.3f;
             float automatic = 48.0f * expf(-0.5f * octaves * octaves) - 24.0f;
-            float drawn = (drawnCurve(0, k, bins, sample_rate, inverted) - 0.5f) * 96.0f;
+            float drawn = (drawnCurve(0, k, bins, sample_rate, inverted, shift) - 0.5f) * 96.0f;
             float db = automatic + (drawn - automatic) * morph;
             float gain = std::min(powf(10.0f, db / 20.0f), 64.0f);
             spec[2 * k] *= gain;
@@ -570,22 +573,28 @@ namespace vital {
           break;
         }
         case kSpectralFlanger: {
-          // A feedback comb per bin: H = (1 + d e^(-j w t)) / (1 - r e^(-j w t)) with the delay t from the position
-          // slider (0.3 .. 8 ms), the feed-forward depth d from the drawn curve and the resonance r = 0.65 d. That is a
-          // flanger with regeneration: deep notches and ringing peaks spaced 1/t apart. Morph 0: depth is flat 70%;
-          // morph 1: the curve. Sweep the position with an LFO for the classic jet sound.
+          // A regenerating comb per bin: H = (1 + d e^(-j w t)) / (1 - r e^(-j w t)).
+          //  - t, the delay, sweeps exponentially from 0.2 ms to 10 ms with the position slider (even steps per octave,
+          //    so an LFO on it sounds natural). The right channel runs 15% longer, so the two channels' notches never line
+          //    up: a wide stereo flange from a mono source.
+          //  - d, the depth, is the drawn curve (morph 0: flat 70%). r = 0.8 d is the regeneration: deep notches and
+          //    ringing peaks. Drawing less depth at some frequencies leaves those untouched.
+          //  - The comb is tilted: higher frequencies see a slightly shorter delay (up to 25% at 20 kHz), so the notches
+          //    crowd towards the low end and the sweep has a metallic, jet-like edge instead of a plain comb.
+          //  - The level is made up (peaks up to 1.3) so the effect does not just get quieter.
           float morph = std::fabs(a);
           bool inverted = a < 0.0f;
-          float delay = (0.3f + 7.7f * position()) * 0.001f * sample_rate;
+          float base_delay = 0.0002f * powf(50.0f, position()) * sample_rate * (c == 0 ? 1.0f : 1.15f);
           for (int k = 1; k < bins; ++k) {
             float depth = 0.7f + (drawnCurve(2, k, bins, sample_rate, inverted) - 0.7f) * morph;
             depth = std::max(0.0f, std::min(depth, 1.0f));
-            float resonance = 0.65f * depth;
-            float angle = -2.0f * kPi_ * k * delay / n;
-            float c = cosf(angle), sn = sinf(angle);
-            float num_re = 1.0f + depth * c, num_im = depth * sn;
-            float den_re = 1.0f - resonance * c, den_im = -resonance * sn;
-            float den_norm = (1.0f - resonance) / ((1.0f + depth) * (den_re * den_re + den_im * den_im));
+            float resonance = 0.8f * depth;
+            float tilt = 1.0f - 0.25f * defaultCurve(1, k, bins, sample_rate);
+            float angle = -2.0f * kPi_ * k * base_delay * tilt / n;
+            float cs = cosf(angle), sn = sinf(angle);
+            float num_re = 1.0f + depth * cs, num_im = depth * sn;
+            float den_re = 1.0f - resonance * cs, den_im = -resonance * sn;
+            float den_norm = (1.0f + 0.3f * depth) * (1.0f - resonance) / ((1.0f + depth) * (den_re * den_re + den_im * den_im));
             float h_re = (num_re * den_re + num_im * den_im) * den_norm;
             float h_im = (num_im * den_re - num_re * den_im) * den_norm;
             float re = spec[2 * k], im = spec[2 * k + 1];
