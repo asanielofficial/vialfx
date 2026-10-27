@@ -1725,8 +1725,8 @@ namespace {
                               "sidechain_spectral_morph_amount", "sidechain_distortion_amount" }) {
       Rig placeholder_rig;
       check(placeholder_rig.controls.count(name) == 1, std::string("control exists: ") + name);
-      // The morph knobs default to 0; the warp amounts default to their bipolar centre (Sync is the first mode).
-      float expected = std::string(name).find("distortion") != std::string::npos ? 0.5f : 0.0f;
+      // All the knobs default to 0 (the warp mode defaults to None).
+      float expected = 0.0f;
       check(placeholder_rig.controls.count(name) == 0 || placeholder_rig.controls[name]->value() == expected,
             std::string("default value: ") + name);
     }
