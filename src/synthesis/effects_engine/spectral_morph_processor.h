@@ -58,6 +58,7 @@ namespace vital {
         kFftSize,
         kPosition,
         kShuffle,
+        kDice,
         kModulator,
         kNumInputs
       };
@@ -147,9 +148,23 @@ namespace vital {
       int latencySamples() const { return latency_; }
 
       // Random Amplitudes: the seed picks the per-bin gain pattern, the shuffle input (0..1, modulatable) walks through
-      // a chain of 8 further patterns derived from it, blending smoothly between neighbours. Safe to call from the
-      // message thread: the audio thread rebuilds its tables when it sees a new seed.
-      void setSeed(uint32_t seed) { seed_ = seed; }
+      // a chain of 8 further patterns derived from it, blending smoothly between neighbours. The dice input is a
+      // switch: every time it flips (GUI press or host automation) the seed is scrambled to a new one.
+      //
+      // setSeed is for loading a preset or resetting: the new seed is the baseline, and the dice position it comes
+      // with does not count as a flip. Safe to call from the message thread.
+      void setSeed(uint32_t seed) {
+        seed_ = seed;
+        dice_sync_ = true;
+      }
+
+      uint32_t seed() const { return seed_; }
+
+      static uint32_t scrambleSeed(uint32_t seed) {
+        uint32_t x = seed * 747796405u + 2891336453u;
+        x = ((x >> ((x >> 28u) + 4u)) ^ x) * 277803737u;
+        return (x >> 22u) ^ x;
+      }
 
       // Drawn curves (0..1 over 20 Hz..20 kHz on a log axis) for Spectral Filter, Phaser and Flanger.
       void setCurve(int which, const LineGenerator* curve) { curves_[which] = curve; }
@@ -170,6 +185,15 @@ namespace vital {
         amount_ = amount;
         position_target_ = std::max(0.0f, std::min(input(kPosition)->source->buffer[0][0], 1.0f));
         shuffle_ = input(kShuffle)->source->buffer[0][0];
+        float dice = input(kDice)->source->buffer[0][0] > 0.5f ? 1.0f : 0.0f;
+        if (dice_sync_ || last_dice_ < 0.0f) {
+          last_dice_ = dice;
+          dice_sync_ = false;
+        }
+        else if (dice != last_dice_) {
+          last_dice_ = dice;
+          seed_ = scrambleSeed(seed_);
+        }
 
         float target_mix = neutral ? 0.0f : 1.0f;
         float mix_step = (target_mix - mix_) / std::max(num_samples, 1);
@@ -634,6 +658,8 @@ namespace vital {
       float position_ = 0.5f;
       uint32_t seed_ = kDefaultSeed;
       float shuffle_ = 0.0f;
+      float last_dice_ = -1.0f;
+      bool dice_sync_ = false;
       bool random_valid_[2] = { false, false };
       uint32_t random_seed_[2] = { 0, 0 };
       int random_index_[2] = { 0, 0 };

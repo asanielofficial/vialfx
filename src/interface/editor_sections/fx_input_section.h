@@ -212,7 +212,7 @@ class FxInputSection : public SynthSection {
       drawLabelForComponent(g, TRANS("PAN"), pan_.get());
       // The labels under the two big knobs are their mode selectors.
       g.setColour(findColour(Skin::kTextComponentBackground, true));
-      g.fillRoundedRectangle(getLabelBackgroundBounds(spectral_morph_.get()).toFloat(),
+      g.fillRoundedRectangle(spectral_label_bounds_.toFloat(),
                              findValue(Skin::kLabelBackgroundRounding));
       g.fillRoundedRectangle(getLabelBackgroundBounds(distortion_.get()).toFloat(),
                              findValue(Skin::kLabelBackgroundRounding));
@@ -278,20 +278,26 @@ class FxInputSection : public SynthSection {
       spectral_selector_->setBounds(spectral_menu_x, spectral_bounds.getY(),
                                     next_spectral_->getX() - spectral_menu_x, spectral_browse);
 
-      // The dice (Random Amplitudes) or pencil (drawable modes) button sits to the right of the spectral knob,
-      // level with its centre.
-      // The die is drawn smaller than the pencil; the shuffle bar sits right under it.
+      // The dice (Random Amplitudes) or pencil (drawable modes) button and the shuffle bar get their own strip to the
+      // right of the spectral knob. The knob gives up that part of its area, so nothing overlaps the bar: a modulation
+      // source dragged onto the bar lands on the bar and not on the knob underneath.
+      spectral_label_bounds_ = spectral_bounds;
+      Rectangle<int> knob_cell = spectral_morph_->getBounds();
+      int strip_width = std::min(knob_cell.getWidth() / 3, std::max(1, static_cast<int>(knob_cell.getHeight() * 0.5f)));
+      spectral_morph_->setBounds(knob_cell.withWidth(knob_cell.getWidth() - strip_width));
+      int strip_x = spectral_morph_->getRight();
+      int strip_centre = strip_x + strip_width / 2;
+
       bool dice = current_spectral_ == kRandomAmplitudesMode;
-      int tool_size = std::max(1, static_cast<int>(spectral_morph_->getHeight() * (dice ? 0.2f : 0.3f)));
-      int bar_height = std::max(4, static_cast<int>(spectral_morph_->getHeight() * 0.08f));
-      int bar_width = std::max(tool_size, static_cast<int>(spectral_morph_->getHeight() * 0.32f));
-      int tool_x = spectral_morph_->getRight() - tool_size - widget_margin;
-      int tool_y = spectral_morph_->getY() + (spectral_morph_->getHeight() - tool_size) / 2;
-      if (dice)
-        tool_y -= bar_height;
-      tool_button_->setBounds(tool_x, tool_y, tool_size, tool_size);
-      shuffle_->setBounds(tool_x + tool_size / 2 - bar_width / 2, tool_button_->getBottom() + widget_margin / 2,
-                          bar_width, bar_height);
+      int knob_height = knob_cell.getHeight();
+      int tool_size = std::max(1, std::min(strip_width - widget_margin,
+                                           static_cast<int>(knob_height * (dice ? 0.2f : 0.3f))));
+      int bar_height = std::max(14, static_cast<int>(knob_height * 0.14f));
+      int bar_width = std::max(1, strip_width - widget_margin);
+      int block_height = dice ? tool_size + widget_margin + bar_height : tool_size;
+      int tool_y = knob_cell.getY() + (knob_cell.getHeight() - block_height) / 2;
+      tool_button_->setBounds(strip_centre - tool_size / 2, tool_y, tool_size, tool_size);
+      shuffle_->setBounds(strip_centre - bar_width / 2, tool_button_->getBottom() + widget_margin, bar_width, bar_height);
       connectMemory();
     }
 
@@ -433,9 +439,13 @@ class FxInputSection : public SynthSection {
         return;
 
       if (current_spectral_ == kRandomAmplitudesMode) {
-        // A new seed: the pattern of Random Amplitudes changes at once and is saved with the preset.
-        uint32_t seed = static_cast<uint32_t>(Random::getSystemRandom().nextInt()) & 0x7fffffffu;
-        parent->getSynth()->getEngine()->setRandomSeed(lane(), seed);
+        // The dice is a switch parameter (automatable in the host): pressing it flips the switch, and every flip
+        // scrambles the pattern to a new seed, which is saved with the preset.
+        std::string name = prefix_ + "_random_dice";
+        auto& controls = parent->getSynth()->getControls();
+        auto control = controls.find(name);
+        float current = control != controls.end() && control->second ? control->second->value() : 0.0f;
+        parent->getSynth()->valueChangedInternal(name, current > 0.5f ? 0.0f : 1.0f);
         parent->notifyChange();
       }
       else if (isDrawableMode() && spectral_editor_)
@@ -518,6 +528,7 @@ class FxInputSection : public SynthSection {
     int current_warp_ = 0;
     int current_spectral_ = 0;
     SpectralWarpEditor* spectral_editor_ = nullptr;
+    Rectangle<int> spectral_label_bounds_;
     bool memory_connected_ = false;
     std::vector<Listener*> listeners_;
 

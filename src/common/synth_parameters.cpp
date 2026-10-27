@@ -103,6 +103,8 @@ namespace {
       return sizeof(strings::kStereoModeNames) / sizeof(strings::kStereoModeNames[0]);
     if (lookup == strings::kFxSpectralNames)
       return sizeof(strings::kFxSpectralNames) / sizeof(strings::kFxSpectralNames[0]);
+    if (lookup == strings::kDiceNames)
+      return sizeof(strings::kDiceNames) / sizeof(strings::kDiceNames[0]);
     if (lookup == strings::kFftSizeNames)
       return sizeof(strings::kFftSizeNames) / sizeof(strings::kFftSizeNames[0]);
     if (lookup == strings::kWarpNames)
@@ -323,6 +325,12 @@ namespace vital {
     // far the phase curve is applied, the flanger delay. Modulatable, so an LFO can drive it. (The drawn curves
     // and the Random Amplitudes seed are saved with the preset but are not parameters: they cannot be automated
     // or modulated.)
+    // Random Amplitudes dice, a switch: every flip between 0% and 100% (automation or the dice button) scrambles the
+    // pattern to a new random one, as if the dice had been pressed. The seed it leads to is saved with the preset.
+    { "input_random_dice", 0x000000, 0.0, 1.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Input Random Dice", strings::kDiceNames },
+    { "sidechain_random_dice", 0x000000, 0.0, 1.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Sidechain Random Dice", strings::kDiceNames },
     // Random Amplitudes shuffle: walks through a chain of patterns derived from the lane's dice seed (the dice
     // button picks the seed itself, which is saved with the preset). A modulation target.
     { "input_random_shuffle", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,

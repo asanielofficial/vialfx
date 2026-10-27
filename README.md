@@ -34,7 +34,9 @@ It is built from GPLv3 synthesizer source code (see [NOTICE.md](NOTICE.md) for t
   latency readout. The stage always delays the audio by one FFT size, whatever the mode, so the latency is
   constant; it is reported to the host for delay compensation and both lanes stay aligned.
 - **Dice and drawable modes (v0.3):** Random Amplitudes has a small dice button beside the spectral knob that
-  picks a new seed, and a thin shuffle bar under it that is a modulation target: drag an LFO or any source onto
+  picks a new seed (it is a switch parameter, `Random Dice`, that the host can automate: every flip between
+  0% and 100% scrambles the pattern as if the button had been pressed), and a thin shuffle bar under it that
+  is a modulation target: drag an LFO or any source onto
   it to walk smoothly through a chain of patterns derived from the seed. The pattern is the same in Hz at every
   FFT size. Spectral Filter (gain per frequency), Spectral Phaser (phase rotation per frequency) and Spectral
   Flanger (comb depth per frequency) have a pencil button that docks a curve editor over the filters, drawn like
@@ -42,7 +44,7 @@ It is built from GPLv3 synthesizer source code (see [NOTICE.md](NOTICE.md) for t
   20 Hz to 20 kHz). A position slider along its bottom is a modulation target as well. The spectral knob of
   these three modes is bipolar: the centre is the automatic behaviour, up morphs to your drawn curve and down
   to the curve flipped upside down. The curves and the dice seed are saved with each lane in the preset, not as
-  parameters, so they cannot be automated.
+  parameters, so they cannot be automated (the dice switch and the shuffle bar are the automatable controls).
 - **Filters:** two filters with the full set of filter models, in parallel or serial (FIL1/FIL2 buttons).
   Key tracking follows the last played MIDI note.
 - **Effects rack:** chorus, compressor, delay, distortion, EQ, filter, flanger, phaser and reverb, in a

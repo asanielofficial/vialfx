@@ -347,6 +347,8 @@ namespace strings {
     "Vocode"
   };
 
+  const std::string kDiceNames[] = { "0%", "100%" };
+
   const std::string kFftSizeNames[] = { "256", "512", "1024", "2048" };
 
   const std::string kSpectralMorphNames[] = {

@@ -1563,6 +1563,49 @@ namespace {
       check(distance(b, c) < 0.05, "the shuffle moves smoothly", fmt("%.4f", distance(b, c)));
     }
 
+    // The dice is an automatable switch: every flip scrambles the pattern like a press of the dice button.
+    {
+      Rig exists;
+      check(exists.controls.count("input_random_dice") == 1 && exists.controls.count("sidechain_random_dice") == 1,
+            "the dice is a parameter (switch) on both lanes");
+      auto run = [&](int flips, bool load_with_dice_on, uint32_t* seed_out) {
+        Rig rig;
+        rig.set("input_spectral_morph_type", 5.0f);
+        rig.set("input_spectral_morph_amount", 0.8f);
+        if (load_with_dice_on) {
+          // Like loading a preset that was saved with the dice at 100% and a particular seed.
+          rig.set("input_random_dice", 1.0f);
+          rig.engine->setRandomSeed(0, 12345u);
+        }
+        rig.render(2000, noise());
+        for (int i = 0; i < flips; ++i) {
+          rig.set("input_random_dice", (i % 2 == 0) ? 1.0f : 0.0f);
+          rig.render(300, noise());
+        }
+        if (seed_out)
+          *seed_out = rig.engine->getRandomSeed(0);
+        return rig.render(20000, noise());
+      };
+      auto distance = [](const Stereo& x, const Stereo& y) {
+        double sum = 0.0;
+        for (size_t i = 5000; i < x.left.size(); ++i)
+          sum += std::pow(static_cast<double>(x.left[i]) - y.left[i], 2.0);
+        return std::sqrt(sum / (x.left.size() - 5000));
+      };
+      uint32_t seed0 = 0, seed1 = 0, seed2 = 0, seed1b = 0;
+      Stereo none = run(0, false, &seed0), one = run(1, false, &seed1), two = run(2, false, &seed2);
+      Stereo one_again = run(1, false, &seed1b);
+      check(seed0 != seed1 && seed1 != seed2 && seed0 != seed2, "each flip of the dice gives a new seed",
+            fmt("%.0f %.0f %.0f", seed0, seed1, seed2));
+      check(distance(none, one) > 0.02 && distance(one, two) > 0.02, "each flip scrambles the pattern",
+            fmt("%.3f %.3f", distance(none, one), distance(one, two)));
+      check(seed1 == seed1b && distance(one, one_again) < 1e-6, "the same flips always give the same patterns");
+      uint32_t loaded_seed = 0;
+      Stereo loaded = run(0, true, &loaded_seed);
+      check(loaded_seed == 12345u, "loading a preset with the dice at 100% does not scramble its seed", fmt("%.0f", loaded_seed));
+      (void)loaded;
+    }
+
     // Spectral Phaser: the notches follow the position slider at morph 0 and stand still at morph 1.
     {
       // The position slider is swept up and down (as an LFO modulating it would).
