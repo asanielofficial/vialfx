@@ -289,10 +289,10 @@ class FxInputSection : public SynthSection {
       int strip_centre = strip_x + strip_width / 2;
 
       bool dice = current_spectral_ == kRandomAmplitudesMode;
-      int knob_height = knob_cell.getHeight();
+      int cell_height = knob_cell.getHeight();
       int tool_size = std::max(1, std::min(strip_width - widget_margin,
-                                           static_cast<int>(knob_height * (dice ? 0.2f : 0.3f))));
-      int bar_height = std::max(14, static_cast<int>(knob_height * 0.14f));
+                                           static_cast<int>(cell_height * (dice ? 0.2f : 0.3f))));
+      int bar_height = std::max(14, static_cast<int>(cell_height * 0.14f));
       int bar_width = std::max(1, strip_width - widget_margin);
       int block_height = dice ? tool_size + widget_margin + bar_height : tool_size;
       int tool_y = knob_cell.getY() + (knob_cell.getHeight() - block_height) / 2;
