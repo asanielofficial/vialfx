@@ -14,7 +14,7 @@ It is built from GPLv3 synthesizer source code (see [NOTICE.md](NOTICE.md) for t
   effects). The INPUT and SIDECHAIN buttons on each filter mirror these dropdowns. Each input also has an
   on/off switch, level and pan (all three can be modulated; the sidechain lane is off by default).
 - **Distortion warp (v0.2):** each input has a warp mode and amount (the right-hand knob on its panel, and
-  the amount is a modulation target). Modes: Sync and Formant (wavefolders), Quantize (bit and sample-rate
+  the amount is a modulation target). Modes: None (off, the default), Sync and Formant (wavefolders), Quantize (bit and sample-rate
   reduction), Bend and Squeeze (waveshapers), Pulse (asymmetric clipper), and on the main input only FM and RM,
   where the sidechain lane modulates the main lane. The sidechain lane is warped first; FM and RM on the main
   input are silent while the sidechain lane is switched off. The sidechain lane modulates at full strength

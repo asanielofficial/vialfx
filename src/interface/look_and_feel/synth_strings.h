@@ -315,8 +315,9 @@ namespace strings {
     "RM <- Sample"
   };
 
-  // Distortion warp modes of the effect build's input lanes (the sidechain lane offers the first six).
+  // Distortion warp modes of the effect build's input lanes (None first; the sidechain lane offers the first seven).
   const std::string kWarpNames[] = {
+    "None",
     "Sync",
     "Formant",
     "Quantize",

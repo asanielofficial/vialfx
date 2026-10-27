@@ -645,8 +645,8 @@ namespace {
   }
 
   void testWarp() {
-    std::printf("\n== Distortion warp (8 modes per lane) ==\n");
-    const char* names[] = { "Sync", "Formant", "Quantize", "Bend", "Squeeze", "Pulse", "FM", "RM" };
+    std::printf("\n== Distortion warp (9 modes per lane) ==\n");
+    const char* names[] = { "None", "Sync", "Formant", "Quantize", "Bend", "Squeeze", "Pulse", "FM", "RM" };
     Generator silence = [](int, float& l, float& r) { l = r = 0.0f; };
     Generator tone = sine(440.0f);
 
@@ -661,12 +661,12 @@ namespace {
       return std::sqrt(diff / std::max<size_t>(n, 1));
     };
 
-    for (int mode = 0; mode < 8; ++mode) {
+    for (int mode = 0; mode < 9; ++mode) {
       // Amount 0 is transparent in every mode, on the main lane.
       Rig off;
       off.set("input_distortion_type", static_cast<float>(mode));
       // The knob's neutral position: the centre for the bipolar modes, zero for the others.
-      off.set("input_distortion_amount", (mode == 0 || mode == 1 || mode == 3 || mode == 4) ? 0.5f : 0.0f);
+      off.set("input_distortion_amount", (mode == 1 || mode == 2 || mode == 4 || mode == 5) ? 0.5f : 0.0f);
       off.set("sidechain_on", 1.0f);
       Stereo out = off.render(kSampleRate, tone, 64, &silence);
       // (FM/RM at amount 0 must leave the main signal alone even with the sidechain lane switched on)
@@ -676,7 +676,7 @@ namespace {
 
     for (int lane = 0; lane < 2; ++lane) {
       std::string prefix = lane ? "sidechain" : "input";
-      for (int mode = 0; mode < 6; ++mode) {
+      for (int mode = 1; mode < 7; ++mode) {
         Rig rig;
         rig.set("sidechain_on", 1.0f);
         rig.set(prefix + "_distortion_type", static_cast<float>(mode));
@@ -689,8 +689,19 @@ namespace {
       }
     }
 
+    // None passes the audio through at any knob position.
+    for (float amount : { 0.0f, 0.5f, 1.0f }) {
+      Rig rig;
+      rig.set("sidechain_on", 1.0f);
+      rig.set("input_distortion_type", 0.0f);
+      rig.set("input_distortion_amount", amount);
+      Stereo out = rig.render(kSampleRate, tone, 64, &silence);
+      check(difference(out) < 1e-4, "None leaves the audio untouched at amount " + fmt("%.1f", amount),
+            fmt("difference %.6f", difference(out)));
+    }
+
     // The shapers are bounded and finite for any amount, including loud input.
-    for (int mode = 0; mode < 8; ++mode) {
+    for (int mode = 0; mode < 9; ++mode) {
       for (float amount : { 0.2f, 1.0f }) {
         Rig rig;
         rig.set("sidechain_on", 1.0f);
@@ -712,10 +723,10 @@ namespace {
       };
       Rig quiet_baseline;
       Stereo quiet_ref = quiet_baseline.render(kSampleRate, quiet);
-      for (int mode : { 0, 1, 3, 4, 5 }) {
+      for (int mode : { 1, 2, 4, 5, 6 }) {
         Rig rig;
         rig.set("input_distortion_type", static_cast<float>(mode));
-        rig.set("input_distortion_amount", mode == 5 ? 0.8f : 0.9f);
+        rig.set("input_distortion_amount", mode == 6 ? 0.8f : 0.9f);
         Stereo out = rig.render(kSampleRate, quiet);
         double diff = 0.0, ref = 0.0;
         for (size_t i = kSampleRate / 2; i < out.left.size(); ++i) {
@@ -729,7 +740,7 @@ namespace {
     }
 
     // Sync, Formant, Bend and Squeeze are bipolar: below the centre does something different from above it.
-    for (int mode : { 0, 1, 3, 4 }) {
+    for (int mode : { 1, 2, 4, 5 }) {
       auto render_at = [&](float knob) {
         Rig rig;
         rig.set("input_distortion_type", static_cast<float>(mode));
@@ -755,7 +766,7 @@ namespace {
     // The input spectrum displays read the lane after the warp.
     {
       Rig rig;
-      rig.set("input_distortion_type", 6.0f);   // FM with the sidechain off: the lane is silent
+      rig.set("input_distortion_type", 7.0f);   // FM with the sidechain off: the lane is silent
       rig.set("input_distortion_amount", 0.5f);
       rig.render(kSampleRate / 2, tone);
       const StereoMemory* memory = rig.engine->getInputMemory();
@@ -776,7 +787,7 @@ namespace {
     }
 
     // Bend bites on music-like (noisy, low crest factor) material, not just on a sine.
-    for (int mode : { 3 }) {
+    for (int mode : { 4 }) {
       Rig reference_rig;
       Stereo reference = reference_rig.render(kSampleRate, noise());
       Rig rig;
@@ -800,7 +811,7 @@ namespace {
       };
       Rig rm;
       rm.set("sidechain_on", 1.0f);
-      rm.set("input_distortion_type", 7.0f);
+      rm.set("input_distortion_type", 8.0f);
       rm.set("input_distortion_amount", 1.0f);
       Stereo rm_out = rm.render(kSampleRate, tone, 64, &quiet_modulator);
       check(toneAmplitude(rm_out.left, 1440.0f) > 0.02, "RM works with a quiet (-34 dB) sidechain",
@@ -811,7 +822,7 @@ namespace {
       };
       Rig fm;
       fm.set("sidechain_on", 1.0f);
-      fm.set("input_distortion_type", 6.0f);
+      fm.set("input_distortion_type", 7.0f);
       fm.set("input_distortion_amount", 0.6f);
       Stereo fm_out = fm.render(kSampleRate, tone, 64, &quiet_slow);
       double sidebands = 0.0;
@@ -824,7 +835,7 @@ namespace {
     {
       Rig rig;
       rig.set("sidechain_on", 1.0f);
-      rig.set("input_distortion_type", 7.0f);
+      rig.set("input_distortion_type", 8.0f);
       rig.set("input_distortion_amount", 1.0f);
       Generator modulator = sine(1000.0f);
       Stereo out = rig.render(kSampleRate, tone, 64, &modulator);
@@ -840,7 +851,7 @@ namespace {
     {
       Rig rig;
       rig.set("sidechain_on", 1.0f);
-      rig.set("input_distortion_type", 6.0f);
+      rig.set("input_distortion_type", 7.0f);
       rig.set("input_distortion_amount", 1.0f);
       Generator modulator = [](int i, float& l, float& r) {
         l = r = std::sin(2.0f * kPi * 100.0f * i / kSampleRate);
@@ -851,7 +862,7 @@ namespace {
     }
 
     // FM and RM need the sidechain lane: with it off they output silence.
-    for (int mode : { 6, 7 }) {
+    for (int mode : { 7, 8 }) {
       Rig rig;
       rig.set("input_distortion_type", static_cast<float>(mode));
       rig.set("input_distortion_amount", 0.5f);
@@ -864,7 +875,7 @@ namespace {
     {
       auto warped_difference = [&](float macro) {
         Rig rig;
-        rig.set("input_distortion_type", 5.0f);
+        rig.set("input_distortion_type", 6.0f);
         rig.set("input_distortion_amount", 0.0f);
         connectMod(rig, "macro_control_1", "input_distortion_amount", 1.0f);
         rig.set("macro_control_1", macro);
@@ -1390,8 +1401,8 @@ namespace {
     Generator mod = saw(137.0f);
     struct Case { const char* name; const char* type; float mode; const char* amount; float value; };
     Case cases[] = {
-      { "FM", "input_distortion_type", 6.0f, "input_distortion_amount", 0.8f },
-      { "RM", "input_distortion_type", 7.0f, "input_distortion_amount", 0.8f },
+      { "FM", "input_distortion_type", 7.0f, "input_distortion_amount", 0.8f },
+      { "RM", "input_distortion_type", 8.0f, "input_distortion_amount", 0.8f },
       { "Vocode", "input_spectral_morph_type", 14.0f, "input_spectral_morph_amount", 0.9f },
     };
     for (const Case& c : cases) {

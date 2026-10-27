@@ -44,7 +44,7 @@ namespace vital {
   //
   // FM and RM are the only modes that use the modulator, which is the sidechain lane after its own level, pan
   // and warp (the sidechain lane always processes first). If the modulator lane is switched off, FM and RM
-  // output silence. The sidechain lane itself has no modulator, so it only offers the first six modes.
+  // output silence. The sidechain lane itself has no modulator, so it only offers the first seven modes (None through Pulse).
   // FM delays the signal by up to kMaxFmDelaySamples * amount samples (about 1.5 ms at full amount).
   class WaveWarp : public Processor {
     public:
@@ -58,6 +58,7 @@ namespace vital {
       };
 
       enum Mode {
+        kNone,
         kSync,
         kFormant,
         kQuantize,
@@ -163,7 +164,7 @@ namespace vital {
             history_[(write_index_ + i) & (kFmBufferSize - 1)][lane] = audio[i][lane];
         }
 
-        if (isNeutral(mode, amount) || (modulated_mode && !uses_modulator_)) {
+        if (mode == kNone || isNeutral(mode, amount) || (modulated_mode && !uses_modulator_)) {
           for (int i = 0; i < num_samples; ++i)
             out[i] = audio[i];
           write_index_ = (write_index_ + num_samples) & (kFmBufferSize - 1);

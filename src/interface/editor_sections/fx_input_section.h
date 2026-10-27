@@ -51,7 +51,7 @@ class FxInputSection : public SynthSection {
 
     // prefix is "input" or "sidechain". num_warp_modes is how many distortion warp modes the lane offers
     // (the main lane has all 8; the sidechain has no modulator lane for FM and RM, so it offers 6).
-    FxInputSection(String title, const std::string& prefix, int num_warp_modes = 8, int num_spectral_modes = 15) :
+    FxInputSection(String title, const std::string& prefix, int num_warp_modes = 9, int num_spectral_modes = 15) :
         SynthSection(title), prefix_(prefix), current_destination_(vital::constants::kDualFilters),
         num_warp_modes_(num_warp_modes), num_spectral_modes_(num_spectral_modes) {
       spectral_morph_ = std::make_unique<SynthSlider>(prefix + "_spectral_morph_amount");
@@ -278,26 +278,33 @@ class FxInputSection : public SynthSection {
       spectral_selector_->setBounds(spectral_menu_x, spectral_bounds.getY(),
                                     next_spectral_->getX() - spectral_menu_x, spectral_browse);
 
-      // The dice (Random Amplitudes) or pencil (drawable modes) button and the shuffle bar get their own strip to the
-      // right of the spectral knob. The knob gives up that part of its area, so nothing overlaps the bar: a modulation
-      // source dragged onto the bar lands on the bar and not on the knob underneath.
+      // Random Amplitudes gives up a strip to the right of the spectral knob for the dice and the shuffle bar, so
+      // nothing overlaps the bar: a modulation source dragged onto the bar lands on the bar and not on the knob
+      // underneath. In every other mode the knob keeps its full width. The pencil of the drawable modes sits in the
+      // empty top-right corner of the knob cell, clear of the knob dial itself.
       spectral_label_bounds_ = spectral_bounds;
       Rectangle<int> knob_cell = spectral_morph_->getBounds();
-      int strip_width = std::min(knob_cell.getWidth() / 3, std::max(1, static_cast<int>(knob_cell.getHeight() * 0.5f)));
-      spectral_morph_->setBounds(knob_cell.withWidth(knob_cell.getWidth() - strip_width));
-      int strip_x = spectral_morph_->getRight();
-      int strip_centre = strip_x + strip_width / 2;
-
       bool dice = current_spectral_ == kRandomAmplitudesMode;
       int cell_height = knob_cell.getHeight();
-      int tool_size = std::max(1, std::min(strip_width - widget_margin,
-                                           static_cast<int>(cell_height * (dice ? 0.2f : 0.3f))));
-      int bar_height = std::max(14, static_cast<int>(cell_height * 0.14f));
-      int bar_width = std::max(1, strip_width - widget_margin);
-      int block_height = dice ? tool_size + widget_margin + bar_height : tool_size;
-      int tool_y = knob_cell.getY() + (knob_cell.getHeight() - block_height) / 2;
-      tool_button_->setBounds(strip_centre - tool_size / 2, tool_y, tool_size, tool_size);
-      shuffle_->setBounds(strip_centre - bar_width / 2, tool_button_->getBottom() + widget_margin, bar_width, bar_height);
+      if (dice) {
+        int strip_width = std::min(knob_cell.getWidth() / 3,
+                                   std::max(1, static_cast<int>(cell_height * 0.5f)));
+        spectral_morph_->setBounds(knob_cell.withWidth(knob_cell.getWidth() - strip_width));
+        int strip_centre = spectral_morph_->getRight() + strip_width / 2;
+        int tool_size = std::max(1, std::min(strip_width - widget_margin, static_cast<int>(cell_height * 0.2f)));
+        int bar_height = std::max(14, static_cast<int>(cell_height * 0.14f));
+        int bar_width = std::max(1, strip_width - widget_margin);
+        int block_height = tool_size + widget_margin + bar_height;
+        int tool_y = knob_cell.getY() + (cell_height - block_height) / 2;
+        tool_button_->setBounds(strip_centre - tool_size / 2, tool_y, tool_size, tool_size);
+        shuffle_->setBounds(strip_centre - bar_width / 2, tool_button_->getBottom() + widget_margin,
+                            bar_width, bar_height);
+      }
+      else {
+        int tool_size = std::max(1, static_cast<int>(cell_height * 0.22f));
+        tool_button_->setBounds(knob_cell.getRight() - tool_size, knob_cell.getY(), tool_size, tool_size);
+        shuffle_->setBounds(0, 0, 0, 0);
+      }
       connectMemory();
     }
 
@@ -385,7 +392,7 @@ class FxInputSection : public SynthSection {
     int clampWarp(int mode) const { return std::max(0, std::min(mode, num_warp_modes_ - 1)); }
 
     // Sync, Formant, Bend and Squeeze have a centred (bipolar) amount knob, like the original distortions.
-    static bool isBipolarWarp(int mode) { return mode == 0 || mode == 1 || mode == 3 || mode == 4; }
+    static bool isBipolarWarp(int mode) { return mode == 1 || mode == 2 || mode == 4 || mode == 5; }
 
     void updateWarpKnob() {
       bool bipolar = isBipolarWarp(current_warp_);
