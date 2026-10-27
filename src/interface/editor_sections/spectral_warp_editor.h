@@ -33,6 +33,46 @@
 
 #include <functional>
 
+// The curve editor: a LineEditor drawn the way the LFO editor draws itself (skin line colour and width, gradient fill
+// under the curve, centre line), minus the animated phase. The plain LineEditor leaves the line colour, width and
+// fill unset, which is why it shows only the grid and the points.
+class SpectralCurveEditor : public LineEditor {
+  public:
+    explicit SpectralCurveEditor(LineGenerator* source) : LineEditor(source) {
+      setFill(true);
+      setFillCenter(-1.0f);
+    }
+
+    void render(OpenGlWrapper& open_gl, bool animate) override {
+      setGlPositions();
+      renderGrid(open_gl, animate);
+
+      setLineWidth(findValue(Skin::kWidgetLineWidth));
+      setFillCenter(-1.0f);
+
+      Colour fill_color = findColour(Skin::kWidgetSecondary1, true);
+      float fill_fade = findValue(Skin::kWidgetFillFade);
+      Colour fill_color_fade = fill_color.withMultipliedAlpha(1.0f - fill_fade);
+
+      setIndex(0);
+      setBoostAmount(0.0f);
+      setFillBoostAmount(0.0f);
+      setFill(true);
+      setColor(findColour(Skin::kWidgetPrimary1, true));
+      setFillColors(fill_color_fade, fill_color);
+      drawLines(open_gl, false);
+
+      setFill(false);
+      setColor(findColour(Skin::kWidgetCenterLine, true));
+      drawLines(open_gl, false);
+
+      renderPoints(open_gl, animate);
+      renderCorners(open_gl, animate);
+    }
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SpectralCurveEditor)
+};
+
 // Editor for the curve of Spectral Filter, Spectral Phaser or Spectral Flanger (one component for all three, opened by
 // the pencil button on a lane). It docks over the filters, laid out like an LFO editor: paint brush and pattern, grid
 // sizes, smoothing and a close button along the top, the curve below, and a position slider along the bottom.
