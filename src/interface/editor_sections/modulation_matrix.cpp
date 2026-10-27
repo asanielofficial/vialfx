@@ -49,10 +49,9 @@ namespace {
   const std::string kNoConnectionString = "-";
   const SubMenu kDestinationSubMenuPrefixes[] = {
     { "", "" },
-    { "osc_1_", "Oscillator 1", true },
-    { "osc_2_", "Oscillator 2", true },
-    { "osc_3_", "Oscillator 3", true },
-    { "sample_", "Sample" },
+    { "input_", "Input" },
+    { "sidechain_", "Sidechain" },
+    { "", "" },
     { "filter_1_", "Filter 1", true },
     { "filter_2_", "Filter 2", true },
     { "filter_fx_", "Filter FX", true },
@@ -69,7 +68,6 @@ namespace {
     { "phaser_", "Phaser" },
     { "flanger_", "Flanger" },
     { "reverb_", "Reverb" },
-    { "delay_", "Delay" },
     { "eq_", "Equalizer" },
   };
 
@@ -578,15 +576,27 @@ ModulationMatrix::ModulationMatrix(const vital::output_map& sources, const vital
 
   destination_popup_items_.addItem(0, kNoConnectionString);
   destination_popup_items_.addItem(createMiscSubMenu("Global", destination_strings_));
+  // Groups are separated by a line; a submenu with no destinations in this build is left out, and so is a
+  // separator that would end up next to another one.
+  bool separator_pending = false;
+  bool group_has_items = false;
   for (const auto& sub_menu_prefix : kDestinationSubMenuPrefixes) {
-    if (sub_menu_prefix.prefix.empty())
-      destination_popup_items_.addItem(-1, "");
-    else {
-      bool local = sub_menu_prefix.local_description;
-      PopupItems sub_items = createSubMenuForParameterPrefix(sub_menu_prefix.name, sub_menu_prefix.prefix,
-                                                             destination_strings_, local);
-      destination_popup_items_.addItem(sub_items);
+    if (sub_menu_prefix.prefix.empty()) {
+      separator_pending = true;
+      continue;
     }
+
+    bool local = sub_menu_prefix.local_description;
+    PopupItems sub_items = createSubMenuForParameterPrefix(sub_menu_prefix.name, sub_menu_prefix.prefix,
+                                                           destination_strings_, local);
+    if (sub_items.size() == 0)
+      continue;
+
+    if (separator_pending && group_has_items)
+      destination_popup_items_.addItem(-1, "");
+    separator_pending = false;
+    group_has_items = true;
+    destination_popup_items_.addItem(sub_items);
   }
 
   for (int i = 0; i < vital::kMaxModulationConnections; ++i) {
@@ -1148,7 +1158,7 @@ void ModulationMatrix::destroyOpenGlComponents(OpenGlWrapper& open_gl) {
 }
 
 void ModulationMatrix::prevClicked() {
-  File lfo_file = LoadSave::getShiftedFile(LoadSave::kLfoFolderName, String("*.") + vital::kLfoExtension,
+  File lfo_file = LoadSave::getShiftedFile(LoadSave::kLfoFolderName, String(vital::kLfoExtensionsList),
                                            "", getCurrentFile(), -1);
   if (lfo_file.exists())
     loadFile(lfo_file);
@@ -1157,7 +1167,7 @@ void ModulationMatrix::prevClicked() {
 }
 
 void ModulationMatrix::nextClicked() {
-  File lfo_file = LoadSave::getShiftedFile(LoadSave::kLfoFolderName, String("*.") + vital::kLfoExtension,
+  File lfo_file = LoadSave::getShiftedFile(LoadSave::kLfoFolderName, String(vital::kLfoExtensionsList),
                                            "", getCurrentFile(), 1);
   if (lfo_file.exists())
     loadFile(lfo_file);
@@ -1173,7 +1183,7 @@ void ModulationMatrix::textMouseDown(const MouseEvent& e) {
   int browser_height = kBrowserHeight * size_ratio_;
   Rectangle<int> bounds(preset_selector_->getRight(), preset_selector_->getY(), browser_width, browser_height);
   bounds = getLocalArea(this, bounds);
-  showPopupBrowser(this, bounds, LoadSave::getLfoDirectories(), String("*.") + vital::kLfoExtension,
+  showPopupBrowser(this, bounds, LoadSave::getLfoDirectories(), String(vital::kLfoExtensionsList),
                    LoadSave::kLfoFolderName, "");
 }
 
@@ -1190,12 +1200,12 @@ void ModulationMatrix::togglePaintMode(bool enabled, bool temporary_switch) {
 }
 
 void ModulationMatrix::importLfo() {
-  FileChooser import_box("Import LFO", LoadSave::getUserLfoDirectory(), String("*.") + vital::kLfoExtension);
+  FileChooser import_box("Import LFO", LoadSave::getUserLfoDirectory(), String(vital::kLfoExtensionsList));
   if (!import_box.browseForFileToOpen())
     return;
 
   File choice = import_box.getResult();
-  loadFile(choice.withFileExtension(vital::kLfoExtension));
+  loadFile(choice);
 }
 
 void ModulationMatrix::exportLfo() {

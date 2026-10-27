@@ -1290,7 +1290,11 @@ void PopupBrowser::closingAreaClicked(PopupClosingArea* closing_area, const Mous
 }
 
 void PopupBrowser::checkNoContent() {
+#if VITAL_FX
+  bool has_content = true;   // the search bar is always useful (user LFO shapes live in the user folder)
+#else
   bool has_content = LoadSave::hasDataDirectory();
+#endif
   if (search_box_)
     search_box_->setVisible(has_content);
 #if VITAL_FX

@@ -1899,7 +1899,7 @@ void LoadSave::getAllSkins(Array<File>& skins) {
 }
 
 void LoadSave::getAllLfos(Array<File>& lfos) {
-  getAllFilesOfTypeInDirectories(lfos, String("*.") + vital::kLfoExtension, getLfoDirectories());
+  getAllFilesOfTypeInDirectories(lfos, String(vital::kLfoExtensionsList), getLfoDirectories());
 }
 
 void LoadSave::getAllSamples(Array<File>& samples) {
@@ -1927,7 +1927,7 @@ void LoadSave::getAllUserLfos(Array<File>& lfos) {
     getDataDirectory().getChildFile(kLfoFolderName),
     getUserLfoDirectory()
   };
-  getAllFilesOfTypeInDirectories(lfos, String("*.") + vital::kLfoExtension, directories);
+  getAllFilesOfTypeInDirectories(lfos, String(vital::kLfoExtensionsList), directories);
 }
 
 void LoadSave::getAllUserSamples(Array<File>& samples) {

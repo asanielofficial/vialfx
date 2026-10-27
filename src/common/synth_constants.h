@@ -54,7 +54,9 @@ namespace vital {
   const std::string kWavetableExtensionsList = "*." + vital::kWavetableExtension + ";*.wav;*.flac";
   const std::string kSampleExtensionsList = "*.wav;*.flac";
   const std::string kSkinExtension = "vitalskin";
-  const std::string kLfoExtension = "vitallfo";
+  // LFO and spectral curve shapes. Files are the line generator state as JSON; the older .vitallfo files still open.
+  const std::string kLfoExtension = "vialshape";
+  const std::string kLfoExtensionsList = "*.vialshape;*.vitallfo";
   const std::string kBankExtension = "vitalbank";
 
   namespace constants {
