@@ -341,6 +341,20 @@ namespace vital {
       ValueDetails::kLinear, false, "%", "Input Spectral Position", nullptr },
     { "sidechain_spectral_position", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Sidechain Spectral Position", nullptr },
+    // Vocode settings (the main input only; the Vocoder menu of the spectral morph). Attack and release are log2 of
+    // seconds. Formant shifts the modulator's bands up or down (+-12 semitones).
+    { "input_vocoder_bands", 0x000000, 4.0, 64.0, 24.0, 0.0, 1.0,
+      ValueDetails::kLinear, false, "", "Vocoder Bands", nullptr },
+    { "input_vocoder_attack", 0x000000, -11.0, -3.0, -8.0, 0.0, 1000.0,
+      ValueDetails::kExponential, false, " ms", "Vocoder Attack", nullptr },
+    { "input_vocoder_release", 0x000000, -9.0, 0.0, -4.0, 0.0, 1000.0,
+      ValueDetails::kExponential, false, " ms", "Vocoder Release", nullptr },
+    { "input_vocoder_formant", 0x000000, -1.0, 1.0, 0.0, 0.0, 12.0,
+      ValueDetails::kLinear, false, " st", "Vocoder Formant", nullptr },
+    { "input_vocoder_flatten", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Vocoder Flatten", nullptr },
+    { "input_vocoder_noise", 0x000000, 0.0, 1.0, 0.25, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Vocoder Noise", nullptr },
     // FFT size of the spectral stage: 256 / 512 / 1024 / 2048. Also its latency in samples, which is
     // reported to the host.
     { "fft_size", 0x000000, 0.0, 3.0, 2.0, 0.0, 1.0,

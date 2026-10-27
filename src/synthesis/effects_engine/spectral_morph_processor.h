@@ -46,9 +46,13 @@ namespace vital {
   //                             up delays the highs, down delays the lows
   //   Shepard Tone              octave-shifted copies crossfaded so the spectrum glides without end
   //   Spectral Time Skew        group delay that grows with the log of the frequency: high frequencies arrive late
-  //   Vocode (bipolar)          imposes the spectral envelope of the other lane (the modulator) on this lane;
-  //                             distance from the centre is the depth, up = fine bands, down = wide bands.
-  //                             Only the main lane has a modulator. If the modulator lane is off, Vocode removes the sound as the depth rises.
+  //   Vocode                    a channel vocoder: the other lane (the modulator) controls the level of this lane
+  //                             in a row of log-spaced bands. The knob is the depth. Settings (the Vocoder menu):
+  //                             bands (4..64), attack and release of the band followers, formant shift of the
+  //                             modulator's bands, carrier flatten (how much each band of this lane is levelled
+  //                             first, so a tonal lane still fills every band) and noise (a hiss shaped like the
+  //                             modulator's highs, for consonants). Only the main lane has a modulator. With no
+  //                             modulator signal Vocode removes the sound as the depth rises.
   class SpectralMorphProcessor : public Processor {
     public:
       enum {
@@ -60,6 +64,13 @@ namespace vital {
         kShuffle,
         kDice,
         kModulator,
+        // Vocode settings (read by the main lane only).
+        kVocodeBands,
+        kVocodeAttack,
+        kVocodeRelease,
+        kVocodeFormant,
+        kVocodeFlatten,
+        kVocodeNoise,
         kNumInputs
       };
 
@@ -96,7 +107,7 @@ namespace vital {
 
       static bool isBipolar(int mode) {
         return mode == kFormantScale || mode == kHarmonicStretch || mode == kInharmonicStretch ||
-               mode == kPhaseDisperse || mode == kVocode ||
+               mode == kPhaseDisperse ||
                mode == kSpectralFilter || mode == kSpectralPhaser || mode == kSpectralFlanger;
       }
 
@@ -135,6 +146,8 @@ namespace vital {
         mag_.assign(kMaxFftSize / 2 + 2, 0.0f);
         env_.assign(kMaxFftSize / 2 + 2, 0.0f);
         env2_.assign(kMaxFftSize / 2 + 2, 0.0f);
+        vocode_power_[0].assign(kMaxFftSize / 2 + 3, 0.0f);
+        vocode_power_[1].assign(kMaxFftSize / 2 + 3, 0.0f);
         prefix_.assign(kMaxFftSize / 2 + 3, 0.0f);
         phase_.assign(kMaxFftSize / 2 + 2, 0.0f);
         for (int i = 0; i < kNumFftSizes; ++i)
@@ -185,6 +198,16 @@ namespace vital {
         amount_ = amount;
         position_target_ = std::max(0.0f, std::min(input(kPosition)->source->buffer[0][0], 1.0f));
         shuffle_ = input(kShuffle)->source->buffer[0][0];
+        if (uses_modulator_) {
+          vocode_bands_ = std::max(4, std::min(static_cast<int>(input(kVocodeBands)->source->buffer[0][0] + 0.5f),
+                                               kMaxVocodeBands));
+          // Attack and release arrive as log2 of seconds.
+          vocode_attack_ = std::exp2(std::max(-12.0f, std::min(input(kVocodeAttack)->source->buffer[0][0], 1.0f)));
+          vocode_release_ = std::exp2(std::max(-12.0f, std::min(input(kVocodeRelease)->source->buffer[0][0], 2.0f)));
+          vocode_formant_ = std::max(-1.0f, std::min(input(kVocodeFormant)->source->buffer[0][0], 1.0f));
+          vocode_flatten_ = std::max(0.0f, std::min(input(kVocodeFlatten)->source->buffer[0][0], 1.0f));
+          vocode_noise_ = std::max(0.0f, std::min(input(kVocodeNoise)->source->buffer[0][0], 1.0f));
+        }
         float dice = input(kDice)->source->buffer[0][0] > 0.5f ? 1.0f : 0.0f;
         if (dice_sync_ || last_dice_ < 0.0f) {
           last_dice_ = dice;
@@ -237,11 +260,14 @@ namespace vital {
       static constexpr float kPi_ = 3.14159265358979323846f;
 
       static constexpr int kHistoryFrames = 16;
+      static constexpr int kMaxVocodeBands = 64;
 
       struct Channel {
         std::vector<float> in, mod, acc;
         // Spectral Time Skew: the last frames' spectra. Phase Disperse: each bin's accumulated phase drift.
         std::vector<float> history, drift;
+        // Vocode: the follower level of each band.
+        float venv[kMaxVocodeBands];
         int write = 0;
         int read = 0;
         int history_pos = 0;
@@ -257,6 +283,7 @@ namespace vital {
           std::fill(ch.acc.begin(), ch.acc.end(), 0.0f);
           std::fill(ch.history.begin(), ch.history.end(), 0.0f);
           std::fill(ch.drift.begin(), ch.drift.end(), 0.0f);
+          std::fill(ch.venv, ch.venv + kMaxVocodeBands, 0.0f);
           ch.history_pos = 0;
           ch.history_filled = 0;
           ch.write = 0;
@@ -626,26 +653,94 @@ namespace vital {
           break;
         }
         case kVocode: {
+          // The modulator's spectrum.
           for (int i = 0; i < n; ++i)
             mod_work_[i] = window_[i] * ch.mod[(ch.write + i) % n];
           std::fill(mod_work_.begin() + n, mod_work_.begin() + 2 * n, 0.0f);
           fft->transformRealForward(mod_work_.data());
-          computePolar(mod_work_.data());
-          // mag_ now holds the modulator; envelope of both.
-          int half = a > 0.0f ? std::max(1, n / 1024) : std::max(2, n / 32);
-          smoothEnvelope(mag_.data(), env2_.data(), bins, half);
+
+          // Prefix sums of the power of the carrier (this lane) and of the modulator, so the power of any bin range
+          // is two lookups.
+          float* carrier_sum = vocode_power_[0].data();
+          float* modulator_sum = vocode_power_[1].data();
+          carrier_sum[0] = modulator_sum[0] = 0.0f;
           for (int k = 0; k <= bins; ++k) {
-            float re = spec[2 * k], im = spec[2 * k + 1];
-            mag_[k] = sqrtf(re * re + im * im);
+            float cr = spec[2 * k], ci = spec[2 * k + 1];
+            float mr = mod_work_[2 * k], mi = mod_work_[2 * k + 1];
+            carrier_sum[k + 1] = carrier_sum[k] + cr * cr + ci * ci;
+            modulator_sum[k + 1] = modulator_sum[k] + mr * mr + mi * mi;
           }
-          smoothEnvelope(mag_.data(), env_.data(), bins, half);
-          float depth = std::min(std::fabs(a), 1.0f);
+          auto rangeLevel = [](const float* sum, int lo, int hi) {
+            return sqrtf(std::max(sum[hi] - sum[lo], 0.0f) / std::max(hi - lo, 1));
+          };
+
+          // Log-spaced bands from 70 Hz to 14 kHz (or 45% of the sample rate).
+          const int bands = vocode_bands_;
+          const float bin_width = nyquist / bins;
+          const float low_hz = 70.0f;
+          const float high_hz = std::min(14000.0f, 0.45f * sample_rate);
+          const float ratio = powf(2.0f, vocode_formant_);   // modulator bands are read at f / ratio
+          const float hop_seconds = static_cast<float>(n / kOverlap) / sample_rate;
+          const float attack_coef = expf(-hop_seconds / std::max(vocode_attack_, 1e-4f));
+          const float release_coef = expf(-hop_seconds / std::max(vocode_release_, 1e-4f));
+          const float whole_level = rangeLevel(carrier_sum, 0, bins + 1);
+          const float flatten = vocode_flatten_;
+          const float depth = std::min(a, 1.0f);
+
+          float centre[kMaxVocodeBands];
+          float log_gain[kMaxVocodeBands];
+          float level[kMaxVocodeBands];
+          for (int b = 0; b < bands; ++b) {
+            float lo_hz = low_hz * powf(high_hz / low_hz, static_cast<float>(b) / bands);
+            float hi_hz = low_hz * powf(high_hz / low_hz, static_cast<float>(b + 1) / bands);
+            int lo = std::max(0, std::min(static_cast<int>(lo_hz / bin_width), bins));
+            int hi = std::max(lo + 1, std::min(static_cast<int>(std::ceil(hi_hz / bin_width)), bins + 1));
+            int mod_lo = std::max(0, std::min(static_cast<int>(lo_hz / ratio / bin_width), bins));
+            int mod_hi = std::max(mod_lo + 1, std::min(static_cast<int>(std::ceil(hi_hz / ratio / bin_width)), bins + 1));
+            centre[b] = std::sqrt(lo_hz * hi_hz) / bin_width;
+
+            float modulator_level = rangeLevel(modulator_sum, mod_lo, mod_hi);
+            float carrier_level = std::max(rangeLevel(carrier_sum, lo, hi), 0.03f * whole_level);
+            float& follower = ch.venv[b];
+            follower = modulator_level + (follower - modulator_level) *
+                       (modulator_level > follower ? attack_coef : release_coef);
+            level[b] = follower;
+
+            // flatten 0: the carrier's band is scaled by the modulator's level; flatten 1: the band is levelled first,
+            // so every band carries exactly the modulator's level whatever the carrier does there.
+            float reference = powf(carrier_level, flatten) * powf(std::max(whole_level, 1e-9f), 1.0f - flatten);
+            float gain = std::min(follower / std::max(reference, 1e-9f), 4.0f * float(kMaxGain));
+            log_gain[b] = log2f(std::max(gain, 1e-4f));
+          }
+
+          // Per bin: the band gains are interpolated between band centres (in log gain), so there are no steps.
+          int band = 0;
           for (int k = 0; k <= bins; ++k) {
-            float gain = env2_[k] / (env_[k] + 1e-9f);
-            gain = std::max(1e-3f, std::min(gain, 4.0f * float(kMaxGain)));
-            gain = powf(gain, depth);  // interpolated in dB, so partial depths are clearly audible
-            spec[2 * k] *= gain;
-            spec[2 * k + 1] *= gain;
+            while (band + 1 < bands && centre[band + 1] <= k)
+              ++band;
+            int next = std::min(band + 1, bands - 1);
+            float t = 0.0f;
+            if (next != band && k > centre[band])
+              t = std::min(1.0f, (k - centre[band]) / std::max(centre[next] - centre[band], 1e-3f));
+            float lg = log_gain[band] + (log_gain[next] - log_gain[band]) * t;
+            float gain = exp2f(lg * depth);
+            float re = spec[2 * k] * gain, im = spec[2 * k + 1] * gain;
+
+            // Consonant noise: a hiss as loud as the modulator's band, fading in between 1.5 kHz and 5 kHz.
+            if (vocode_noise_ > 0.0f) {
+              float frequency = k * bin_width;
+              float fade = std::max(0.0f, std::min((frequency - 1500.0f) / 3500.0f, 1.0f));
+              if (fade > 0.0f) {
+                float band_level = level[band] + (level[next] - level[band]) * t;
+                vocode_rng_ = vocode_rng_ * 1664525u + 1013904223u;
+                float angle = (vocode_rng_ >> 8) * (2.0f * kPi_ / 16777216.0f);
+                float magnitude = 0.7f * vocode_noise_ * fade * band_level * depth;
+                re += magnitude * cosf(angle);
+                im += magnitude * sinf(angle);
+              }
+            }
+            spec[2 * k] = re;
+            spec[2 * k + 1] = im;
           }
           break;
         }
@@ -674,6 +769,13 @@ namespace vital {
       float position_ = 0.5f;
       uint32_t seed_ = kDefaultSeed;
       float shuffle_ = 0.0f;
+      int vocode_bands_ = 24;
+      float vocode_attack_ = 0.004f;
+      float vocode_release_ = 0.06f;
+      float vocode_formant_ = 0.0f;
+      float vocode_flatten_ = 0.5f;
+      float vocode_noise_ = 0.25f;
+      uint32_t vocode_rng_ = 12345u;
       float last_dice_ = -1.0f;
       bool dice_sync_ = false;
       bool random_valid_[2] = { false, false };
@@ -684,6 +786,7 @@ namespace vital {
       Channel channels_[2];
       std::vector<float> window_, work_, mod_work_, mag_, env_, env2_, prefix_, phase_;
       std::vector<float> random_[2];
+      std::vector<float> vocode_power_[2];   // prefix sums of the power of the carrier [0] and the modulator [1]
       std::shared_ptr<FourierTransform> transforms_[kNumFftSizes];
 
       JUCE_LEAK_DETECTOR(SpectralMorphProcessor)

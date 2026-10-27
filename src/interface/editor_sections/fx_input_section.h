@@ -403,9 +403,9 @@ class FxInputSection : public SynthSection {
 
     int clampSpectral(int mode) const { return std::max(0, std::min(mode, num_spectral_modes_ - 1)); }
 
-    // Formant Scale, Harmonic/Inharmonic Stretch, Phase Disperse, the three drawable modes and Vocode are centred (bipolar).
+    // Formant Scale, Harmonic/Inharmonic Stretch, Phase Disperse, the three drawable modes are centred (bipolar).
     static bool isBipolarSpectral(int mode) {
-      return mode == 1 || mode == 2 || mode == 3 || mode == 8 || (mode >= 11 && mode <= 14);
+      return mode == 1 || mode == 2 || mode == 3 || mode == 8 || (mode >= 11 && mode <= 13);
     }
 
     static constexpr int kRandomAmplitudesMode = 5;

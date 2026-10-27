@@ -170,6 +170,12 @@ namespace vital {
     main_spectral->plug(input_random_shuffle, SpectralMorphProcessor::kShuffle);
     main_spectral->plug(input_random_dice, SpectralMorphProcessor::kDice);
     main_spectral->plug(sidechain_gate, SpectralMorphProcessor::kModulator);
+    main_spectral->plug(createBaseControl("input_vocoder_bands"), SpectralMorphProcessor::kVocodeBands);
+    main_spectral->plug(createBaseControl("input_vocoder_attack"), SpectralMorphProcessor::kVocodeAttack);
+    main_spectral->plug(createBaseControl("input_vocoder_release"), SpectralMorphProcessor::kVocodeRelease);
+    main_spectral->plug(createMonoModControl("input_vocoder_formant"), SpectralMorphProcessor::kVocodeFormant);
+    main_spectral->plug(createMonoModControl("input_vocoder_flatten"), SpectralMorphProcessor::kVocodeFlatten);
+    main_spectral->plug(createMonoModControl("input_vocoder_noise"), SpectralMorphProcessor::kVocodeNoise);
     addProcessor(main_spectral);
 
     // Drawn curves (Spectral Filter / Phaser / Flanger) and Random Amplitudes seeds, per lane.

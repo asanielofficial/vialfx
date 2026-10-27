@@ -1128,7 +1128,7 @@ namespace {
     const char* names[] = { "None", "Formant Scale", "Harmonic Stretch", "Inharmonic Stretch", "Smear",
                             "Random Amplitudes", "Low Pass", "High Pass", "Phase Disperse", "Shepard Tone",
                             "Spectral Time Skew", "Spectral Filter", "Spectral Phaser", "Spectral Flanger", "Vocode" };
-    auto bipolar = [](int mode) { return mode == 1 || mode == 2 || mode == 3 || mode == 8 || mode == 14; };
+    auto bipolar = [](int mode) { return mode == 1 || mode == 2 || mode == 3 || mode == 8; };
     auto neutral_amount = [&](int mode) { return bipolar(mode) ? 0.5f : 0.0f; };
     Generator silence = [](int, float& l, float& r) { l = r = 0.0f; };
 
@@ -1406,8 +1406,11 @@ namespace {
       { "Vocode", "input_spectral_morph_type", 14.0f, "input_spectral_morph_amount", 0.9f },
     };
     for (const Case& c : cases) {
+      // The vocoder needs a broadband carrier to show the modulator's bands (a lone sine only has one).
+      bool vocode = std::string(c.name) == "Vocode";
+      Generator carrier = vocode ? noise() : tone;
       Rig ref;
-      Stereo reference = ref.render(30000, tone);
+      Stereo reference = ref.render(30000, carrier);
       for (float level : { 1.0f, 0.0f }) {
         Rig rig;
         rig.set("sidechain_on", 1.0f);
@@ -1415,7 +1418,7 @@ namespace {
         rig.set(c.type, c.mode);
         rig.set(c.amount, c.value);
         Generator m = saw(137.0f);
-        Stereo out = rig.render(30000, tone, 64, &m);
+        Stereo out = rig.render(30000, carrier, 64, &m);
         double diff = 0.0;
         for (size_t i = 15000; i < out.left.size(); ++i)
           diff += std::pow(static_cast<double>(out.left[i]) - reference.left[i], 2.0);
@@ -1440,6 +1443,111 @@ namespace {
       Stereo gone = off.render(30000, tone, 64, &m3);
       if (c.mode == 6.0f || c.mode == 7.0f)
         check(rms(gone.left, 15000) < 1e-3, std::string(c.name) + " is silent while the sidechain lane is switched off");
+    }
+  }
+
+  void testVocoder() {
+    std::printf("\n== Vocoder ==\n");
+    auto setup = [](Rig& rig, float amount) {
+      rig.set("sidechain_on", 1.0f);
+      rig.set("sidechain_level", 0.0f);
+      rig.set("input_spectral_morph_type", 14.0f);
+      rig.set("input_spectral_morph_amount", amount);
+    };
+
+    // The carrier (noise) takes on the modulator's spectrum: a 1 kHz tone modulator leaves 1 kHz energy and little else.
+    {
+      Rig rig;
+      setup(rig, 1.0f);
+      rig.set("input_vocoder_noise", 0.0f);
+      Generator m = sine(1000.0f);
+      Stereo out = rig.render(40000, noise(), 64, &m);
+      double at_mod = toneAmplitude(out.left, 1000.0f);
+      double far = toneAmplitude(out.left, 5000.0f);
+      check(at_mod > 6.0 * far && at_mod > 0.003, "Vocoder: a tone modulator opens only its own band",
+            fmt("1 kHz %.4f, 5 kHz %.4f", at_mod, far));
+    }
+
+    // The band levels follow the modulator over time: a gated 1 kHz tone gates the noise carrier.
+    {
+      Rig rig;
+      setup(rig, 1.0f);
+      Generator gated = [](int i, float& l, float& r) {
+        bool on = (i / 12000) % 2 == 0;
+        l = r = on ? 0.5f * std::sin(2.0f * kPi * 1000.0f * i / kSampleRate) : 0.0f;
+      };
+      Stereo out = rig.render(60000, noise(), 64, &gated);
+      auto level = [&](size_t start, size_t length) {
+        double sum = 0.0;
+        for (size_t i = start; i < start + length; ++i)
+          sum += static_cast<double>(out.left[i]) * out.left[i];
+        return std::sqrt(sum / length);
+      };
+      double on = level(5000, 4000), off = level(21000, 2500);
+      check(on > 8.0 * off && on > 0.01, "Vocoder: the output follows the modulator's level over time",
+            fmt("on %.4f, off %.5f", on, off));
+    }
+
+    // Formant shift moves the bands: +12 semitones sends the 800 Hz band to 1600 Hz.
+    {
+      auto run = [&](float formant) {
+        Rig rig;
+        setup(rig, 1.0f);
+        rig.set("input_vocoder_noise", 0.0f);
+        rig.set("input_vocoder_formant", formant);
+        Generator m = sine(800.0f);
+        return rig.render(40000, noise(), 64, &m);
+      };
+      Stereo flat = run(0.0f), up = run(1.0f);
+      double flat_low = toneAmplitude(flat.left, 800.0f), flat_high = toneAmplitude(flat.left, 1600.0f);
+      double up_low = toneAmplitude(up.left, 800.0f), up_high = toneAmplitude(up.left, 1600.0f);
+      check(flat_low > 3.0 * flat_high && up_high > 3.0 * up_low, "Vocoder: the formant setting shifts the bands",
+            fmt("0: %.4f / %.4f, +12: %.4f / %.4f", flat_low, flat_high, up_low, up_high));
+    }
+
+    // The noise setting adds a hiss for the modulator's highs, even over a tonal carrier.
+    {
+      auto high_energy = [&](float noise_amount) {
+        Rig rig;
+        setup(rig, 1.0f);
+        rig.set("input_vocoder_noise", noise_amount);
+        Generator m = noise();
+        Stereo out = rig.render(40000, sine(200.0f), 64, &m);
+        return highBandEnergy(out, 20000);
+      };
+      double without = high_energy(0.0f), with = high_energy(1.0f);
+      check(with > 3.0 * without, "Vocoder: the noise setting adds modulator-shaped hiss",
+            fmt("%.6f -> %.6f", without, with));
+    }
+
+    // Flatten: a carrier whose highs are weak (a saw) still fills the modulator's high bands when flattened.
+    {
+      auto spread = [&](float flatten) {
+        Rig rig;
+        setup(rig, 1.0f);
+        rig.set("input_vocoder_noise", 0.0f);
+        rig.set("input_vocoder_flatten", flatten);
+        Generator m = noise();
+        Stereo out = rig.render(40000, saw(110.0f), 64, &m);
+        return highBandEnergy(out, 20000);
+      };
+      double raw = spread(0.0f), flat = spread(1.0f);
+      check(flat > raw, "Vocoder: flatten lets a dull carrier fill the high bands", fmt("%.6f -> %.6f", raw, flat));
+    }
+
+    // Settings are safe at their extremes.
+    for (float bands : { 4.0f, 64.0f }) {
+      Rig rig;
+      setup(rig, 1.0f);
+      rig.set("input_vocoder_bands", bands);
+      rig.set("input_vocoder_attack", -11.0f);
+      rig.set("input_vocoder_release", 0.0f);
+      rig.set("input_vocoder_noise", 1.0f);
+      rig.set("input_vocoder_flatten", 1.0f);
+      Generator m = noise();
+      Stereo out = rig.render(30000, noise(), 64, &m);
+      check(out.finite() && out.peak() < 8.0f, "Vocoder stays finite and bounded at " + fmt("%.0f", bands) + " bands",
+            fmt("peak %.3f", out.peak()));
     }
   }
 
@@ -1803,6 +1911,7 @@ int main() {
     testSpectralAudibility();
     testTimeSkewSustained();
     testModulatorIndependentOfLevel();
+    testVocoder();
     testDrawableAndDice();
     testPlaceholders();
     testCpu();
