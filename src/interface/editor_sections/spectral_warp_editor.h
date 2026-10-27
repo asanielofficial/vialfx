@@ -91,12 +91,11 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
     static constexpr int kTextHeight = 14;
     static constexpr int kSliderHeight = 16;
     static constexpr int kNumCurves = 3;
-    static constexpr int kDefaultGridSizeX = 32;
-    static constexpr int kDefaultGridSizeY = 8;
+    static constexpr int kDefaultGridSizeX = 8;
+    static constexpr int kDefaultGridSizeY = 4;
 
     SpectralWarpEditor(vital::SoundEngine* engine) :
-        SynthSection("spectral_warp_editor"), engine_(engine), body_(Shaders::kRoundedRectangleFragment) {
-      addOpenGlComponent(&body_);
+        SynthSection("spectral_warp_editor"), engine_(engine) {
 
       for (int lane = 0; lane < 2; ++lane) {
         for (int curve = 0; curve < kNumCurves; ++curve) {
@@ -148,11 +147,6 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
       preset_selector_ = std::make_unique<PresetSelector>();
       addSubSection(preset_selector_.get());
       preset_selector_->addListener(this);
-
-      help_ = std::make_unique<PlainTextComponent>("Help", "");
-      addOpenGlComponent(help_.get());
-      help_->setFontType(PlainTextComponent::kLight);
-      help_->setJustification(Justification::centredLeft);
 
       const char* axis_labels[kNumAxisLabels] = { "100 Hz", "1 kHz", "10 kHz" };
       for (int i = 0; i < kNumAxisLabels; ++i) {
@@ -217,16 +211,8 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
           editors_[l][c]->setVisible(l == lane_ && c == curve_);
       }
 
-      static const char* kNames[kNumCurves] = { "SPECTRAL FILTER", "SPECTRAL PHASER", "SPECTRAL FLANGER" };
-      static const char* kHelp[kNumCurves] = {
-        "Gain per frequency (middle = 0 dB). Knob centre: a resonant peak that Position sweeps; up: your curve; down: flipped.",
-        "Notches follow the curve: steep parts pack them tightly. Position sweeps them. Knob centre: an even spread; up: your curve; down: flipped.",
-        "Comb depth per frequency, with resonance. Position sets the delay (sweep it). Knob centre: 70%; up: your curve; down: flipped."
-      };
       static const char* kTop[kNumCurves] = { "+48 dB", "6 turns", "100%" };
       static const char* kBottom[kNumCurves] = { "-48 dB", "none", "0%" };
-      help_->setText(String(lane_ == 0 ? "INPUT - " : "SIDECHAIN - ").toStdString() + kNames[curve_] + ".  " +
-                     kHelp[curve_]);
       preset_selector_->setText(shape_names_[lane_][curve_]);
       top_label_->setText(kTop[curve_]);
       bottom_label_->setText(kBottom[curve_]);
@@ -239,16 +225,22 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
     }
 
     void paintBackground(Graphics& g) override {
+      paintBody(g);
       paintChildrenBackgrounds(g);
 
+      // The same rounded pills as the LFO's top bar, and a dark well for the drawing.
       float rounding = findValue(Skin::kLabelBackgroundRounding);
       g.setColour(findColour(Skin::kTextComponentBackground, true));
       g.fillRoundedRectangle(pattern_group_.toFloat(), rounding);
       g.fillRoundedRectangle(grid_group_.toFloat(), rounding);
       g.fillRoundedRectangle(reset_button_->getBounds().toFloat(), rounding);
 
-      // The drawing area sits in a darker well, like the LFO's wave display.
-      g.setColour(findColour(Skin::kWidgetBackground, true).darker(0.4f));
+      // The dot between the two grid sizes.
+      g.setColour(findColour(Skin::kBodyText, true));
+      float dot = std::max(2.0f, grid_group_.getHeight() * 0.1f);
+      g.fillEllipse(grid_group_.getCentreX() - dot / 2.0f, grid_group_.getCentreY() - dot / 2.0f, dot, dot);
+
+      g.setColour(findColour(Skin::kWidgetBackground, true).darker(0.5f));
       g.fillRoundedRectangle(draw_area_.toFloat(), rounding);
     }
 
@@ -256,12 +248,8 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
       if (getWidth() <= 0 || getHeight() <= 0)
         return;
 
-      body_.setRounding(findValue(Skin::kBodyRounding));
-      body_.setColor(findColour(Skin::kBody, true));
-      body_.setBounds(getLocalBounds());
-
       Colour body_text = findColour(Skin::kBodyText, true);
-      for (PlainTextComponent* label : { help_.get(), top_label_.get(), bottom_label_.get() })
+      for (PlainTextComponent* label : { top_label_.get(), bottom_label_.get() })
         label->setColor(body_text);
       for (auto& label : axis_)
         label->setColor(body_text);
@@ -293,32 +281,34 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
       int title_x = smooth_->getRight() + margin;
       preset_selector_->setBounds(title_x, y, reset_button_->getX() - margin - title_x, top_height);
 
-      help_->setTextSize(text_size);
-      help_->setBounds(margin, y + top_height + margin / 2, getWidth() - 2 * margin, text_height);
-
-      // Position slider along the bottom, axis labels above it.
+      // The drawing well fills the width, with the position slider flush underneath (like the LFO's phase bar).
       int slider_y = getHeight() - margin - slider_height;
       for (auto& slider : position_)
         slider->setBounds(margin, slider_y, getWidth() - 2 * margin, slider_height);
 
-      int axis_y = slider_y - text_height - margin / 2;
-      int left_label_width = size_ratio_ * 52;
-      int editor_x = margin + left_label_width;
-      int editor_y = help_->getBottom() + margin / 2;
-      int editor_width = getWidth() - margin - editor_x;
-      int editor_height = std::max(1, axis_y - editor_y);
+      int editor_x = margin;
+      int editor_y = y + top_height + margin;
+      int editor_width = getWidth() - 2 * margin;
+      int editor_height = std::max(1, slider_y - margin / 2 - editor_y);
       draw_area_ = Rectangle<int>(editor_x, editor_y, editor_width, editor_height);
       for (int l = 0; l < 2; ++l) {
         for (int c = 0; c < kNumCurves; ++c) {
           editors_[l][c]->setSizeRatio(size_ratio_);
-          editors_[l][c]->setBounds(editor_x, editor_y, editor_width, editor_height);
+          editors_[l][c]->setBounds(draw_area_);
         }
       }
 
+      // Axis and range labels sit inside the well, on top of the drawing.
+      int inset = margin / 2;
+      int left_label_width = size_ratio_ * 60;
+      int axis_y = editor_y + editor_height - text_height - inset;
       top_label_->setTextSize(text_size);
       bottom_label_->setTextSize(text_size);
-      top_label_->setBounds(margin, editor_y, left_label_width - 6, text_height);
-      bottom_label_->setBounds(margin, editor_y + editor_height - text_height, left_label_width - 6, text_height);
+      top_label_->setJustification(Justification::centredLeft);
+      bottom_label_->setJustification(Justification::centredLeft);
+      top_label_->setBounds(editor_x + inset, editor_y + inset, left_label_width, text_height);
+      bottom_label_->setBounds(editor_x + inset, editor_y + editor_height - text_height * 2 - inset,
+                               left_label_width, text_height);
 
       // Positions of 100 Hz, 1 kHz and 10 kHz on the 20 Hz .. 20 kHz log axis.
       static const float kAxisPositions[kNumAxisLabels] = { 0.2330f, 0.5663f, 0.8997f };
@@ -336,6 +326,8 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
       bool changed = should_be_visible != isVisible();
       SynthSection::setVisible(should_be_visible);
 
+      if (changed)
+        repaintBackground();   // the pills and the drawing well are part of the cached background
       if (should_be_visible) {
         Image image(Image::ARGB, 1, 1, false);
         Graphics g(image);
@@ -562,7 +554,6 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
     std::function<void(bool)> visibility_callback_;
     Array<File> user_files_;
 
-    OpenGlQuad body_;
     std::unique_ptr<SpectralCurveEditor> editors_[2][kNumCurves];
     std::unique_ptr<OpenGlShapeButton> paint_;
     std::unique_ptr<PaintPatternSelector> paint_pattern_;
@@ -572,7 +563,6 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
     std::unique_ptr<PresetSelector> preset_selector_;
     std::string shape_names_[2][kNumCurves] = { { "Flat", "Ramp Up", "Flat 70%" }, { "Flat", "Ramp Up", "Flat 70%" } };
     int shape_index_[2][kNumCurves] = { { 0, 0, 0 }, { 0, 0, 0 } };
-    std::unique_ptr<PlainTextComponent> help_;
     std::unique_ptr<PlainTextComponent> axis_[kNumAxisLabels];
     std::unique_ptr<PlainTextComponent> top_label_;
     std::unique_ptr<PlainTextComponent> bottom_label_;
