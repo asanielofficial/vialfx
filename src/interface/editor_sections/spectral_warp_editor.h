@@ -20,6 +20,7 @@
 
 #include "lfo_section.h"
 #include "line_editor.h"
+#include "load_save.h"
 #include "open_gl_image_component.h"
 #include "paths.h"
 #include "preset_selector.h"
@@ -218,12 +219,12 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
 
       static const char* kNames[kNumCurves] = { "SPECTRAL FILTER", "SPECTRAL PHASER", "SPECTRAL FLANGER" };
       static const char* kHelp[kNumCurves] = {
-        "Gain per frequency (middle = 0 dB). Knob centre: a swept filter; up: your curve; down: your curve flipped. Position moves the sweep.",
-        "Phase rotation per frequency; notches form at half a turn. Knob centre: position scales an automatic rotation; up: your curve; down: flipped.",
-        "Comb depth per frequency. Knob centre: 70% everywhere; up: your curve; down: flipped. Position sets the delay."
+        "Gain per frequency (middle = 0 dB). Knob centre: a resonant peak that Position sweeps; up: your curve; down: flipped.",
+        "Notches follow the curve: steep parts pack them tightly. Position sweeps them. Knob centre: an even spread; up: your curve; down: flipped.",
+        "Comb depth per frequency, with resonance. Position sets the delay (sweep it). Knob centre: 70%; up: your curve; down: flipped."
       };
-      static const char* kTop[kNumCurves] = { "+36 dB", "full turn", "100%" };
-      static const char* kBottom[kNumCurves] = { "-36 dB", "none", "0%" };
+      static const char* kTop[kNumCurves] = { "+48 dB", "6 turns", "100%" };
+      static const char* kBottom[kNumCurves] = { "-48 dB", "none", "0%" };
       help_->setText(String(lane_ == 0 ? "INPUT - " : "SIDECHAIN - ").toStdString() + kNames[curve_] + ".  " +
                      kHelp[curve_]);
       preset_selector_->setText(shape_names_[lane_][curve_]);
@@ -240,11 +241,15 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
     void paintBackground(Graphics& g) override {
       paintChildrenBackgrounds(g);
 
-      g.setColour(findColour(Skin::kTextComponentBackground, true));
       float rounding = findValue(Skin::kLabelBackgroundRounding);
+      g.setColour(findColour(Skin::kTextComponentBackground, true));
       g.fillRoundedRectangle(pattern_group_.toFloat(), rounding);
       g.fillRoundedRectangle(grid_group_.toFloat(), rounding);
-            g.fillRoundedRectangle(reset_button_->getBounds().toFloat(), rounding);
+      g.fillRoundedRectangle(reset_button_->getBounds().toFloat(), rounding);
+
+      // The drawing area sits in a darker well, like the LFO's wave display.
+      g.setColour(findColour(Skin::kWidgetBackground, true).darker(0.4f));
+      g.fillRoundedRectangle(draw_area_.toFloat(), rounding);
     }
 
     void resized() override {
@@ -302,6 +307,7 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
       int editor_y = help_->getBottom() + margin / 2;
       int editor_width = getWidth() - margin - editor_x;
       int editor_height = std::max(1, axis_y - editor_y);
+      draw_area_ = Rectangle<int>(editor_x, editor_y, editor_width, editor_height);
       for (int l = 0; l < 2; ++l) {
         for (int c = 0; c < kNumCurves; ++c) {
           editors_[l][c]->setSizeRatio(size_ratio_);
@@ -386,13 +392,33 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
     void prevClicked() override { applyShape((shape_index_[lane_][curve_] + numShapes() - 1) % numShapes()); }
     void nextClicked() override { applyShape((shape_index_[lane_][curve_] + 1) % numShapes()); }
 
+    // The shape menu: the ready-made shapes, the shapes saved by the user, and save / open commands.
     void textMouseDown(const MouseEvent& e) override {
       PopupItems options;
       for (int i = 0; i < numShapes(); ++i)
-        options.addItem(i, shapes()[i].name);
+        options.addItem(i, shapes()[i].name, i == shape_index_[lane_][curve_] && shape_names_[lane_][curve_] == shapes()[i].name);
+
+      user_files_ = userShapeFiles();
+      if (!user_files_.isEmpty()) {
+        PopupItems saved(kSavedMenuId, "Saved Shapes", false, {});
+        for (int i = 0; i < user_files_.size(); ++i)
+          saved.addItem(kUserShapeBase + i, user_files_[i].getFileNameWithoutExtension().toStdString());
+        options.addItem(saved);
+      }
+      options.addItem(kSaveShapeId, "Save Shape...");
+      options.addItem(kOpenShapeId, "Open Shape File...");
 
       Point<int> position(preset_selector_->getX(), preset_selector_->getBottom());
-      showPopupSelector(this, position, options, [=](int selection) { applyShape(selection); });
+      showPopupSelector(this, position, options, [=](int selection) {
+        if (selection == kSaveShapeId)
+          saveShape();
+        else if (selection == kOpenShapeId)
+          openShape();
+        else if (selection >= kUserShapeBase)
+          loadShapeFile(user_files_[selection - kUserShapeBase]);
+        else if (selection >= 0 && selection < numShapes())
+          applyShape(selection);
+      });
     }
 
   private:
@@ -451,6 +477,64 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
     }
 
     static constexpr int kNumAxisLabels = 3;
+    static constexpr int kSavedMenuId = 900;
+    static constexpr int kSaveShapeId = 901;
+    static constexpr int kOpenShapeId = 902;
+    static constexpr int kUserShapeBase = 1000;
+
+    static const char* shapeExtension() { return "vialshape"; }
+
+    // User shapes live in <user data>/Spectral Shapes/<Filter|Phaser|Flanger>.
+    File shapeDirectory() const {
+      static const char* kFolders[kNumCurves] = { "Filter", "Phaser", "Flanger" };
+      File directory = LoadSave::getUserDirectory().getChildFile("Spectral Shapes").getChildFile(kFolders[curve_]);
+      if (!directory.exists())
+        directory.createDirectory();
+      return directory;
+    }
+
+    Array<File> userShapeFiles() const {
+      Array<File> files;
+      shapeDirectory().findChildFiles(files, File::findFiles, false, String("*.") + shapeExtension());
+      files.sort();
+      return files;
+    }
+
+    void saveShape() {
+      FileChooser save_box("Save Shape", shapeDirectory(), String("*.") + shapeExtension());
+      if (!save_box.browseForFileToSave(true))
+        return;
+
+      File choice = save_box.getResult().withFileExtension(shapeExtension());
+      if (!choice.exists())
+        choice.create();
+      choice.replaceWithText(engine_->getSpectralCurve(lane_, curve_)->stateToJson().dump());
+      shape_names_[lane_][curve_] = choice.getFileNameWithoutExtension().toStdString();
+      preset_selector_->setText(shape_names_[lane_][curve_]);
+    }
+
+    void openShape() {
+      FileChooser open_box("Open Shape", shapeDirectory(), String("*.") + shapeExtension());
+      if (open_box.browseForFileToOpen())
+        loadShapeFile(open_box.getResult());
+    }
+
+    void loadShapeFile(const File& file) {
+      if (!file.existsAsFile())
+        return;
+      try {
+        LineGenerator* curve = engine_->getSpectralCurve(lane_, curve_);
+        curve->jsonToState(json::parse(file.loadFileAsString().toStdString()));
+        curve->render();
+      }
+      catch (const std::exception&) {
+        return;
+      }
+      shape_names_[lane_][curve_] = file.getFileNameWithoutExtension().toStdString();
+      preset_selector_->setText(shape_names_[lane_][curve_]);
+      editors_[lane_][curve_]->resetPositions();
+      smooth_->setToggleState(editors_[lane_][curve_]->getSmooth(), dontSendNotification);
+    }
 
     std::unique_ptr<SynthSlider> makeGridSlider(const std::string& name, int max_value, int default_value,
                                                 const std::string& prefix) {
@@ -474,7 +558,9 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
     int curve_ = 0;
     Rectangle<int> pattern_group_;
     Rectangle<int> grid_group_;
+    Rectangle<int> draw_area_;
     std::function<void(bool)> visibility_callback_;
+    Array<File> user_files_;
 
     OpenGlQuad body_;
     std::unique_ptr<SpectralCurveEditor> editors_[2][kNumCurves];

@@ -519,72 +519,79 @@ namespace vital {
           break;
         }
         case kSpectralFilter: {
-          // Gain in dB per bin. Morph 0: a resonant peak whose frequency follows the position slider (200 Hz .. 8 kHz). Morph 1: the
-          // drawn curve (+-36 dB, the middle is flat).
+          // Gain in dB per bin. Morph 0: a narrow, strongly resonant peak (+24 dB, the rest of the spectrum pulled down
+          // 24 dB) whose frequency follows the position slider (100 Hz .. 12 kHz). Morph 1: the drawn curve (+-48 dB,
+          // the middle is flat).
           float morph = std::fabs(a);
           bool inverted = a < 0.0f;
-          float centre = 200.0f * powf(40.0f, position());
+          float centre = 100.0f * powf(120.0f, position());
           for (int k = 0; k <= bins; ++k) {
             float frequency = std::max(k * 0.5f * sample_rate / bins, 1.0f);
-            float octaves = std::log2(frequency / centre) / 0.5f;
-            float automatic = 20.0f * expf(-0.5f * octaves * octaves) - 10.0f;
-            float drawn = (drawnCurve(0, k, bins, sample_rate, inverted) - 0.5f) * 72.0f;
+            float octaves = std::log2(frequency / centre) / 0.3f;
+            float automatic = 48.0f * expf(-0.5f * octaves * octaves) - 24.0f;
+            float drawn = (drawnCurve(0, k, bins, sample_rate, inverted) - 0.5f) * 96.0f;
             float db = automatic + (drawn - automatic) * morph;
-            float gain = std::min(powf(10.0f, db / 20.0f), 16.0f);
+            float gain = std::min(powf(10.0f, db / 20.0f), 64.0f);
             spec[2 * k] *= gain;
             spec[2 * k + 1] *= gain;
           }
           break;
         }
         case kSpectralPhaser: {
-          // Each bin is mixed with a phase-rotated copy of itself, which carves notches where the rotation reaches
-          // half a turn. The drawn curve (0..2 pi) is the rotation; morph 0: the position slider scales it (the notches
-          // move), morph 1: the curve alone governs.
+          // A resonant phaser: every bin goes through H = (1 + e^(j phi)) / (1 - r e^(j phi)), the response of a
+          // phase-rotating feedback loop. Where phi is half a turn the bin is cancelled (a notch), where it is a whole
+          // turn the bin is lifted (a resonant peak), so the result is a row of deep notches between sharp peaks.
+          // phi = 2 pi (turns * c(f) + sweep): c is the drawn curve (0..1) and `turns` (6) sets how many notch/peak
+          // pairs a full-height curve spans, so steep parts of the curve pack the notches tightly and flat parts
+          // spread them out. The position slider is the sweep: moving it from 0 to 1 slides every notch onto the
+          // next one, which is the phaser sweep (modulate it with an LFO). Morph 0: the curve is a log-frequency ramp
+          // (an evenly spread classic phaser); morph 1: the drawn curve alone.
+          const float turns = 6.0f;
+          const float feedback = 0.7f;
+          const float norm = (1.0f - feedback) * 0.8f;
           float morph = std::fabs(a);
           bool inverted = a < 0.0f;
-          float scale = (1.0f - morph) * position() + morph;
-          for (int k = 1; k <= bins; ++k) {
-            float phase = 2.0f * kPi_ * drawnCurve(1, k, bins, sample_rate, inverted) * scale;
-            float c = cosf(phase), sn = sinf(phase);
+          float sweep = position();
+          for (int k = 1; k < bins; ++k) {
+            float ramp = defaultCurve(1, k, bins, sample_rate);
+            float drawn = drawnCurve(1, k, bins, sample_rate, inverted);
+            float curve = ramp + (drawn - ramp) * morph;
+            float phi = 2.0f * kPi_ * (turns * curve + sweep);
+            float c = cosf(phi), sn = sinf(phi);
+            float num_re = 1.0f + c, num_im = sn;
+            float den_re = 1.0f - feedback * c, den_im = -feedback * sn;
+            float den_norm = norm / (den_re * den_re + den_im * den_im);
+            float h_re = (num_re * den_re + num_im * den_im) * den_norm;
+            float h_im = (num_im * den_re - num_re * den_im) * den_norm;
             float re = spec[2 * k], im = spec[2 * k + 1];
-            spec[2 * k] = 0.5f * (re + re * c - im * sn);
-            spec[2 * k + 1] = 0.5f * (im + re * sn + im * c);
+            spec[2 * k] = re * h_re - im * h_im;
+            spec[2 * k + 1] = re * h_im + im * h_re;
           }
           break;
         }
         case kSpectralFlanger: {
-          // A comb per bin: the signal plus a delayed copy, the copy's level per bin is the drawn depth curve.
-          // The position slider sets the delay between 0.3 and 8 ms. Morph 0: depth is flat 70%; morph 1: the curve.
-          int stride = n + 2;
-          float* slot = ch.history.data() + ch.history_pos * stride;
-          std::copy(spec, spec + stride, slot);
-          const int hop = n / kOverlap;
+          // A feedback comb per bin: H = (1 + d e^(-j w t)) / (1 - r e^(-j w t)) with the delay t from the position
+          // slider (0.3 .. 8 ms), the feed-forward depth d from the drawn curve and the resonance r = 0.65 d. That is a
+          // flanger with regeneration: deep notches and ringing peaks spaced 1/t apart. Morph 0: depth is flat 70%;
+          // morph 1: the curve. Sweep the position with an LFO for the classic jet sound.
           float morph = std::fabs(a);
           bool inverted = a < 0.0f;
           float delay = (0.3f + 7.7f * position()) * 0.001f * sample_rate;
-          delay = std::min(delay, static_cast<float>((kHistoryFrames - 1) * hop));
-          int whole = static_cast<int>(delay / hop);
-          float remainder = delay - static_cast<float>(whole) * hop;
-          int hops = std::min(whole, ch.history_filled);
-          int index = (ch.history_pos - hops + kHistoryFrames) % kHistoryFrames;
-          const float* old = ch.history.data() + index * stride;
-          for (int k = 0; k <= bins; ++k) {
+          for (int k = 1; k < bins; ++k) {
             float depth = 0.7f + (drawnCurve(2, k, bins, sample_rate, inverted) - 0.7f) * morph;
             depth = std::max(0.0f, std::min(depth, 1.0f));
-            float dre = old[2 * k], dim = old[2 * k + 1];
-            if (k > 0 && remainder > 0.0f) {
-              float angle = -2.0f * kPi_ * k * remainder / n;
-              float c = cosf(angle), sn = sinf(angle);
-              float re = dre, im = dim;
-              dre = re * c - im * sn;
-              dim = re * sn + im * c;
-            }
-            float norm = 1.0f / (1.0f + depth);
-            spec[2 * k] = (spec[2 * k] + depth * dre) * norm;
-            spec[2 * k + 1] = (spec[2 * k + 1] + depth * dim) * norm;
+            float resonance = 0.65f * depth;
+            float angle = -2.0f * kPi_ * k * delay / n;
+            float c = cosf(angle), sn = sinf(angle);
+            float num_re = 1.0f + depth * c, num_im = depth * sn;
+            float den_re = 1.0f - resonance * c, den_im = -resonance * sn;
+            float den_norm = (1.0f - resonance) / ((1.0f + depth) * (den_re * den_re + den_im * den_im));
+            float h_re = (num_re * den_re + num_im * den_im) * den_norm;
+            float h_im = (num_im * den_re - num_re * den_im) * den_norm;
+            float re = spec[2 * k], im = spec[2 * k + 1];
+            spec[2 * k] = re * h_re - im * h_im;
+            spec[2 * k + 1] = re * h_im + im * h_re;
           }
-          ch.history_pos = (ch.history_pos + 1) % kHistoryFrames;
-          ch.history_filled = std::min(ch.history_filled + 1, kHistoryFrames - 1);
           break;
         }
         case kShepardTone: {
