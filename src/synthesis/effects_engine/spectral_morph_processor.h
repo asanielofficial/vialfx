@@ -57,6 +57,7 @@ namespace vital {
         kAmount,
         kFftSize,
         kPosition,
+        kShuffle,
         kModulator,
         kNumInputs
       };
@@ -94,11 +95,13 @@ namespace vital {
 
       static bool isBipolar(int mode) {
         return mode == kFormantScale || mode == kHarmonicStretch || mode == kInharmonicStretch ||
-               mode == kPhaseDisperse || mode == kVocode;
+               mode == kPhaseDisperse || mode == kVocode ||
+               mode == kSpectralFilter || mode == kSpectralPhaser || mode == kSpectralFlanger;
       }
 
-      // The three drawable modes: the knob is a morph between the automatic behaviour (0) and the drawn curve (1),
-      // so they are never "neutral".
+      // The three drawable modes: the knob is bipolar. At the centre the automatic behaviour governs; turning
+      // up morphs towards the drawn curve, turning down towards the drawn curve flipped upside down. They are
+      // never "neutral".
       static bool isDrawable(int mode) {
         return mode == kSpectralFilter || mode == kSpectralPhaser || mode == kSpectralFlanger;
       }
@@ -136,8 +139,6 @@ namespace vital {
         for (int i = 0; i < kNumFftSizes; ++i)
           transforms_[i] = std::make_shared<FourierTransform>(kMinFftBits + i);
         setFftSize(kDefaultFftIndex);
-        fillRandomTable(random_[0], uint32_t(kDefaultSeed));
-        fillRandomTable(random_[1], uint32_t(kDefaultSeed));
       }
 
       Processor* clone() const override { return new SpectralMorphProcessor(*this); }
@@ -145,13 +146,10 @@ namespace vital {
       // Latency in samples at the current FFT size. Safe to call from any thread.
       int latencySamples() const { return latency_; }
 
-      // Random Amplitudes: the seed picks the per-bin gain pattern. Safe to call from the message thread: the new
-      // pattern is built in the spare table and swapped in.
-      void setSeed(uint32_t seed) {
-        int spare = 1 - active_random_;
-        fillRandomTable(random_[spare], seed);
-        active_random_ = spare;
-      }
+      // Random Amplitudes: the seed picks the per-bin gain pattern, the shuffle input (0..1, modulatable) walks through
+      // a chain of 8 further patterns derived from it, blending smoothly between neighbours. Safe to call from the
+      // message thread: the audio thread rebuilds its tables when it sees a new seed.
+      void setSeed(uint32_t seed) { seed_ = seed; }
 
       // Drawn curves (0..1 over 20 Hz..20 kHz on a log axis) for Spectral Filter, Phaser and Flanger.
       void setCurve(int which, const LineGenerator* curve) { curves_[which] = curve; }
@@ -171,6 +169,7 @@ namespace vital {
         mode_ = mode;
         amount_ = amount;
         position_target_ = std::max(0.0f, std::min(input(kPosition)->source->buffer[0][0], 1.0f));
+        shuffle_ = input(kShuffle)->source->buffer[0][0];
 
         float target_mix = neutral ? 0.0f : 1.0f;
         float mix_step = (target_mix - mix_) / std::max(num_samples, 1);
@@ -271,6 +270,12 @@ namespace vital {
         return buffer[i] + (buffer[i + 1] - buffer[i]) * t;
       }
 
+      // The drawn curve, or the same curve flipped upside down (value 1 - v) for the negative half of the knob.
+      float drawnCurve(int which, int k, int bins, float sample_rate, bool inverted) const {
+        float value = curveAt(which, k, bins, sample_rate);
+        return inverted ? 1.0f - value : value;
+      }
+
       static float defaultCurve(int which, int k, int bins, float sample_rate) {
         if (which == 0)
           return 0.5f;
@@ -281,9 +286,22 @@ namespace vital {
         return std::max(0.0f, std::min(x, 1.0f));
       }
 
-      // Same pattern in Hz at every FFT size.
-      float randomAt(int k, int bins) const {
-        return random_[active_random_][k * (kMaxFftSize / 2) / bins];
+      // Table number `index` of the shuffle chain for the current seed (cached in two slots by parity).
+      const std::vector<float>& randomTable(int index, uint32_t seed) {
+        int slot = index & 1;
+        if (!random_valid_[slot] || random_seed_[slot] != seed || random_index_[slot] != index) {
+          fillRandomTable(random_[slot], seed + static_cast<uint32_t>(index) * 0x632BE5ABu);
+          random_seed_[slot] = seed;
+          random_index_[slot] = index;
+          random_valid_[slot] = true;
+        }
+        return random_[slot];
+      }
+
+      // Same pattern in Hz at every FFT size: bin k of `bins` reads the table at its relative position.
+      static float randomAt(const std::vector<float>& a, const std::vector<float>& b, float t, int k, int bins) {
+        int i = k * (kMaxFftSize / 2) / bins;
+        return a[i] + (b[i] - a[i]) * t;
       }
 
       // Smoothed magnitude envelope (RMS over +-half_width bins) of mag[0..bins] into env.
@@ -412,8 +430,14 @@ namespace vital {
           break;
         }
         case kRandomAmplitudes: {
+          float place = std::max(0.0f, std::min(shuffle_, 1.0f)) * 8.0f;
+          int first = std::min(static_cast<int>(place), 7);
+          float blend = place - first;
+          uint32_t seed = seed_;
+          const std::vector<float>& table_a = randomTable(first, seed);
+          const std::vector<float>& table_b = randomTable(first + 1, seed);
           for (int k = 0; k <= bins; ++k) {
-            float gain = (1.0f + a) * std::max(1.0f - a - a * randomAt(k, bins), 0.0f);
+            float gain = (1.0f + a) * std::max(1.0f - a - a * randomAt(table_a, table_b, blend, k, bins), 0.0f);
             gain = std::min(gain, float(kMaxGain));
             spec[2 * k] *= gain;
             spec[2 * k + 1] *= gain;
@@ -473,13 +497,14 @@ namespace vital {
         case kSpectralFilter: {
           // Gain in dB per bin. Morph 0: a resonant peak whose frequency follows the position slider (200 Hz .. 8 kHz). Morph 1: the
           // drawn curve (+-36 dB, the middle is flat).
-          float morph = a;
+          float morph = std::fabs(a);
+          bool inverted = a < 0.0f;
           float centre = 200.0f * powf(40.0f, position());
           for (int k = 0; k <= bins; ++k) {
             float frequency = std::max(k * 0.5f * sample_rate / bins, 1.0f);
             float octaves = std::log2(frequency / centre) / 0.5f;
             float automatic = 20.0f * expf(-0.5f * octaves * octaves) - 10.0f;
-            float drawn = (curveAt(0, k, bins, sample_rate) - 0.5f) * 72.0f;
+            float drawn = (drawnCurve(0, k, bins, sample_rate, inverted) - 0.5f) * 72.0f;
             float db = automatic + (drawn - automatic) * morph;
             float gain = std::min(powf(10.0f, db / 20.0f), 16.0f);
             spec[2 * k] *= gain;
@@ -491,10 +516,11 @@ namespace vital {
           // Each bin is mixed with a phase-rotated copy of itself, which carves notches where the rotation reaches
           // half a turn. The drawn curve (0..2 pi) is the rotation; morph 0: the position slider scales it (the notches
           // move), morph 1: the curve alone governs.
-          float morph = a;
+          float morph = std::fabs(a);
+          bool inverted = a < 0.0f;
           float scale = (1.0f - morph) * position() + morph;
           for (int k = 1; k <= bins; ++k) {
-            float phase = 2.0f * kPi_ * curveAt(1, k, bins, sample_rate) * scale;
+            float phase = 2.0f * kPi_ * drawnCurve(1, k, bins, sample_rate, inverted) * scale;
             float c = cosf(phase), sn = sinf(phase);
             float re = spec[2 * k], im = spec[2 * k + 1];
             spec[2 * k] = 0.5f * (re + re * c - im * sn);
@@ -509,7 +535,8 @@ namespace vital {
           float* slot = ch.history.data() + ch.history_pos * stride;
           std::copy(spec, spec + stride, slot);
           const int hop = n / kOverlap;
-          float morph = a;
+          float morph = std::fabs(a);
+          bool inverted = a < 0.0f;
           float delay = (0.3f + 7.7f * position()) * 0.001f * sample_rate;
           delay = std::min(delay, static_cast<float>((kHistoryFrames - 1) * hop));
           int whole = static_cast<int>(delay / hop);
@@ -518,7 +545,7 @@ namespace vital {
           int index = (ch.history_pos - hops + kHistoryFrames) % kHistoryFrames;
           const float* old = ch.history.data() + index * stride;
           for (int k = 0; k <= bins; ++k) {
-            float depth = 0.7f + (curveAt(2, k, bins, sample_rate) - 0.7f) * morph;
+            float depth = 0.7f + (drawnCurve(2, k, bins, sample_rate, inverted) - 0.7f) * morph;
             depth = std::max(0.0f, std::min(depth, 1.0f));
             float dre = old[2 * k], dim = old[2 * k + 1];
             if (k > 0 && remainder > 0.0f) {
@@ -605,7 +632,11 @@ namespace vital {
       float mix_ = 0.0f;
       float position_target_ = 0.5f;
       float position_ = 0.5f;
-      int active_random_ = 0;
+      uint32_t seed_ = kDefaultSeed;
+      float shuffle_ = 0.0f;
+      bool random_valid_[2] = { false, false };
+      uint32_t random_seed_[2] = { 0, 0 };
+      int random_index_[2] = { 0, 0 };
       const LineGenerator* curves_[3] = { nullptr, nullptr, nullptr };
       int latency_ = 1024;
       Channel channels_[2];

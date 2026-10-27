@@ -33,14 +33,16 @@ It is built from GPLv3 synthesizer source code (see [NOTICE.md](NOTICE.md) for t
   centre is neutral). The FFT size is set on the ADVANCED tab (256, 512, 1024 default, 2048) with a live
   latency readout. The stage always delays the audio by one FFT size, whatever the mode, so the latency is
   constant; it is reported to the host for delay compensation and both lanes stay aligned.
-- **Dice and drawable modes (v0.3):** Random Amplitudes has a dice button on the lane that picks a new seed;
-  the pattern is the same in Hz at every FFT size. Spectral Filter (gain per frequency), Spectral Phaser (phase
-  rotation per frequency) and Spectral Flanger (comb depth per frequency) have a pencil button that opens one
-  shared curve editor that docks over the filters, laid out like the LFO editor (frequency on a log axis,
-  20 Hz to 20 kHz). Its position slider along the bottom is a modulation target: drag an LFO onto it to sweep
-  the filter, the phase rotation or the flanger delay. The spectral
-  knob morphs from the automatic behaviour (0) to your drawn curve (1). The curves and the dice seed are saved
-  with each lane in the preset, not as parameters, so they cannot be automated or modulated.
+- **Dice and drawable modes (v0.3):** Random Amplitudes has a small dice button beside the spectral knob that
+  picks a new seed, and a thin shuffle bar under it that is a modulation target: drag an LFO or any source onto
+  it to walk smoothly through a chain of patterns derived from the seed. The pattern is the same in Hz at every
+  FFT size. Spectral Filter (gain per frequency), Spectral Phaser (phase rotation per frequency) and Spectral
+  Flanger (comb depth per frequency) have a pencil button that docks a curve editor over the filters, drawn like
+  the LFO editor (paint brush and patterns, grid sizes, smoothing, shape selector, frequency on a log axis from
+  20 Hz to 20 kHz). A position slider along its bottom is a modulation target as well. The spectral knob of
+  these three modes is bipolar: the centre is the automatic behaviour, up morphs to your drawn curve and down
+  to the curve flipped upside down. The curves and the dice seed are saved with each lane in the preset, not as
+  parameters, so they cannot be automated.
 - **Filters:** two filters with the full set of filter models, in parallel or serial (FIL1/FIL2 buttons).
   Key tracking follows the last played MIDI note.
 - **Effects rack:** chorus, compressor, delay, distortion, EQ, filter, flanger, phaser and reverb, in a

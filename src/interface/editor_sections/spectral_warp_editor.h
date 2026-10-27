@@ -22,6 +22,7 @@
 #include "line_editor.h"
 #include "open_gl_image_component.h"
 #include "paths.h"
+#include "preset_selector.h"
 #include "sound_engine.h"
 #include "synth_button.h"
 #include "synth_section.h"
@@ -42,7 +43,7 @@
 // The position slider is an ordinary modulatable parameter: drag an LFO (or any source) onto it. What it moves
 // depends on the mode: the frequency of the swept filter, how far the phase curve is applied, the flanger delay.
 // The curves are stored per lane in the preset.
-class SpectralWarpEditor : public SynthSection {
+class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener {
   public:
     static constexpr int kPadding = 8;
     static constexpr int kTopHeight = 28;
@@ -58,8 +59,8 @@ class SpectralWarpEditor : public SynthSection {
 
       for (int lane = 0; lane < 2; ++lane) {
         for (int curve = 0; curve < kNumCurves; ++curve) {
-          editors_[lane][curve] = std::make_unique<LineEditor>(engine_->getSpectralCurve(lane, curve));
-          LineEditor* editor = editors_[lane][curve].get();
+          editors_[lane][curve] = std::make_unique<SpectralCurveEditor>(engine_->getSpectralCurve(lane, curve));
+          SpectralCurveEditor* editor = editors_[lane][curve].get();
           editor->setGridSizeX(kDefaultGridSizeX);
           editor->setGridSizeY(kDefaultGridSizeY);
           editor->setLoop(false);
@@ -102,10 +103,10 @@ class SpectralWarpEditor : public SynthSection {
       smooth_->addListener(this);
       smooth_->setShape(Paths::halfSinCurve());
 
-      title_ = std::make_unique<PlainTextComponent>("Title", "");
-      addOpenGlComponent(title_.get());
-      title_->setFontType(PlainTextComponent::kTitle);
-      title_->setJustification(Justification::centred);
+      // Like the LFO's name bar: the current shape, with arrows to step through the shapes offered for the mode.
+      preset_selector_ = std::make_unique<PresetSelector>();
+      addSubSection(preset_selector_.get());
+      preset_selector_->addListener(this);
 
       help_ = std::make_unique<PlainTextComponent>("Help", "");
       addOpenGlComponent(help_.get());
@@ -155,6 +156,8 @@ class SpectralWarpEditor : public SynthSection {
       addOpenGlComponent(close_button_->getGlComponent());
       close_button_->addListener(this);
       close_button_->setShape(Paths::exitX());
+
+      setSkinOverride(Skin::kLfo);
     }
 
     virtual ~SpectralWarpEditor() = default;
@@ -175,18 +178,19 @@ class SpectralWarpEditor : public SynthSection {
 
       static const char* kNames[kNumCurves] = { "SPECTRAL FILTER", "SPECTRAL PHASER", "SPECTRAL FLANGER" };
       static const char* kHelp[kNumCurves] = {
-        "Gain per frequency (middle = 0 dB). Morph 0: a swept filter. Morph 1: your curve. Position moves the sweep.",
-        "Phase rotation per frequency; notches form at half a turn. Morph 0: position scales the rotation. Morph 1: your curve.",
-        "Comb depth per frequency. Morph 0: 70% everywhere. Morph 1: your curve. Position sets the delay."
+        "Gain per frequency (middle = 0 dB). Knob centre: a swept filter; up: your curve; down: your curve flipped. Position moves the sweep.",
+        "Phase rotation per frequency; notches form at half a turn. Knob centre: position scales an automatic rotation; up: your curve; down: flipped.",
+        "Comb depth per frequency. Knob centre: 70% everywhere; up: your curve; down: flipped. Position sets the delay."
       };
       static const char* kTop[kNumCurves] = { "+36 dB", "full turn", "100%" };
       static const char* kBottom[kNumCurves] = { "-36 dB", "none", "0%" };
-      title_->setText(String(lane_ == 0 ? "INPUT - " : "SIDECHAIN - ").toStdString() + kNames[curve_]);
-      help_->setText(kHelp[curve_]);
+      help_->setText(String(lane_ == 0 ? "INPUT - " : "SIDECHAIN - ").toStdString() + kNames[curve_] + ".  " +
+                     kHelp[curve_]);
+      preset_selector_->setText(shape_names_[lane_][curve_]);
       top_label_->setText(kTop[curve_]);
       bottom_label_->setText(kBottom[curve_]);
 
-      LineEditor* editor = editors_[lane_][curve_].get();
+      SpectralCurveEditor* editor = editors_[lane_][curve_].get();
       editor->setPaint(paint_->getToggleState());
       smooth_->setToggleState(editor->getSmooth(), dontSendNotification);
       editor->resetPositions();
@@ -200,8 +204,7 @@ class SpectralWarpEditor : public SynthSection {
       float rounding = findValue(Skin::kLabelBackgroundRounding);
       g.fillRoundedRectangle(pattern_group_.toFloat(), rounding);
       g.fillRoundedRectangle(grid_group_.toFloat(), rounding);
-      g.fillRoundedRectangle(title_->getBounds().toFloat(), rounding);
-      g.fillRoundedRectangle(reset_button_->getBounds().toFloat(), rounding);
+            g.fillRoundedRectangle(reset_button_->getBounds().toFloat(), rounding);
     }
 
     void resized() override {
@@ -213,7 +216,7 @@ class SpectralWarpEditor : public SynthSection {
       body_.setBounds(getLocalBounds());
 
       Colour body_text = findColour(Skin::kBodyText, true);
-      for (PlainTextComponent* label : { title_.get(), help_.get(), top_label_.get(), bottom_label_.get() })
+      for (PlainTextComponent* label : { help_.get(), top_label_.get(), bottom_label_.get() })
         label->setColor(body_text);
       for (auto& label : axis_)
         label->setColor(body_text);
@@ -243,8 +246,7 @@ class SpectralWarpEditor : public SynthSection {
       int reset_width = size_ratio_ * 70;
       reset_button_->setBounds(close_button_->getX() - margin - reset_width, y, reset_width, top_height);
       int title_x = smooth_->getRight() + margin;
-      title_->setTextSize(top_height * 0.55f);
-      title_->setBounds(title_x, y, reset_button_->getX() - margin - title_x, top_height);
+      preset_selector_->setBounds(title_x, y, reset_button_->getX() - margin - title_x, top_height);
 
       help_->setTextSize(text_size);
       help_->setBounds(margin, y + top_height + margin / 2, getWidth() - 2 * margin, text_height);
@@ -322,6 +324,10 @@ class SpectralWarpEditor : public SynthSection {
         setVisible(false);
       else if (clicked_button == reset_button_.get()) {
         engine_->resetSpectralCurve(lane_, curve_);
+        static const char* kDefaultNames[kNumCurves] = { "Flat", "Ramp Up", "Flat 70%" };
+        shape_names_[lane_][curve_] = kDefaultNames[curve_];
+        shape_index_[lane_][curve_] = 0;
+        preset_selector_->setText(shape_names_[lane_][curve_]);
         editors_[lane_][curve_]->resetPositions();
         smooth_->setToggleState(editors_[lane_][curve_]->getSmooth(), dontSendNotification);
       }
@@ -336,7 +342,74 @@ class SpectralWarpEditor : public SynthSection {
         SynthSection::buttonClicked(clicked_button);
     }
 
+    // PresetSelector::Listener: step through, or pick from a list of, ready-made shapes for the open mode.
+    void prevClicked() override { applyShape((shape_index_[lane_][curve_] + numShapes() - 1) % numShapes()); }
+    void nextClicked() override { applyShape((shape_index_[lane_][curve_] + 1) % numShapes()); }
+
+    void textMouseDown(const MouseEvent& e) override {
+      PopupItems options;
+      for (int i = 0; i < numShapes(); ++i)
+        options.addItem(i, shapes()[i].name);
+
+      Point<int> position(preset_selector_->getX(), preset_selector_->getBottom());
+      showPopupSelector(this, position, options, [=](int selection) { applyShape(selection); });
+    }
+
   private:
+    struct Shape {
+      const char* name;
+      std::vector<std::pair<float, float>> points;  // (x, y) with y = 1 at the top of the display
+    };
+
+    // Ready-made shapes. x is the log-frequency axis (0 = 20 Hz, 1 = 20 kHz).
+    const std::vector<Shape>& shapes() const {
+      static const std::vector<Shape> kFilter = {
+        { "Flat", { { 0.0f, 0.5f }, { 1.0f, 0.5f } } },
+        { "Low Pass", { { 0.0f, 0.5f }, { 0.5f, 0.5f }, { 0.72f, 0.0f }, { 1.0f, 0.0f } } },
+        { "High Pass", { { 0.0f, 0.0f }, { 0.28f, 0.0f }, { 0.5f, 0.5f }, { 1.0f, 0.5f } } },
+        { "Band Pass", { { 0.0f, 0.1f }, { 0.36f, 0.1f }, { 0.5f, 0.8f }, { 0.64f, 0.1f }, { 1.0f, 0.1f } } },
+        { "Notch", { { 0.0f, 0.5f }, { 0.44f, 0.5f }, { 0.5f, 0.02f }, { 0.56f, 0.5f }, { 1.0f, 0.5f } } },
+        { "Tilt Down", { { 0.0f, 0.8f }, { 1.0f, 0.2f } } },
+        { "Tilt Up", { { 0.0f, 0.2f }, { 1.0f, 0.8f } } },
+        { "Scoop", { { 0.0f, 0.7f }, { 0.5f, 0.2f }, { 1.0f, 0.7f } } }
+      };
+      static const std::vector<Shape> kPhaser = {
+        { "Ramp Up", { { 0.0f, 0.0f }, { 1.0f, 1.0f } } },
+        { "Ramp Down", { { 0.0f, 1.0f }, { 1.0f, 0.0f } } },
+        { "Half Turn", { { 0.0f, 0.5f }, { 1.0f, 0.5f } } },
+        { "Dome", { { 0.0f, 0.0f }, { 0.5f, 1.0f }, { 1.0f, 0.0f } } },
+        { "Zigzag", { { 0.0f, 0.0f }, { 0.25f, 1.0f }, { 0.5f, 0.0f }, { 0.75f, 1.0f }, { 1.0f, 0.0f } } },
+        { "Steps", { { 0.0f, 0.2f }, { 0.33f, 0.2f }, { 0.34f, 0.5f }, { 0.66f, 0.5f }, { 0.67f, 0.9f }, { 1.0f, 0.9f } } }
+      };
+      static const std::vector<Shape> kFlanger = {
+        { "Flat 70%", { { 0.0f, 0.7f }, { 1.0f, 0.7f } } },
+        { "Full", { { 0.0f, 1.0f }, { 1.0f, 1.0f } } },
+        { "Low Heavy", { { 0.0f, 1.0f }, { 1.0f, 0.2f } } },
+        { "High Heavy", { { 0.0f, 0.2f }, { 1.0f, 1.0f } } },
+        { "Dip", { { 0.0f, 0.9f }, { 0.5f, 0.1f }, { 1.0f, 0.9f } } },
+        { "Alternating", { { 0.0f, 1.0f }, { 0.2f, 0.1f }, { 0.4f, 1.0f }, { 0.6f, 0.1f }, { 0.8f, 1.0f }, { 1.0f, 0.1f } } }
+      };
+      return curve_ == 0 ? kFilter : curve_ == 1 ? kPhaser : kFlanger;
+    }
+
+    int numShapes() const { return static_cast<int>(shapes().size()); }
+
+    void applyShape(int index) {
+      const Shape& shape = shapes()[index];
+      LineGenerator* curve = engine_->getSpectralCurve(lane_, curve_);
+      curve->setNumPoints(static_cast<int>(shape.points.size()));
+      for (int i = 0; i < static_cast<int>(shape.points.size()); ++i) {
+        // (a line generator point is upside down: its value is 1 - y)
+        curve->setPoint(i, { shape.points[i].first, 1.0f - shape.points[i].second });
+        curve->setPower(i, 0.0f);
+      }
+      curve->render();
+      shape_index_[lane_][curve_] = index;
+      shape_names_[lane_][curve_] = shape.name;
+      preset_selector_->setText(shape.name);
+      editors_[lane_][curve_]->resetPositions();
+    }
+
     static constexpr int kNumAxisLabels = 3;
 
     std::unique_ptr<SynthSlider> makeGridSlider(const std::string& name, int max_value, int default_value,
@@ -364,13 +437,15 @@ class SpectralWarpEditor : public SynthSection {
     std::function<void(bool)> visibility_callback_;
 
     OpenGlQuad body_;
-    std::unique_ptr<LineEditor> editors_[2][kNumCurves];
+    std::unique_ptr<SpectralCurveEditor> editors_[2][kNumCurves];
     std::unique_ptr<OpenGlShapeButton> paint_;
     std::unique_ptr<PaintPatternSelector> paint_pattern_;
     std::unique_ptr<SynthSlider> grid_size_x_;
     std::unique_ptr<SynthSlider> grid_size_y_;
     std::unique_ptr<OpenGlShapeButton> smooth_;
-    std::unique_ptr<PlainTextComponent> title_;
+    std::unique_ptr<PresetSelector> preset_selector_;
+    std::string shape_names_[2][kNumCurves] = { { "Flat", "Ramp Up", "Flat 70%" }, { "Flat", "Ramp Up", "Flat 70%" } };
+    int shape_index_[2][kNumCurves] = { { 0, 0, 0 }, { 0, 0, 0 } };
     std::unique_ptr<PlainTextComponent> help_;
     std::unique_ptr<PlainTextComponent> axis_[kNumAxisLabels];
     std::unique_ptr<PlainTextComponent> top_label_;

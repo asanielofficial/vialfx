@@ -1521,11 +1521,46 @@ namespace {
             "Spectral Filter: the drawn curve boosts what is drawn above the middle",
             fmt("rms %.3f -> %.3f", rms(ref.left, 15000), rms(boost_out.left, 15000)));
 
+      // Bipolar: the lower half of the knob uses the curve flipped upside down (a cut becomes a boost).
+      Rig flipped;
+      flipped.set("input_spectral_morph_type", 11.0f);
+      flipped.set("input_spectral_morph_amount", 0.0f);
+      drawCurve(flipped, 0, 0, [](float x) { return x < 0.5f ? 0.5f : 0.0f; });
+      Stereo flipped_out = flipped.render(30000, noise());
+      check(rms(flipped_out.left, 15000) > 1.5 * rms(ref.left, 15000) && flipped_out.finite() && flipped_out.peak() < 8.0f,
+            "Spectral Filter: the bottom of the knob flips the drawn curve (a cut becomes a boost)",
+            fmt("rms %.3f -> %.3f", rms(ref.left, 15000), rms(flipped_out.left, 15000)));
+
       Rig automatic;
       automatic.set("input_spectral_morph_type", 11.0f);
-      automatic.set("input_spectral_morph_amount", 0.0f);
+      automatic.set("input_spectral_morph_amount", 0.5f);  // the knob centre
       Stereo auto_out = automatic.render(60000, noise());
       check(auto_out.finite() && rms(auto_out.left, 30000) > 0.005, "Spectral Filter at morph 0 runs on its own (swept filter)");
+    }
+
+    // The dice shuffle is a modulatable control that walks through patterns derived from the seed.
+    {
+      Rig exists;
+      check(exists.controls.count("input_random_shuffle") == 1 && exists.controls.count("sidechain_random_shuffle") == 1,
+            "the dice shuffle is a control (modulation target) on both lanes");
+      auto shuffled = [&](float shuffle) {
+        Rig rig;
+        rig.set("input_spectral_morph_type", 5.0f);
+        rig.set("input_spectral_morph_amount", 0.8f);
+        rig.set("input_random_shuffle", shuffle);
+        return rig.render(30000, noise());
+      };
+      Stereo a = shuffled(0.0f), b = shuffled(0.5f), c = shuffled(0.5005f), a2 = shuffled(0.0f);
+      auto distance = [](const Stereo& x, const Stereo& y) {
+        double sum = 0.0;
+        for (size_t i = 15000; i < x.left.size(); ++i)
+          sum += std::pow(static_cast<double>(x.left[i]) - y.left[i], 2.0);
+        return std::sqrt(sum / 15000.0);
+      };
+      check(distance(a, a2) < 1e-6, "Random Amplitudes with the same seed and shuffle repeats exactly");
+      check(distance(a, b) > 0.02 && a.finite() && b.finite(), "moving the shuffle changes the Random Amplitudes pattern",
+            fmt("%.4f", distance(a, b)));
+      check(distance(b, c) < 0.05, "the shuffle moves smoothly", fmt("%.4f", distance(b, c)));
     }
 
     // Spectral Phaser: the notches follow the position slider at morph 0 and stand still at morph 1.
@@ -1534,7 +1569,7 @@ namespace {
       auto render = [&](float morph) {
         Rig rig;
         rig.set("input_spectral_morph_type", 12.0f);
-        rig.set("input_spectral_morph_amount", morph);
+        rig.set("input_spectral_morph_amount", 0.5f + 0.5f * morph);  // bipolar: centre = automatic, top = the curve
         Generator gen = noise();
         Stereo all;
         for (int block = 0; block < 70; ++block) {

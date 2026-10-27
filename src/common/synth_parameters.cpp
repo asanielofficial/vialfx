@@ -323,6 +323,12 @@ namespace vital {
     // far the phase curve is applied, the flanger delay. Modulatable, so an LFO can drive it. (The drawn curves
     // and the Random Amplitudes seed are saved with the preset but are not parameters: they cannot be automated
     // or modulated.)
+    // Random Amplitudes shuffle: walks through a chain of patterns derived from the lane's dice seed (the dice
+    // button picks the seed itself, which is saved with the preset). A modulation target.
+    { "input_random_shuffle", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Input Random Shuffle", nullptr },
+    { "sidechain_random_shuffle", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Sidechain Random Shuffle", nullptr },
     { "input_spectral_position", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Input Spectral Position", nullptr },
     { "sidechain_spectral_position", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,

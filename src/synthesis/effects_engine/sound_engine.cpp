@@ -63,6 +63,8 @@ namespace vital {
     Output* sidechain_spectral_amount = createMonoModControl("sidechain_spectral_morph_amount");
     Value* input_spectral_mode = createBaseControl("input_spectral_morph_type");
     Value* sidechain_spectral_mode = createBaseControl("sidechain_spectral_morph_type");
+    Output* input_random_shuffle = createMonoModControl("input_random_shuffle");
+    Output* sidechain_random_shuffle = createMonoModControl("sidechain_random_shuffle");
     Output* input_spectral_position = createMonoModControl("input_spectral_position");
     Output* sidechain_spectral_position = createMonoModControl("sidechain_spectral_position");
     Value* fft_size = createBaseControl("fft_size");
@@ -153,6 +155,7 @@ namespace vital {
     sidechain_spectral->plug(sidechain_spectral_amount, SpectralMorphProcessor::kAmount);
     sidechain_spectral->plug(fft_size, SpectralMorphProcessor::kFftSize);
     sidechain_spectral->plug(sidechain_spectral_position, SpectralMorphProcessor::kPosition);
+    sidechain_spectral->plug(sidechain_random_shuffle, SpectralMorphProcessor::kShuffle);
     addProcessor(sidechain_spectral);
 
     SpectralMorphProcessor* main_spectral = new SpectralMorphProcessor(true);
@@ -161,6 +164,7 @@ namespace vital {
     main_spectral->plug(input_spectral_amount, SpectralMorphProcessor::kAmount);
     main_spectral->plug(fft_size, SpectralMorphProcessor::kFftSize);
     main_spectral->plug(input_spectral_position, SpectralMorphProcessor::kPosition);
+    main_spectral->plug(input_random_shuffle, SpectralMorphProcessor::kShuffle);
     main_spectral->plug(sidechain_gate, SpectralMorphProcessor::kModulator);
     addProcessor(main_spectral);
 

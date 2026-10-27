@@ -154,6 +154,16 @@ class FxInputSection : public SynthSection {
       next_spectral_->addListener(this);
       next_spectral_->setShape(Paths::next());
 
+      // Random Amplitudes shuffle: a small bar under the dice, a modulation target (drag any source onto it).
+      shuffle_ = std::make_unique<SynthSlider>(prefix + "_random_shuffle");
+      addSlider(shuffle_.get());
+      shuffle_->setSliderStyle(Slider::LinearBar);
+      shuffle_->setPopupPlacement(BubbleComponent::above);
+      shuffle_->setModulationPlacement(BubbleComponent::above);
+      shuffle_->setPopupPrefix("Shuffle: ");
+      shuffle_->setDoubleClickReturnValue(true, 0.0);
+      shuffle_->setVisible(false);
+
       tool_button_ = std::make_unique<OpenGlShapeButton>("Spectral Tool");
       addAndMakeVisible(tool_button_.get());
       addOpenGlComponent(tool_button_->getGlComponent());
@@ -270,10 +280,18 @@ class FxInputSection : public SynthSection {
 
       // The dice (Random Amplitudes) or pencil (drawable modes) button sits to the right of the spectral knob,
       // level with its centre.
-      int tool_size = std::max(1, static_cast<int>(spectral_morph_->getHeight() * 0.3f));
-      tool_button_->setBounds(spectral_morph_->getRight() - tool_size - widget_margin,
-                              spectral_morph_->getY() + (spectral_morph_->getHeight() - tool_size) / 2,
-                              tool_size, tool_size);
+      // The die is drawn smaller than the pencil; the shuffle bar sits right under it.
+      bool dice = current_spectral_ == kRandomAmplitudesMode;
+      int tool_size = std::max(1, static_cast<int>(spectral_morph_->getHeight() * (dice ? 0.2f : 0.3f)));
+      int bar_height = std::max(4, static_cast<int>(spectral_morph_->getHeight() * 0.08f));
+      int bar_width = std::max(tool_size, static_cast<int>(spectral_morph_->getHeight() * 0.32f));
+      int tool_x = spectral_morph_->getRight() - tool_size - widget_margin;
+      int tool_y = spectral_morph_->getY() + (spectral_morph_->getHeight() - tool_size) / 2;
+      if (dice)
+        tool_y -= bar_height;
+      tool_button_->setBounds(tool_x, tool_y, tool_size, tool_size);
+      shuffle_->setBounds(tool_x + tool_size / 2 - bar_width / 2, tool_button_->getBottom() + widget_margin / 2,
+                          bar_width, bar_height);
       connectMemory();
     }
 
@@ -372,8 +390,10 @@ class FxInputSection : public SynthSection {
 
     int clampSpectral(int mode) const { return std::max(0, std::min(mode, num_spectral_modes_ - 1)); }
 
-    // Formant Scale, Harmonic Stretch, Inharmonic Stretch, Phase Disperse and Vocode are centred (bipolar).
-    static bool isBipolarSpectral(int mode) { return mode == 1 || mode == 2 || mode == 3 || mode == 8 || mode == 14; }
+    // Formant Scale, Harmonic/Inharmonic Stretch, Phase Disperse, the three drawable modes and Vocode are centred (bipolar).
+    static bool isBipolarSpectral(int mode) {
+      return mode == 1 || mode == 2 || mode == 3 || mode == 8 || (mode >= 11 && mode <= 14);
+    }
 
     static constexpr int kRandomAmplitudesMode = 5;
     static constexpr int kFirstDrawableMode = 11;  // Spectral Filter, Phaser, Flanger
@@ -397,6 +417,8 @@ class FxInputSection : public SynthSection {
     void updateToolButton() {
       bool dice = current_spectral_ == kRandomAmplitudesMode;
       tool_button_->setVisible(dice || isDrawableMode());
+      shuffle_->setVisible(dice);
+      resized();
       if (dice)
         tool_button_->setShape(dicePath());
       else if (isDrawableMode())
@@ -510,6 +532,7 @@ class FxInputSection : public SynthSection {
     std::unique_ptr<OpenGlShapeButton> prev_destination_;
     std::unique_ptr<OpenGlShapeButton> next_destination_;
     std::unique_ptr<OpenGlShapeButton> tool_button_;
+    std::unique_ptr<SynthSlider> shuffle_;
     std::unique_ptr<ShapeButton> spectral_selector_;
     std::unique_ptr<PlainTextComponent> spectral_text_;
     std::unique_ptr<OpenGlShapeButton> prev_spectral_;
