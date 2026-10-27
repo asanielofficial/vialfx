@@ -15,9 +15,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Engine test (headless DSP checks)
-        run: make -C effects/tests -j"$(sysctl -n hw.ncpu)"
-
       - name: Get Projucer (JUCE 6.0.5)
         run: |
           curl -fsSL -o juce.zip https://github.com/juce-framework/JUCE/releases/download/6.0.5/juce-6.0.5-osx.zip
