@@ -295,11 +295,11 @@ namespace vital {
     // spectral morph and distortion processing is not implemented yet (roadmap v0.2 / v0.3).
     { "input_spectral_morph_amount", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Input Spectral Morph", nullptr },
-    { "input_distortion_amount", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
+    { "input_distortion_amount", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Input Distortion", nullptr },
     { "sidechain_spectral_morph_amount", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Sidechain Spectral Morph", nullptr },
-    { "sidechain_distortion_amount", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
+    { "sidechain_distortion_amount", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Sidechain Distortion", nullptr },
     // Where each input goes: Filter 1, Filter 2, Filter 1+2, Effects, Direct Out (same list as the synth's
     // oscillator destinations). Default is both filters, which passes audio through whichever filters are on.

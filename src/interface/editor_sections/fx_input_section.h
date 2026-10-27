@@ -432,6 +432,7 @@ class FxInputSection : public SynthSection {
       tool_button_->setVisible(dice || isDrawableMode());
       shuffle_->setVisible(dice);
       resized();
+      repaintBackground();   // the knob shadow is part of the cached background and follows the knob
       if (dice)
         tool_button_->setShape(dicePath());
       else if (isDrawableMode())
