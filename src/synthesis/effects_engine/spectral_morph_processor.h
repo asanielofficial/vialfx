@@ -200,7 +200,7 @@ namespace vital {
         shuffle_ = input(kShuffle)->source->buffer[0][0];
         if (uses_modulator_) {
           vocode_bands_ = std::max(4, std::min(static_cast<int>(input(kVocodeBands)->source->buffer[0][0] + 0.5f),
-                                               kMaxVocodeBands));
+                                               int(kMaxVocodeBands)));
           // Attack and release arrive as log2 of seconds.
           vocode_attack_ = std::exp2(std::max(-12.0f, std::min(input(kVocodeAttack)->source->buffer[0][0], 1.0f)));
           vocode_release_ = std::exp2(std::max(-12.0f, std::min(input(kVocodeRelease)->source->buffer[0][0], 2.0f)));
