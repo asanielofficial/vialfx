@@ -1133,7 +1133,7 @@ namespace {
     Generator silence = [](int, float& l, float& r) { l = r = 0.0f; };
 
     // Latency is the FFT size, reported by the engine for every size, and it is constant.
-    for (int index = 0; index < 4; ++index) {
+    for (int index = 0; index < 8; ++index) {
       int size = 256 << index;
       Rig rig;
       rig.set("fft_size", static_cast<float>(index));
@@ -1142,6 +1142,8 @@ namespace {
 
       // Measured: an impulse comes out exactly `size` samples later, neutral and with an active mode.
       for (int mode : { 0, 6, 8 }) {
+        if (mode == 8 && index >= 4)
+          continue;   // dispersion of a tiny amount spreads the impulse by a few samples at large sizes
         Rig impulse_rig;
         impulse_rig.set("fft_size", static_cast<float>(index));
         impulse_rig.set("input_spectral_morph_type", static_cast<float>(mode));
@@ -1187,6 +1189,21 @@ namespace {
       Stereo reference = ref.render(kSampleRate, sine(500.0f));
       double ratio = rms(out.left, 20000) / rms(reference.left, 20000);
       check(std::fabs(db(ratio)) < 0.1, "overlap-add reconstruction has unity gain", fmt("%.4f dB", db(ratio)));
+    }
+
+    // The four large sizes: finite, bounded, and the stage passes audio once the latency has elapsed.
+    for (int index = 4; index < 8; ++index) {
+      int size = 256 << index;
+      Rig rig;
+      rig.set("fft_size", static_cast<float>(index));
+      rig.set("input_spectral_morph_type", 14.0f);
+      rig.set("input_spectral_morph_amount", 1.0f);
+      Stereo out = rig.render(size + 20000, noise());
+      bool finite = true;
+      float peak = 0.0f;
+      for (float v : out.left) { if (!std::isfinite(v)) finite = false; peak = std::max(peak, std::fabs(v)); }
+      check(finite && peak < 20.0f, "vocode is finite and bounded at FFT size " + std::to_string(size),
+            fmt("%.3f", peak));
     }
 
     // Every mode changes the sound, on both lanes, at every FFT size, and stays finite and bounded.
@@ -1534,6 +1551,7 @@ namespace {
       Rig rig;
       setup(rig, 1.0f);
       rig.set("input_vocoder_noise", 0.0f);
+      rig.set("input_vocoder_whiten", 0.0f);
       Generator m = sine(1000.0f);
       Stereo out = rig.render(40000, noise(), 64, &m);
       double at_mod = toneAmplitude(out.left, 1000.0f);

@@ -32,7 +32,8 @@
 // are modulation targets; all six are host parameters.
 class VocoderEditor : public SynthSection {
   public:
-    static constexpr int kNumKnobs = 9;
+    static constexpr int kNumKnobs = 10;
+    static constexpr int kKnobsPerRow = 5;
 
     VocoderEditor() : SynthSection("vocoder_editor") {
       struct KnobInfo {
@@ -46,10 +47,11 @@ class VocoderEditor : public SynthSection {
         { "input_vocoder_attack", "ATTACK", "Attack: ", false },
         { "input_vocoder_release", "RELEASE", "Release: ", false },
         { "input_vocoder_formant", "FORMANT", "Formant: ", true },
-        { "input_vocoder_flatten", "FLATTEN", "Flatten: ", false },
-        { "input_vocoder_noise", "NOISE", "Noise: ", false },
-        { "input_vocoder_emphasis", "EMPHASIS", "Emphasis: ", false },
         { "input_vocoder_gate", "GATE", "Gate: ", false },
+        { "input_vocoder_flatten", "FLATTEN", "Flatten: ", false },
+        { "input_vocoder_whiten", "WHITEN", "Whiten: ", false },
+        { "input_vocoder_emphasis", "EMPHASIS", "Emphasis: ", false },
+        { "input_vocoder_noise", "NOISE", "Noise: ", false },
         { "input_vocoder_level", "LEVEL", "Level: ", true }
       };
 
@@ -88,6 +90,19 @@ class VocoderEditor : public SynthSection {
       g.drawText("VOCODER", margin * 2, margin, getWidth() / 2, title_height_, Justification::centredLeft);
       for (int i = 0; i < kNumKnobs; ++i)
         drawLabelForComponent(g, labels_[i], knobs_[i].get());
+
+      // Two groups, each a rounded panel with a heading: how the modulator is analysed, and how the result sounds.
+      static const char* kGroups[2] = { "ANALYSIS", "SOUND" };
+      for (int r = 0; r < 2; ++r) {
+        Rectangle<int> area = group_bounds_[r];
+        if (area.isEmpty())
+          continue;
+        g.setColour(findColour(Skin::kLightenScreen, true).withMultipliedAlpha(0.5f));
+        g.fillRoundedRectangle(area.toFloat(), margin);
+        g.setColour(findColour(Skin::kBodyText, true).withMultipliedAlpha(0.7f));
+        g.drawText(kGroups[r], area.getX() + margin, area.getY() + 2, area.getWidth() / 2, group_title_height_,
+                   Justification::centredLeft);
+      }
     }
 
     void resized() override {
@@ -99,11 +114,20 @@ class VocoderEditor : public SynthSection {
       close_button_->setBounds(getWidth() - margin - title_height_, margin, title_height_, title_height_);
 
       int top = margin + title_height_ + margin;
-      std::vector<Component*> row;
-      for (auto& knob : knobs_)
-        row.push_back(knob.get());
-      placeKnobsInArea(Rectangle<int>(0, top, getWidth(), getHeight() - top), row);
+      group_title_height_ = std::max(1, static_cast<int>(size_ratio_ * 18));
+      int rows = kNumKnobs / kKnobsPerRow;
+      int row_height = (getHeight() - top - margin * rows) / rows;
+      for (int r = 0; r < rows; ++r) {
+        group_bounds_[r] = Rectangle<int>(margin, top + r * (row_height + margin), getWidth() - 2 * margin,
+                                          row_height);
+        std::vector<Component*> row;
+        for (int i = 0; i < kKnobsPerRow; ++i)
+          row.push_back(knobs_[r * kKnobsPerRow + i].get());
+        Rectangle<int> knob_area = group_bounds_[r].withTrimmedTop(group_title_height_);
+        placeKnobsInArea(knob_area, row);
+      }
       SynthSection::resized();
+      repaintBackground();
     }
 
     void setVisible(bool should_be_visible) override {
@@ -128,6 +152,8 @@ class VocoderEditor : public SynthSection {
     std::unique_ptr<OpenGlShapeButton> close_button_;
     std::function<void(bool)> visibility_callback_;
     int title_height_ = 28;
+    int group_title_height_ = 18;
+    Rectangle<int> group_bounds_[2];
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(VocoderEditor)
 };

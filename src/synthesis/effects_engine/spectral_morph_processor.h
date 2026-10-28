@@ -81,6 +81,7 @@ namespace vital {
         kVocodeEmphasis,
         kVocodeGate,
         kVocodeLevel,
+        kVocodeWhiten,
         kNumInputs
       };
 
@@ -104,7 +105,7 @@ namespace vital {
       };
 
       static constexpr uint32_t kDefaultSeed = 4;
-      static constexpr int kNumFftSizes = 4;
+      static constexpr int kNumFftSizes = 8;
       static constexpr int kMinFftBits = 8;
       static constexpr int kMaxFftSize = 1 << (kMinFftBits + kNumFftSizes - 1);
       static constexpr int kDefaultFftIndex = 2;
@@ -151,6 +152,7 @@ namespace vital {
           channels_[c].history.assign(kHistoryFrames * (kMaxFftSize + 2), 0.0f);
           channels_[c].drift.assign(kMaxFftSize / 2 + 2, 0.0f);
           channels_[c].venv.assign(kMaxFftSize / 2 + 2, 0.0f);
+          channels_[c].vavg.assign(kMaxFftSize / 2 + 2, 0.0f);
         }
         work_.assign(2 * kMaxFftSize + 4, 0.0f);
         mod_work_.assign(2 * kMaxFftSize + 4, 0.0f);
@@ -232,6 +234,7 @@ namespace vital {
           vocode_emphasis_ = std::max(0.0f, std::min(input(kVocodeEmphasis)->source->buffer[0][0], 1.0f));
           vocode_gate_ = std::max(0.0f, std::min(input(kVocodeGate)->source->buffer[0][0], 1.0f));
           vocode_level_db_ = std::max(-12.0f, std::min(input(kVocodeLevel)->source->buffer[0][0], 24.0f));
+          vocode_whiten_ = std::max(0.0f, std::min(input(kVocodeWhiten)->source->buffer[0][0], 1.0f));
         }
         float dice = input(kDice)->source->buffer[0][0] > 0.5f ? 1.0f : 0.0f;
         if (dice_sync_ || last_dice_ < 0.0f) {
@@ -293,6 +296,9 @@ namespace vital {
         std::vector<float> history, drift;
         // Vocode: the follower level of each band.
         std::vector<float> venv;
+        // Vocode: the slow average level of each bin of the modulator (for the whitening).
+        std::vector<float> vavg;
+        bool vavg_valid = false;
         int write = 0;
         int read = 0;
         int history_pos = 0;
@@ -309,6 +315,8 @@ namespace vital {
           std::fill(ch.history.begin(), ch.history.end(), 0.0f);
           std::fill(ch.drift.begin(), ch.drift.end(), 0.0f);
           std::fill(ch.venv.begin(), ch.venv.end(), 0.0f);
+          std::fill(ch.vavg.begin(), ch.vavg.end(), 0.0f);
+          ch.vavg_valid = false;
           ch.history_pos = 0;
           ch.history_filled = 0;
           ch.write = 0;
@@ -781,6 +789,34 @@ namespace vital {
               env2_[k] *= open;
           }
 
+          // Whitening. A voice (or any real modulator) falls off steeply towards the highs, and a vocoder multiplies
+          // that onto a carrier that already falls off, which is what makes the result muffled. Each bin's level is
+          // compared with its own slow average (about a second) and the spectrum is tilted back towards its overall
+          // average, so quiet bands count as much as loud ones and what the modulator does *over time* in each
+          // band (the words) is kept. The gate keeps a silent modulator silent.
+          if (vocode_whiten_ > 0.0f) {
+            const float average_coef = expf(-static_cast<float>(n / kOverlap) / (sample_rate * 1.0f));
+            float* average = ch.vavg.data();
+            if (!ch.vavg_valid) {
+              for (int k = 0; k <= bins; ++k)
+                average[k] = env2_[k];
+              ch.vavg_valid = true;
+            }
+            const float eps = 1e-6f * std::max(whole_level, 1e-6f) + 1e-12f;
+            const int first = std::max(1, std::min(bins, static_cast<int>(100.0f / bin_width)));
+            const int last = std::max(first + 1, std::min(bins, static_cast<int>(12000.0f / bin_width)));
+            float log_sum = 0.0f;
+            for (int k = 0; k <= bins; ++k)
+              average[k] = env2_[k] + (average[k] - env2_[k]) * average_coef;
+            for (int k = first; k <= last; ++k)
+              log_sum += log2f(average[k] + eps);
+            const float centre = log_sum / (last - first + 1);
+            for (int k = 0; k <= bins; ++k) {
+              float tilt = (centre - log2f(average[k] + eps)) * vocode_whiten_;
+              env2_[k] *= exp2f(std::max(-2.0f, std::min(tilt, 3.0f)));   // at most 12 dB down / 18 dB up
+            }
+          }
+
           // Unvoiced sounds (s, f, sh, t): when the modulator has more energy in the highs than in the lows, its frame is
           // mostly noise, so the carrier's highs (a buzz) give way to hiss. Smoothed over a few frames.
           float unvoiced = 0.0f;
@@ -830,7 +866,7 @@ namespace vital {
               if (fade > 0.0f) {
                 vocode_rng_ = vocode_rng_ * 1664525u + 1013904223u;
                 float angle = (vocode_rng_ >> 8) * (2.0f * kPi_ / 16777216.0f);
-                float magnitude = 0.7f * vocode_noise_ * (1.0f + 2.5f * unvoiced) * fade * modulator_level * level_gain * depth;
+                float magnitude = 1.0f * vocode_noise_ * (1.0f + 2.5f * unvoiced) * fade * modulator_level * level_gain * depth;
                 re += magnitude * cosf(angle);
                 im += magnitude * sinf(angle);
               }
@@ -871,8 +907,9 @@ namespace vital {
       float vocode_release_ = 0.06f;
       float vocode_formant_ = 0.0f;
       float vocode_flatten_ = 0.5f;
-      float vocode_noise_ = 0.25f;
-      float vocode_emphasis_ = 0.3f;
+      float vocode_noise_ = 0.5f;
+      float vocode_emphasis_ = 0.5f;
+      float vocode_whiten_ = 0.5f;
       float vocode_gate_ = 0.0f;
       float vocode_level_db_ = 0.0f;
       float vocode_peak_ = 0.0f;

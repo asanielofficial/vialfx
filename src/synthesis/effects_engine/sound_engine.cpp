@@ -191,6 +191,7 @@ namespace vital {
     main_spectral->plug(createMonoModControl("input_vocoder_emphasis"), SpectralMorphProcessor::kVocodeEmphasis);
     main_spectral->plug(createMonoModControl("input_vocoder_gate"), SpectralMorphProcessor::kVocodeGate);
     main_spectral->plug(createMonoModControl("input_vocoder_level"), SpectralMorphProcessor::kVocodeLevel);
+    main_spectral->plug(createMonoModControl("input_vocoder_whiten"), SpectralMorphProcessor::kVocodeWhiten);
     addProcessor(main_spectral);
 
     // Drawn curves (Spectral Filter / Phaser / Flanger) and Random Amplitudes seeds, per lane.

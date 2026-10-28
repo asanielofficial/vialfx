@@ -434,12 +434,17 @@ class FftSettings : public SynthSection, private Timer {
       int y = title_width + widget_margin;
       int width = getWidth() - 2 * widget_margin;
       int text_height = std::max(1, static_cast<int>(findValue(Skin::kLabelBackgroundHeight)));
-      int button_height = std::max(1, getHeight() - y - text_height - 2 * widget_margin);
-      int button_width = (width - (kNumSizes - 1) * widget_margin) / kNumSizes;
-      for (int i = 0; i < kNumSizes; ++i)
-        buttons_[i]->setBounds(x + i * (button_width + widget_margin), y, button_width, button_height);
+      // Two rows of four: 256 .. 2048 on top, the larger sizes below.
+      int grid_height = std::max(1, getHeight() - y - text_height - 2 * widget_margin);
+      int button_height = std::max(1, (grid_height - (kNumRows - 1) * widget_margin) / kNumRows);
+      int button_width = (width - (kNumColumns - 1) * widget_margin) / kNumColumns;
+      for (int i = 0; i < kNumSizes; ++i) {
+        int column = i % kNumColumns, row = i / kNumColumns;
+        buttons_[i]->setBounds(x + column * (button_width + widget_margin),
+                               y + row * (button_height + widget_margin), button_width, button_height);
+      }
 
-      latency_text_->setBounds(x, y + button_height + widget_margin, width, text_height);
+      latency_text_->setBounds(x, y + grid_height + widget_margin, width, text_height);
       latency_text_->setTextSize(findValue(Skin::kLabelHeight));
       latency_text_->setColor(findColour(Skin::kBodyText, true));
     }
@@ -465,7 +470,9 @@ class FftSettings : public SynthSection, private Timer {
     }
 
   private:
-    static constexpr int kNumSizes = 4;
+    static constexpr int kNumColumns = 4;
+    static constexpr int kNumRows = 2;
+    static constexpr int kNumSizes = kNumColumns * kNumRows;
 
     void timerCallback() override {
       SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
@@ -751,7 +758,7 @@ void MasterControlsInterface::resized() {
   int display_height = getTitleWidth() + getWidgetMargin() + 1.5 * getKnobSectionHeight();
   int oversample_height = settings_height - display_height - padding;
 #if VITAL_FX
-  int fft_height = display_height;
+  int fft_height = static_cast<int>(display_height * 1.5f);   // two rows of size buttons
   oversample_height -= fft_height + padding;
 #endif
 

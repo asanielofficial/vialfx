@@ -353,7 +353,7 @@ namespace vital {
       ValueDetails::kLinear, false, " st", "Vocoder Formant", nullptr },
     { "input_vocoder_flatten", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Vocoder Flatten", nullptr },
-    { "input_vocoder_noise", 0x000000, 0.0, 1.0, 0.25, 0.0, 100.0,
+    { "input_vocoder_noise", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Vocoder Noise", nullptr },
     // Detail controls of the drawable spectral modes (Filter, Phaser, Flanger); 50% is the standard behaviour. Gain is
     // the output level (0 .. 2x); density, resonance and spread mean different things per mode (see the spectral
@@ -384,7 +384,9 @@ namespace vital {
     { "sidechain_spectral_phase", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Sidechain Spectral Phase", nullptr },
     // More vocoder settings: pre-emphasis of the modulator's highs, a gate under the modulator's peak, output level (dB).
-    { "input_vocoder_emphasis", 0x000000, 0.0, 1.0, 0.3, 0.0, 100.0,
+    { "input_vocoder_whiten", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Vocoder Whiten", nullptr },
+    { "input_vocoder_emphasis", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Vocoder Emphasis", nullptr },
     { "input_vocoder_gate", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Vocoder Gate", nullptr },
@@ -392,7 +394,7 @@ namespace vital {
       ValueDetails::kLinear, false, " dB", "Vocoder Level", nullptr },
     // FFT size of the spectral stage: 256 / 512 / 1024 / 2048. Also its latency in samples, which is
     // reported to the host.
-    { "fft_size", 0x000000, 0.0, 3.0, 2.0, 0.0, 1.0,
+    { "fft_size", 0x000000, 0.0, 7.0, 2.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "FFT Size", strings::kFftSizeNames },
     { "input_on", 0x000000, 0.0, 1.0, 1.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Input Switch", strings::kOffOnNames },
