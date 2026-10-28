@@ -374,6 +374,22 @@ namespace vital {
       ValueDetails::kLinear, false, "%", "Sidechain Spectral Resonance", nullptr },
     { "sidechain_spectral_spread", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Sidechain Spectral Spread", nullptr },
+    // Spectral Flanger: depth of the notches (50% = 80%) and the comb's phase offset (0 = positive, 50% = negative).
+    { "input_spectral_depth", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Input Spectral Depth", nullptr },
+    { "input_spectral_phase", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Input Spectral Phase", nullptr },
+    { "sidechain_spectral_depth", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Sidechain Spectral Depth", nullptr },
+    { "sidechain_spectral_phase", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Sidechain Spectral Phase", nullptr },
+    // More vocoder settings: pre-emphasis of the modulator's highs, a gate under the modulator's peak, output level (dB).
+    { "input_vocoder_emphasis", 0x000000, 0.0, 1.0, 0.3, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Vocoder Emphasis", nullptr },
+    { "input_vocoder_gate", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Vocoder Gate", nullptr },
+    { "input_vocoder_level", 0x000000, -12.0, 24.0, 0.0, 0.0, 1.0,
+      ValueDetails::kLinear, false, " dB", "Vocoder Level", nullptr },
     // FFT size of the spectral stage: 256 / 512 / 1024 / 2048. Also its latency in samples, which is
     // reported to the host.
     { "fft_size", 0x000000, 0.0, 3.0, 2.0, 0.0, 1.0,

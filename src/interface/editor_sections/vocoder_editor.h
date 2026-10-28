@@ -32,7 +32,7 @@
 // are modulation targets; all six are host parameters.
 class VocoderEditor : public SynthSection {
   public:
-    static constexpr int kNumKnobs = 6;
+    static constexpr int kNumKnobs = 9;
 
     VocoderEditor() : SynthSection("vocoder_editor") {
       struct KnobInfo {
@@ -47,7 +47,10 @@ class VocoderEditor : public SynthSection {
         { "input_vocoder_release", "RELEASE", "Release: ", false },
         { "input_vocoder_formant", "FORMANT", "Formant: ", true },
         { "input_vocoder_flatten", "FLATTEN", "Flatten: ", false },
-        { "input_vocoder_noise", "NOISE", "Noise: ", false }
+        { "input_vocoder_noise", "NOISE", "Noise: ", false },
+        { "input_vocoder_emphasis", "EMPHASIS", "Emphasis: ", false },
+        { "input_vocoder_gate", "GATE", "Gate: ", false },
+        { "input_vocoder_level", "LEVEL", "Level: ", true }
       };
 
       for (int i = 0; i < kNumKnobs; ++i) {

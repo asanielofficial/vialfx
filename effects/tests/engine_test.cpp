@@ -1446,6 +1446,8 @@ namespace {
     }
   }
 
+  void drawCurve(Rig& rig, int lane, int which, const std::function<float(float)>& f);
+
   void testDrawableDetails() {
     std::printf("\n== Drawable modes: detail controls ==\n");
     auto render = [&](int mode, const char* name, float value) {
@@ -1473,6 +1475,29 @@ namespace {
             std::string(names[i]) + ": density and resonance change the sound",
             fmt("density %.1f dB, resonance %.1f dB", density, resonance));
     }
+    // The flanger's drawing is the delay per frequency: a ramp bends the comb, a flat line leaves a plain comb.
+    {
+      auto drawn = [&](bool ramp) {
+        Rig rig;
+        rig.set("input_spectral_morph_type", 13.0f);
+        rig.set("input_spectral_morph_amount", 1.0f);
+        drawCurve(rig, 0, 2, [&](float x) { return ramp ? x : 0.5f; });
+        return rig.render(40000, noise());
+      };
+      Stereo flat = drawn(false), bent = drawn(true);
+      double distance = spectrumDistance(flat.left, bent.left, 20000);
+      check(flat.finite() && bent.finite() && distance > 3.0, "Spectral Flanger: the drawing bends the comb (delay per frequency)",
+            fmt("%.1f dB", distance));
+    }
+
+    // Flanger phase: 50% is the negative (through-zero) comb, which differs from the positive one.
+    {
+      Stereo positive = render(13, "input_spectral_phase", 0.0f), negative = render(13, "input_spectral_phase", 0.5f);
+      double distance = spectrumDistance(positive.left, negative.left, 20000);
+      check(positive.finite() && negative.finite() && distance > 3.0, "Spectral Flanger: phase flips the comb",
+            fmt("%.1f dB", distance));
+    }
+
     // Flanger spread: a mono source gets different left and right channels.
     {
       auto mono_render = [&](float spread) {
@@ -1832,31 +1857,59 @@ namespace {
       (void) variation;
     }
 
-    // Spectral Flanger: depth 0 drawn = clean; full depth drawn = a comb that changes the sound.
+    // Spectral Flanger: depth 0 = clean; full depth = a comb that changes the sound; the drawing bends the comb.
     {
       Rig reference;
       Stereo ref = reference.render(40000, noise());
       Rig clean;
       clean.set("input_spectral_morph_type", 13.0f);
       clean.set("input_spectral_morph_amount", 1.0f);
-      drawCurve(clean, 0, 2, [](float) { return 0.0f; });
+      clean.set("input_spectral_depth", 0.0f);
       Stereo clean_out = clean.render(40000, noise());
       double diff = 0.0;
       for (size_t i = 20000; i < ref.left.size(); ++i)
         diff = std::max(diff, static_cast<double>(std::fabs(clean_out.left[i] - ref.left[i])));
-      check(diff < 1e-3, "Spectral Flanger with zero drawn depth leaves the sound alone", fmt("max diff %.6f", diff));
+      check(diff < 1e-3, "Spectral Flanger with zero depth leaves the sound alone", fmt("max diff %.6f", diff));
 
       Rig comb;
       comb.set("input_spectral_morph_type", 13.0f);
-      comb.set("input_spectral_morph_amount", 1.0f);
-      drawCurve(comb, 0, 2, [](float) { return 1.0f; });
+      comb.set("input_spectral_morph_amount", 0.5f);
+      comb.set("input_spectral_depth", 1.0f);
       Stereo comb_out = comb.render(40000, noise());
       double change = 0.0;
       for (size_t i = 20000; i < ref.left.size(); ++i)
         change += std::pow(static_cast<double>(comb_out.left[i]) - ref.left[i], 2.0);
       change = std::sqrt(change / 20000.0);
-      check(comb_out.finite() && comb_out.peak() < 3.0f && change > 0.03, "Spectral Flanger with full drawn depth combs the sound",
+      check(comb_out.finite() && comb_out.peak() < 3.0f && change > 0.03, "Spectral Flanger with full depth combs the sound",
             fmt("rms difference %.4f", change));
+
+      // The drawing bends the comb: a ramp of delay times sounds different from the flat curve.
+      Rig flat;
+      flat.set("input_spectral_morph_type", 13.0f);
+      flat.set("input_spectral_morph_amount", 1.0f);
+      Stereo flat_out = flat.render(40000, noise());
+      Rig bent;
+      bent.set("input_spectral_morph_type", 13.0f);
+      bent.set("input_spectral_morph_amount", 1.0f);
+      drawCurve(bent, 0, 2, [](float x) { return 1.0f - x; });
+      Stereo bent_out = bent.render(40000, noise());
+      double bend = spectrumDistance(bent_out.left, flat_out.left, 20000);
+      check(bent_out.finite() && bend > 1.0, "Spectral Flanger: the drawn delay curve bends the comb", fmt("%.1f dB", bend));
+
+      // Taps and phase change the sound; phase 50% (negative comb) differs from 0.
+      auto variant = [&](const char* name, float value) {
+        Rig rig;
+        rig.set("input_spectral_morph_type", 13.0f);
+        rig.set("input_spectral_morph_amount", 0.5f);
+        rig.set(name, value);
+        return rig.render(40000, noise());
+      };
+      Stereo one = variant("input_spectral_density", 0.0f), four = variant("input_spectral_density", 1.0f);
+      Stereo plus = variant("input_spectral_phase", 0.0f), minus = variant("input_spectral_phase", 0.5f);
+      check(spectrumDistance(one.left, four.left, 20000) > 1.0 && spectrumDistance(plus.left, minus.left, 20000) > 1.0 &&
+            four.finite() && minus.finite() && four.peak() < 6.0f,
+            "Spectral Flanger: taps and phase change the comb", fmt("%.1f / %.1f dB", spectrumDistance(one.left, four.left, 20000),
+            spectrumDistance(plus.left, minus.left, 20000)));
     }
 
     // Changing mode, FFT size and curves while running stays finite.

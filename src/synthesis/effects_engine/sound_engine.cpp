@@ -163,6 +163,8 @@ namespace vital {
     sidechain_spectral->plug(createMonoModControl("sidechain_spectral_density"), SpectralMorphProcessor::kDensity);
     sidechain_spectral->plug(createMonoModControl("sidechain_spectral_resonance"), SpectralMorphProcessor::kResonance);
     sidechain_spectral->plug(createMonoModControl("sidechain_spectral_spread"), SpectralMorphProcessor::kSpread);
+    sidechain_spectral->plug(createMonoModControl("sidechain_spectral_depth"), SpectralMorphProcessor::kDepth);
+    sidechain_spectral->plug(createMonoModControl("sidechain_spectral_phase"), SpectralMorphProcessor::kPhase);
     addProcessor(sidechain_spectral);
 
     SpectralMorphProcessor* main_spectral = new SpectralMorphProcessor(true);
@@ -177,6 +179,8 @@ namespace vital {
     main_spectral->plug(createMonoModControl("input_spectral_density"), SpectralMorphProcessor::kDensity);
     main_spectral->plug(createMonoModControl("input_spectral_resonance"), SpectralMorphProcessor::kResonance);
     main_spectral->plug(createMonoModControl("input_spectral_spread"), SpectralMorphProcessor::kSpread);
+    main_spectral->plug(createMonoModControl("input_spectral_depth"), SpectralMorphProcessor::kDepth);
+    main_spectral->plug(createMonoModControl("input_spectral_phase"), SpectralMorphProcessor::kPhase);
     main_spectral->plug(sidechain_gate, SpectralMorphProcessor::kModulator);
     main_spectral->plug(createBaseControl("input_vocoder_bands"), SpectralMorphProcessor::kVocodeBands);
     main_spectral->plug(createBaseControl("input_vocoder_attack"), SpectralMorphProcessor::kVocodeAttack);
@@ -184,6 +188,9 @@ namespace vital {
     main_spectral->plug(createMonoModControl("input_vocoder_formant"), SpectralMorphProcessor::kVocodeFormant);
     main_spectral->plug(createMonoModControl("input_vocoder_flatten"), SpectralMorphProcessor::kVocodeFlatten);
     main_spectral->plug(createMonoModControl("input_vocoder_noise"), SpectralMorphProcessor::kVocodeNoise);
+    main_spectral->plug(createMonoModControl("input_vocoder_emphasis"), SpectralMorphProcessor::kVocodeEmphasis);
+    main_spectral->plug(createMonoModControl("input_vocoder_gate"), SpectralMorphProcessor::kVocodeGate);
+    main_spectral->plug(createMonoModControl("input_vocoder_level"), SpectralMorphProcessor::kVocodeLevel);
     addProcessor(main_spectral);
 
     // Drawn curves (Spectral Filter / Phaser / Flanger) and Random Amplitudes seeds, per lane.
@@ -438,12 +445,12 @@ namespace vital {
       status_source.second->update();
   }
 
-  // Flat gain, a rising phase ramp and a flat 70% comb depth: the starting point of each drawable mode.
+  // Flat gain, a rising phase ramp and a flat (x1) comb delay: the starting point of each drawable mode.
   void SoundEngine::resetSpectralCurve(int lane, int index) {
     LineGenerator* curve = spectral_curves_[lane][index].get();
     curve->initLinear();
     if (index != 1) {
-      float level = index == 0 ? 0.5f : 0.7f;
+      float level = 0.5f;
       curve->setNumPoints(2);
       // (a line generator point is upside down: its value is 1 - y)
       curve->setPoint(0, { 0.0f, 1.0f - level });

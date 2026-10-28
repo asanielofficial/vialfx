@@ -29,7 +29,7 @@ It is built from GPLv3 synthesizer source code (see [NOTICE.md](NOTICE.md) for t
   Amplitudes, Low Pass, High Pass, Phase Disperse (a strong two-way disperser: up delays the highs, down
   delays the lows, turning clicks into sweeps), Shepard Tone, Spectral Time Skew (a frequency-dependent group delay of up to 16 frames:
   the highs lag behind the lows), three drawable modes (below), and on the main input only Vocode, which imposes the sidechain lane's spectral envelope on
-  the main lane. Formant Scale, Harmonic/Inharmonic Stretch, Phase Disperse and Vocode are bipolar (knob
+  the main lane (a cross-synthesis vocoder: constant-Q envelopes with a fast short-window analysis of the highs, per-bin attack/release, formant shift, carrier flatten, modulator emphasis, gate, level, and automatic unvoiced-sound handling that swaps the carrier's highs for hiss; settings in the Vocoder menu). Formant Scale, Harmonic/Inharmonic Stretch, Phase Disperse are bipolar (knob
   centre is neutral). The FFT size is set on the ADVANCED tab (256, 512, 1024 default, 2048) with a live
   latency readout. The stage always delays the audio by one FFT size, whatever the mode, so the latency is
   constant; it is reported to the host for delay compensation and both lanes stay aligned.
@@ -39,9 +39,9 @@ It is built from GPLv3 synthesizer source code (see [NOTICE.md](NOTICE.md) for t
   is a modulation target: drag an LFO or any source onto
   it to walk smoothly through a chain of patterns derived from the seed. The pattern is the same in Hz at every
   FFT size. Spectral Filter (a resonant gain curve), Spectral Phaser (a resonant phaser whose notches follow the curve) and
-  Spectral Flanger (a regenerating, stereo-spread comb whose depth follows the curve; Position sweeps its delay) have a pencil button that docks a curve editor over the filters, drawn like
+  Spectral Flanger (a bank of regenerating combs whose delay time per frequency is the curve, so a drawn ramp or bump bends the comb; Position sweeps the delay) have a pencil button that docks a curve editor over the filters, drawn like
   the LFO editor (paint brush and patterns, grid sizes, smoothing, shape selector, frequency on a log axis from
-  20 Hz to 20 kHz; the shape menu also saves and opens your own shapes). A bar of detail controls under the position slider (gain, plus width/peak for the filter, notches/resonance for the phaser, tilt/resonance/spread for the flanger) is made of modulation targets too, and the curve's right-click menu has Import Shape / Export Shape. A position slider along its bottom is a modulation target as well (for Spectral Filter it transposes the drawn curve up and down in frequency by up to four octaves). The spectral knob of
+  20 Hz to 20 kHz; the shape menu also saves and opens your own shapes). A bar of detail controls under the position slider (gain, plus width/peak for the filter, notches/resonance for the phaser, taps/resonance/spread/depth/phase for the flanger) is made of modulation targets too, and the curve's right-click menu has Import Shape / Export Shape. A position slider along its bottom is a modulation target as well (for Spectral Filter it transposes the drawn curve up and down in frequency by up to four octaves). The spectral knob of
   these three modes is bipolar: the centre is the automatic behaviour, up morphs to your drawn curve and down
   to the curve flipped upside down. The curves and the dice seed are saved with each lane in the preset, not as
   parameters, so they cannot be automated (the dice switch and the shuffle bar are the automatable controls).

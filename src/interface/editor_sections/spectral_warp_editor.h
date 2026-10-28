@@ -91,7 +91,7 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
     static constexpr int kTextHeight = 14;
     static constexpr int kSliderHeight = 16;
     static constexpr int kNumCurves = 3;
-    static constexpr int kNumDetails = 4;
+    static constexpr int kNumDetails = 6;
     static constexpr int kDefaultGridSizeX = 8;
     static constexpr int kDefaultGridSizeY = 4;
 
@@ -184,7 +184,7 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
 
       // The detail bar under the position slider: gain, and up to three controls whose meaning depends on the mode.
       // Each is a modulation target (parameters <lane>_spectral_gain / _density / _resonance / _spread).
-      static const char* kDetailParameters[kNumDetails] = { "gain", "density", "resonance", "spread" };
+      static const char* kDetailParameters[kNumDetails] = { "gain", "density", "resonance", "spread", "depth", "phase" };
       for (int lane = 0; lane < 2; ++lane) {
         for (int i = 0; i < kNumDetails; ++i) {
           std::string name = std::string(lane == 0 ? "input" : "sidechain") + "_spectral_" + kDetailParameters[i];
@@ -194,7 +194,7 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
           slider->setSliderStyle(Slider::LinearBar);
           slider->setPopupPlacement(BubbleComponent::above);
           slider->setModulationPlacement(BubbleComponent::above);
-          slider->setDoubleClickReturnValue(true, 0.5);
+          slider->setDoubleClickReturnValue(true, i == 5 ? 0.0 : 0.5);
           slider->setVisible(false);
         }
       }
@@ -233,9 +233,9 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
 
       // What the detail controls are called in each mode ("" = unused).
       static const char* kDetailNames[kNumCurves][kNumDetails] = {
-        { "Gain", "Width", "Peak", "" },
-        { "Gain", "Notches", "Resonance", "" },
-        { "Gain", "Tilt", "Resonance", "Spread" }
+        { "Gain", "Width", "Peak", "", "", "" },
+        { "Gain", "Notches", "Resonance", "", "", "" },
+        { "Gain", "Taps", "Resonance", "Spread", "Depth", "Phase" }
       };
       for (int i = 0; i < kNumDetails; ++i) {
         detail_labels_[i]->setText(kDetailNames[curve_][i]);
@@ -251,8 +251,8 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
           editors_[l][c]->setVisible(l == lane_ && c == curve_);
       }
 
-      static const char* kTop[kNumCurves] = { "+48 dB", "6 turns", "100%" };
-      static const char* kBottom[kNumCurves] = { "-48 dB", "none", "0%" };
+      static const char* kTop[kNumCurves] = { "+48 dB", "6 turns", "4x delay" };
+      static const char* kBottom[kNumCurves] = { "-48 dB", "none", "1/4 delay" };
       preset_selector_->setText(shape_names_[lane_][curve_]);
       top_label_->setText(kTop[curve_]);
       bottom_label_->setText(kBottom[curve_]);
@@ -329,7 +329,7 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
         slider->setBounds(margin, slider_y, getWidth() - 2 * margin, slider_height);
 
       // The detail bar: the used controls share the width, each with its name to the left.
-      int num_details = curve_ == kNumCurves - 1 ? kNumDetails : kNumDetails - 1;
+      int num_details = curve_ == kNumCurves - 1 ? kNumDetails : 3;
       int cell_width = (getWidth() - 2 * margin) / num_details;
       int label_width = size_ratio_ * 70;
       for (int i = 0; i < kNumDetails; ++i) {
@@ -417,7 +417,7 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
         setVisible(false);
       else if (clicked_button == reset_button_.get()) {
         engine_->resetSpectralCurve(lane_, curve_);
-        static const char* kDefaultNames[kNumCurves] = { "Flat", "Ramp Up", "Flat 70%" };
+        static const char* kDefaultNames[kNumCurves] = { "Flat", "Ramp Up", "Flat" };
         shape_names_[lane_][curve_] = kDefaultNames[curve_];
         current_file_[lane_][curve_] = File();
         preset_selector_->setText(shape_names_[lane_][curve_]);
@@ -501,13 +501,15 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
         { "Zigzag", { { 0.0f, 0.0f }, { 0.25f, 1.0f }, { 0.5f, 0.0f }, { 0.75f, 1.0f }, { 1.0f, 0.0f } } },
         { "Steps", { { 0.0f, 0.2f }, { 0.33f, 0.2f }, { 0.34f, 0.5f }, { 0.66f, 0.5f }, { 0.67f, 0.9f }, { 1.0f, 0.9f } } }
       };
+      // The flanger's drawing is the delay time per frequency: the middle is x1, the top 4x, the bottom 1/4.
       static const std::vector<Shape> kFlanger = {
-        { "Flat 70%", { { 0.0f, 0.7f }, { 1.0f, 0.7f } } },
-        { "Full", { { 0.0f, 1.0f }, { 1.0f, 1.0f } } },
-        { "Low Heavy", { { 0.0f, 1.0f }, { 1.0f, 0.2f } } },
-        { "High Heavy", { { 0.0f, 0.2f }, { 1.0f, 1.0f } } },
-        { "Dip", { { 0.0f, 0.9f }, { 0.5f, 0.1f }, { 1.0f, 0.9f } } },
-        { "Alternating", { { 0.0f, 1.0f }, { 0.2f, 0.1f }, { 0.4f, 1.0f }, { 0.6f, 0.1f }, { 0.8f, 1.0f }, { 1.0f, 0.1f } } }
+        { "Flat", { { 0.0f, 0.5f }, { 1.0f, 0.5f } } },
+        { "Highs Fast", { { 0.0f, 0.75f }, { 1.0f, 0.25f } } },
+        { "Highs Slow", { { 0.0f, 0.25f }, { 1.0f, 0.75f } } },
+        { "Pinch", { { 0.0f, 0.5f }, { 0.5f, 0.95f }, { 1.0f, 0.5f } } },
+        { "Hollow", { { 0.0f, 0.5f }, { 0.5f, 0.05f }, { 1.0f, 0.5f } } },
+        { "Wobble", { { 0.0f, 0.5f }, { 0.2f, 0.8f }, { 0.4f, 0.2f }, { 0.6f, 0.8f }, { 0.8f, 0.2f }, { 1.0f, 0.5f } } },
+        { "Steps", { { 0.0f, 0.2f }, { 0.33f, 0.2f }, { 0.34f, 0.5f }, { 0.66f, 0.5f }, { 0.67f, 0.8f }, { 1.0f, 0.8f } } }
       };
       return curve == 0 ? kFilter : curve == 1 ? kPhaser : kFlanger;
     }
@@ -532,6 +534,16 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
         File factory = shapeDirectoryFor(curve).getChildFile("Factory");
         if (!factory.exists())
           factory.createDirectory();
+        // Drop ready-made files an earlier version wrote that are no longer in the list.
+        Array<File> existing;
+        factory.findChildFiles(existing, File::findFiles, false, String("*.") + shapeExtension());
+        for (const File& old : existing) {
+          bool known = false;
+          for (const Shape& shape : shapesFor(curve))
+            known = known || old.getFileNameWithoutExtension() == String(shape.name);
+          if (!known)
+            old.deleteFile();
+        }
         for (const Shape& shape : shapesFor(curve)) {
           File file = factory.getChildFile(String(shape.name) + "." + shapeExtension());
           if (file.existsAsFile())
@@ -637,7 +649,7 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
     std::unique_ptr<SynthSlider> grid_size_y_;
     std::unique_ptr<OpenGlShapeButton> smooth_;
     std::unique_ptr<PresetSelector> preset_selector_;
-    std::string shape_names_[2][kNumCurves] = { { "Flat", "Ramp Up", "Flat 70%" }, { "Flat", "Ramp Up", "Flat 70%" } };
+    std::string shape_names_[2][kNumCurves] = { { "Flat", "Ramp Up", "Flat" }, { "Flat", "Ramp Up", "Flat" } };
     std::unique_ptr<PlainTextComponent> axis_[kNumAxisLabels];
     std::unique_ptr<PlainTextComponent> top_label_;
     std::unique_ptr<PlainTextComponent> bottom_label_;
