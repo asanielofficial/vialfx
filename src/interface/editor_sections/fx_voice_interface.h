@@ -58,6 +58,14 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
         filter_section_1_->setVisible(!shown);
         filter_section_2_->setVisible(!shown);
       });
+      vocoder_editor_ = std::make_unique<VocoderEditor>();
+      addSubSection(vocoder_editor_.get());
+      vocoder_editor_->setVisible(false);
+      vocoder_editor_->setVisibilityCallback([this](bool shown) {
+        filter_section_1_->setVisible(!shown);
+        filter_section_2_->setVisible(!shown);
+      });
+      main_input_->setVocoderEditor(vocoder_editor_.get());
       main_input_->setSpectralEditor(spectral_editor_.get());
       sidechain_input_->setSpectralEditor(spectral_editor_.get());
 
@@ -90,6 +98,7 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
       filter_section_1_->setBounds(0, filter_y, width_left, filter_height);
       filter_section_2_->setBounds(width_left + padding, filter_y, width_right, filter_height);
       spectral_editor_->setBounds(0, filter_y, getWidth(), filter_height);
+      vocoder_editor_->setBounds(0, filter_y, getWidth(), filter_height);
       SynthSection::resized();
     }
 
@@ -129,6 +138,7 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
     std::unique_ptr<FilterSection> filter_section_1_;
     std::unique_ptr<FilterSection> filter_section_2_;
     std::unique_ptr<SpectralWarpEditor> spectral_editor_;
+    std::unique_ptr<VocoderEditor> vocoder_editor_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FxVoiceInterface)
 };

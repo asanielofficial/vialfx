@@ -24,6 +24,7 @@
 #include "skin.h"
 #include "sound_engine.h"
 #include "spectral_warp_editor.h"
+#include "vocoder_editor.h"
 #include "synth_button.h"
 #include "synth_constants.h"
 #include "synth_gui_interface.h"
@@ -181,6 +182,7 @@ class FxInputSection : public SynthSection {
 
     // The popup that draws the Spectral Filter / Phaser / Flanger curves (owned by the full interface).
     void setSpectralEditor(SpectralWarpEditor* editor) { spectral_editor_ = editor; }
+    void setVocoderEditor(VocoderEditor* editor) { vocoder_editor_ = editor; }
 
     int getDestination() const { return current_destination_; }
 
@@ -409,6 +411,7 @@ class FxInputSection : public SynthSection {
     }
 
     static constexpr int kRandomAmplitudesMode = 5;
+    static constexpr int kVocodeMode = 14;
     static constexpr int kFirstDrawableMode = 11;  // Spectral Filter, Phaser, Flanger
 
     // A die: a rounded square with five holes.
@@ -422,6 +425,9 @@ class FxInputSection : public SynthSection {
       return path;
     }
 
+    // Vocode (the last mode) exists on the main input only; its settings open in the Vocoder menu.
+    bool isVocodeMode() const { return current_spectral_ == kVocodeMode && vocoder_editor_ != nullptr; }
+
     bool isDrawableMode() const {
       return current_spectral_ >= kFirstDrawableMode && current_spectral_ < kFirstDrawableMode + 3;
     }
@@ -429,7 +435,7 @@ class FxInputSection : public SynthSection {
     // Dice for Random Amplitudes, pencil for the three drawable modes, nothing for the rest.
     void updateToolButton() {
       bool dice = current_spectral_ == kRandomAmplitudesMode;
-      tool_button_->setVisible(dice || isDrawableMode());
+      tool_button_->setVisible(dice || isDrawableMode() || isVocodeMode());
       shuffle_->setVisible(dice);
       resized();
       repaintBackground();   // the knob shadow is part of the cached background and follows the knob
@@ -437,6 +443,8 @@ class FxInputSection : public SynthSection {
         tool_button_->setShape(dicePath());
       else if (isDrawableMode())
         tool_button_->setShape(Paths::pencil());
+      else if (isVocodeMode())
+        tool_button_->setShape(Paths::gear());
     }
 
     int lane() const { return prefix_ == "input" ? 0 : 1; }
@@ -458,6 +466,8 @@ class FxInputSection : public SynthSection {
       }
       else if (isDrawableMode() && spectral_editor_)
         spectral_editor_->showCurve(lane(), current_spectral_ - kFirstDrawableMode);
+      else if (isVocodeMode() && vocoder_editor_)
+        vocoder_editor_->setVisible(true);
     }
 
     void updateSpectralKnob() {
@@ -536,6 +546,7 @@ class FxInputSection : public SynthSection {
     int current_warp_ = 0;
     int current_spectral_ = 0;
     SpectralWarpEditor* spectral_editor_ = nullptr;
+    VocoderEditor* vocoder_editor_ = nullptr;
     Rectangle<int> spectral_label_bounds_;
     bool memory_connected_ = false;
     std::vector<Listener*> listeners_;
