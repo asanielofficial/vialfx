@@ -56,6 +56,8 @@ class LineEditor : public OpenGlLineRenderer, public TextEditor::Listener {
       kInit,
       kFlipHorizontal,
       kFlipVertical,
+      kImportShape,
+      kExportShape,
       kNumMenuOptions
     };
 
@@ -143,6 +145,8 @@ class LineEditor : public OpenGlLineRenderer, public TextEditor::Listener {
     void textEditorEscapeKeyPressed(TextEditor& editor) override;
     void setSliderPositionFromText();
     void setAllowFileLoading(bool allow) { allow_file_loading_ = allow; }
+    // Adds "Import Shape" and "Export Shape" to the right-click menu (they call the listeners' importLfo/exportLfo).
+    void setAllowImportExport(bool allow) { allow_import_export_ = allow; }
 
     void addListener(Listener* listener) { listeners_.push_back(listener); }
     void setActive(bool active) { active_ = active; }
@@ -206,6 +210,7 @@ class LineEditor : public OpenGlLineRenderer, public TextEditor::Listener {
     bool dragging_;
     bool reset_positions_;
     bool allow_file_loading_;
+    bool allow_import_export_ = false;
     Point<float> last_mouse_position_;
     int last_model_render_;
     bool loop_;

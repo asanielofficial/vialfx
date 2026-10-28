@@ -355,6 +355,25 @@ namespace vital {
       ValueDetails::kLinear, false, "%", "Vocoder Flatten", nullptr },
     { "input_vocoder_noise", 0x000000, 0.0, 1.0, 0.25, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Vocoder Noise", nullptr },
+    // Detail controls of the drawable spectral modes (Filter, Phaser, Flanger); 50% is the standard behaviour. Gain is
+    // the output level (0 .. 2x); density, resonance and spread mean different things per mode (see the spectral
+    // morph processor). All are modulation targets.
+    { "input_spectral_gain", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Input Spectral Gain", nullptr },
+    { "input_spectral_density", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Input Spectral Density", nullptr },
+    { "input_spectral_resonance", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Input Spectral Resonance", nullptr },
+    { "input_spectral_spread", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Input Spectral Spread", nullptr },
+    { "sidechain_spectral_gain", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Sidechain Spectral Gain", nullptr },
+    { "sidechain_spectral_density", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Sidechain Spectral Density", nullptr },
+    { "sidechain_spectral_resonance", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Sidechain Spectral Resonance", nullptr },
+    { "sidechain_spectral_spread", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Sidechain Spectral Spread", nullptr },
     // FFT size of the spectral stage: 256 / 512 / 1024 / 2048. Also its latency in samples, which is
     // reported to the host.
     { "fft_size", 0x000000, 0.0, 3.0, 2.0, 0.0, 1.0,

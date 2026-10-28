@@ -84,13 +84,14 @@ class SpectralCurveEditor : public LineEditor {
 // The position slider is an ordinary modulatable parameter: drag an LFO (or any source) onto it. What it moves
 // depends on the mode: the frequency of the swept filter, how far the phase curve is applied, the flanger delay.
 // The curves are stored per lane in the preset.
-class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener {
+class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener, public LineEditor::Listener {
   public:
     static constexpr int kPadding = 8;
     static constexpr int kTopHeight = 28;
     static constexpr int kTextHeight = 14;
     static constexpr int kSliderHeight = 16;
     static constexpr int kNumCurves = 3;
+    static constexpr int kNumDetails = 4;
     static constexpr int kDefaultGridSizeX = 8;
     static constexpr int kDefaultGridSizeY = 4;
 
@@ -104,7 +105,9 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
           editor->setGridSizeX(kDefaultGridSizeX);
           editor->setGridSizeY(kDefaultGridSizeY);
           editor->setLoop(false);
-          editor->setAllowFileLoading(false);
+          editor->setAllowFileLoading(true);
+          editor->setAllowImportExport(true);
+          editor->addListener(this);
           editor->setPaintPattern(LfoSection::getPaintPattern(LfoSection::kDown));
           addOpenGlComponent(editor);
           addOpenGlComponent(editor->getTextEditorComponent());
@@ -179,21 +182,35 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
         slider->setVisible(false);
       }
 
+      // The detail bar under the position slider: gain, and up to three controls whose meaning depends on the mode.
+      // Each is a modulation target (parameters <lane>_spectral_gain / _density / _resonance / _spread).
+      static const char* kDetailParameters[kNumDetails] = { "gain", "density", "resonance", "spread" };
+      for (int lane = 0; lane < 2; ++lane) {
+        for (int i = 0; i < kNumDetails; ++i) {
+          std::string name = std::string(lane == 0 ? "input" : "sidechain") + "_spectral_" + kDetailParameters[i];
+          detail_[lane][i] = std::make_unique<SynthSlider>(name);
+          SynthSlider* slider = detail_[lane][i].get();
+          addSlider(slider);
+          slider->setSliderStyle(Slider::LinearBar);
+          slider->setPopupPlacement(BubbleComponent::above);
+          slider->setModulationPlacement(BubbleComponent::above);
+          slider->setDoubleClickReturnValue(true, 0.5);
+          slider->setVisible(false);
+        }
+      }
+      for (int i = 0; i < kNumDetails; ++i) {
+        detail_labels_[i] = std::make_unique<PlainTextComponent>("Detail", "");
+        addOpenGlComponent(detail_labels_[i].get());
+        detail_labels_[i]->setFontType(PlainTextComponent::kLight);
+        detail_labels_[i]->setJustification(Justification::centredLeft);
+      }
+
       reset_button_ = std::make_unique<OpenGlToggleButton>(TRANS("Reset"));
       reset_button_->setText("Reset");
       reset_button_->setUiButton(false);
       reset_button_->addListener(this);
       addAndMakeVisible(reset_button_.get());
       addOpenGlComponent(reset_button_->getGlComponent());
-
-      for (auto* button : { &save_button_, &open_button_ }) {
-        *button = std::make_unique<OpenGlToggleButton>(button == &save_button_ ? "Save" : "Open");
-        (*button)->setText(button == &save_button_ ? "Save" : "Open");
-        (*button)->setUiButton(false);
-        (*button)->addListener(this);
-        addAndMakeVisible(button->get());
-        addOpenGlComponent((*button)->getGlComponent());
-      }
 
       close_button_ = std::make_unique<OpenGlShapeButton>("close");
       addAndMakeVisible(close_button_.get());
@@ -214,6 +231,20 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
       lane_ = std::max(0, std::min(lane, 1));
       curve_ = std::max(0, std::min(curve, kNumCurves - 1));
 
+      // What the detail controls are called in each mode ("" = unused).
+      static const char* kDetailNames[kNumCurves][kNumDetails] = {
+        { "Gain", "Width", "Peak", "" },
+        { "Gain", "Notches", "Resonance", "" },
+        { "Gain", "Tilt", "Resonance", "Spread" }
+      };
+      for (int i = 0; i < kNumDetails; ++i) {
+        detail_labels_[i]->setText(kDetailNames[curve_][i]);
+        for (int l = 0; l < 2; ++l) {
+          detail_[l][i]->setVisible(l == lane_ && kDetailNames[curve_][i][0] != '\0');
+          detail_[l][i]->setPopupPrefix(std::string(kDetailNames[curve_][i]) + ": ");
+        }
+      }
+
       for (int l = 0; l < 2; ++l) {
         position_[l]->setVisible(l == lane_);
         for (int c = 0; c < kNumCurves; ++c)
@@ -231,6 +262,7 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
       smooth_->setToggleState(editor->getSmooth(), dontSendNotification);
       editor->resetPositions();
       setVisible(true);
+      resized();
     }
 
     void paintBackground(Graphics& g) override {
@@ -242,8 +274,7 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
       g.setColour(findColour(Skin::kTextComponentBackground, true));
       g.fillRoundedRectangle(pattern_group_.toFloat(), rounding);
       g.fillRoundedRectangle(grid_group_.toFloat(), rounding);
-      for (Button* button : { reset_button_.get(), save_button_.get(), open_button_.get() })
-        g.fillRoundedRectangle(button->getBounds().toFloat(), rounding);
+      g.fillRoundedRectangle(reset_button_->getBounds().toFloat(), rounding);
 
       // The dot between the two grid sizes.
       g.setColour(findColour(Skin::kBodyText, true));
@@ -288,15 +319,27 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
       close_button_->setBounds(getWidth() - margin - top_height, y, top_height, top_height);
       int reset_width = size_ratio_ * 70;
       reset_button_->setBounds(close_button_->getX() - margin - reset_width, y, reset_width, top_height);
-      save_button_->setBounds(reset_button_->getX() - margin - reset_width, y, reset_width, top_height);
-      open_button_->setBounds(save_button_->getX() - margin - reset_width, y, reset_width, top_height);
       int title_x = smooth_->getRight() + margin;
-      preset_selector_->setBounds(title_x, y, open_button_->getX() - margin - title_x, top_height);
+      preset_selector_->setBounds(title_x, y, reset_button_->getX() - margin - title_x, top_height);
 
       // The drawing well fills the width, with the position slider flush underneath (like the LFO's phase bar).
-      int slider_y = getHeight() - margin - slider_height;
+      int detail_y = getHeight() - margin - slider_height;
+      int slider_y = detail_y - margin / 2 - slider_height;
       for (auto& slider : position_)
         slider->setBounds(margin, slider_y, getWidth() - 2 * margin, slider_height);
+
+      // The detail bar: the used controls share the width, each with its name to the left.
+      int num_details = curve_ == kNumCurves - 1 ? kNumDetails : kNumDetails - 1;
+      int cell_width = (getWidth() - 2 * margin) / num_details;
+      int label_width = size_ratio_ * 70;
+      for (int i = 0; i < kNumDetails; ++i) {
+        int cell_x = margin + i * cell_width;
+        detail_labels_[i]->setTextSize(text_size);
+        detail_labels_[i]->setColor(body_text);
+        detail_labels_[i]->setBounds(cell_x, detail_y, label_width, slider_height);
+        for (int l = 0; l < 2; ++l)
+          detail_[l][i]->setBounds(cell_x + label_width, detail_y, cell_width - label_width - margin, slider_height);
+      }
 
       int editor_x = margin;
       int editor_y = y + top_height + margin;
@@ -381,10 +424,6 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
         editors_[lane_][curve_]->resetPositions();
         smooth_->setToggleState(editors_[lane_][curve_]->getSmooth(), dontSendNotification);
       }
-      else if (clicked_button == save_button_.get())
-        saveShape();
-      else if (clicked_button == open_button_.get())
-        openShape();
       else if (clicked_button == paint_.get()) {
         for (auto& lane : editors_)
           for (auto& editor : lane)
@@ -413,6 +452,24 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
       showPopupBrowser(this, bounds, { shapeDirectory() }, String(vital::kLfoExtensionsList),
                        "Spectral Shapes", "");
     }
+
+    // LineEditor::Listener. Import and export are in the curve's right-click menu, like the LFOs'.
+    void setPhase(float phase) override { }
+    void lineEditorScrolled(const MouseEvent& e, const MouseWheelDetails& wheel) override {
+      if (paint_->getToggleState())
+        paint_pattern_->mouseWheelMove(e, wheel);
+      else
+        grid_size_x_->mouseWheelMove(e, wheel);
+    }
+    void togglePaintMode(bool enabled, bool temporary_switch) override {
+      paint_->setToggleState(enabled != temporary_switch, dontSendNotification);
+      paint_pattern_->setActive(enabled != temporary_switch);
+    }
+    void fileLoaded() override {
+      smooth_->setToggleState(editors_[lane_][curve_]->getSmooth(), dontSendNotification);
+    }
+    void importLfo() override { openShape(); }
+    void exportLfo() override { saveShape(); }
 
     // SynthSection: the browser calls these.
     void loadFile(const File& file) override { loadShapeFile(file); }
@@ -585,9 +642,9 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener 
     std::unique_ptr<PlainTextComponent> top_label_;
     std::unique_ptr<PlainTextComponent> bottom_label_;
     std::unique_ptr<SynthSlider> position_[2];
+    std::unique_ptr<SynthSlider> detail_[2][kNumDetails];
+    std::unique_ptr<PlainTextComponent> detail_labels_[kNumDetails];
     std::unique_ptr<OpenGlToggleButton> reset_button_;
-    std::unique_ptr<OpenGlToggleButton> save_button_;
-    std::unique_ptr<OpenGlToggleButton> open_button_;
     std::unique_ptr<OpenGlShapeButton> close_button_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SpectralWarpEditor)

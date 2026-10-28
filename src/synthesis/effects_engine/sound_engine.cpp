@@ -159,6 +159,10 @@ namespace vital {
     sidechain_spectral->plug(sidechain_spectral_position, SpectralMorphProcessor::kPosition);
     sidechain_spectral->plug(sidechain_random_shuffle, SpectralMorphProcessor::kShuffle);
     sidechain_spectral->plug(sidechain_random_dice, SpectralMorphProcessor::kDice);
+    sidechain_spectral->plug(createMonoModControl("sidechain_spectral_gain"), SpectralMorphProcessor::kGain);
+    sidechain_spectral->plug(createMonoModControl("sidechain_spectral_density"), SpectralMorphProcessor::kDensity);
+    sidechain_spectral->plug(createMonoModControl("sidechain_spectral_resonance"), SpectralMorphProcessor::kResonance);
+    sidechain_spectral->plug(createMonoModControl("sidechain_spectral_spread"), SpectralMorphProcessor::kSpread);
     addProcessor(sidechain_spectral);
 
     SpectralMorphProcessor* main_spectral = new SpectralMorphProcessor(true);
@@ -169,6 +173,10 @@ namespace vital {
     main_spectral->plug(input_spectral_position, SpectralMorphProcessor::kPosition);
     main_spectral->plug(input_random_shuffle, SpectralMorphProcessor::kShuffle);
     main_spectral->plug(input_random_dice, SpectralMorphProcessor::kDice);
+    main_spectral->plug(createMonoModControl("input_spectral_gain"), SpectralMorphProcessor::kGain);
+    main_spectral->plug(createMonoModControl("input_spectral_density"), SpectralMorphProcessor::kDensity);
+    main_spectral->plug(createMonoModControl("input_spectral_resonance"), SpectralMorphProcessor::kResonance);
+    main_spectral->plug(createMonoModControl("input_spectral_spread"), SpectralMorphProcessor::kSpread);
     main_spectral->plug(sidechain_gate, SpectralMorphProcessor::kModulator);
     main_spectral->plug(createBaseControl("input_vocoder_bands"), SpectralMorphProcessor::kVocodeBands);
     main_spectral->plug(createBaseControl("input_vocoder_attack"), SpectralMorphProcessor::kVocodeAttack);

@@ -358,6 +358,14 @@ void LineEditor::respondToCallback(int point, int power, int option) {
 
     parent->saveLfo(model_->stateToJson());
   }
+  else if (option == kImportShape) {
+    for (Listener* listener : listeners_)
+      listener->importLfo();
+  }
+  else if (option == kExportShape) {
+    for (Listener* listener : listeners_)
+      listener->exportLfo();
+  }
   else if (option == kInit) {
     model_->initLinear();
     for (Listener* listener : listeners_)
@@ -497,6 +505,11 @@ void LineEditor::mouseDown(const MouseEvent& e) {
 
     options.addItem(kFlipHorizontal, "Flip Horizontal");
     options.addItem(kFlipVertical, "Flip Vertical");
+
+    if (allow_import_export_) {
+      options.addItem(kImportShape, "Import Shape");
+      options.addItem(kExportShape, "Export Shape");
+    }
 
     SynthSection* parent = findParentComponentOfClass<SynthSection>();
     int point = active_point_;

@@ -1446,6 +1446,55 @@ namespace {
     }
   }
 
+  void testDrawableDetails() {
+    std::printf("\n== Drawable modes: detail controls ==\n");
+    auto render = [&](int mode, const char* name, float value) {
+      Rig rig;
+      rig.set("input_spectral_morph_type", static_cast<float>(mode));
+      rig.set("input_spectral_morph_amount", 0.5f);
+      if (name)
+        rig.set(name, value);
+      return rig.render(40000, noise());
+    };
+    const char* names[3] = { "Spectral Filter", "Spectral Phaser", "Spectral Flanger" };
+    for (int i = 0; i < 3; ++i) {
+      int mode = 11 + i;
+      Stereo normal = render(mode, nullptr, 0.0f);
+      Stereo silent = render(mode, "input_spectral_gain", 0.0f);
+      Stereo loud = render(mode, "input_spectral_gain", 1.0f);
+      check(rms(silent.left, 20000) < 0.1 * rms(normal.left, 20000) &&
+            rms(loud.left, 20000) > 1.6 * rms(normal.left, 20000),
+            std::string(names[i]) + ": gain sets the output level",
+            fmt("0: %.4f, 50%%: %.4f, 100%%: %.4f", rms(silent.left, 20000), rms(normal.left, 20000), rms(loud.left, 20000)));
+      Stereo a = render(mode, "input_spectral_density", 0.1f), b = render(mode, "input_spectral_density", 0.9f);
+      Stereo c = render(mode, "input_spectral_resonance", 0.05f), d = render(mode, "input_spectral_resonance", 0.95f);
+      double density = spectrumDistance(a.left, b.left, 20000), resonance = spectrumDistance(c.left, d.left, 20000);
+      check(a.finite() && b.finite() && c.finite() && d.finite() && density > 1.0 && resonance > 1.0,
+            std::string(names[i]) + ": density and resonance change the sound",
+            fmt("density %.1f dB, resonance %.1f dB", density, resonance));
+    }
+    // Flanger spread: a mono source gets different left and right channels.
+    {
+      auto mono_render = [&](float spread) {
+        Rig rig;
+        rig.set("input_spectral_morph_type", 13.0f);
+        rig.set("input_spectral_morph_amount", 0.5f);
+        rig.set("input_spectral_spread", spread);
+        Generator source = noise();
+        return rig.render(40000, [&](int i, float& l, float& r) { source(i, l, r); r = l; });
+      };
+      Stereo none = mono_render(0.0f), wide = mono_render(1.0f);
+      auto channelDifference = [](const Stereo& out) {
+        double sum = 0.0;
+        for (size_t i = 20000; i < out.left.size(); ++i)
+          sum += std::pow(static_cast<double>(out.left[i]) - out.right[i], 2.0);
+        return std::sqrt(sum / (out.left.size() - 20000));
+      };
+      check(channelDifference(none) < 1e-4 && channelDifference(wide) > 0.01, "Spectral Flanger: spread widens the stereo image",
+            fmt("%.5f -> %.4f", channelDifference(none), channelDifference(wide)));
+    }
+  }
+
   void testVocoder() {
     std::printf("\n== Vocoder ==\n");
     auto setup = [](Rig& rig, float amount) {
@@ -1912,6 +1961,7 @@ int main() {
     testTimeSkewSustained();
     testModulatorIndependentOfLevel();
     testVocoder();
+    testDrawableDetails();
     testDrawableAndDice();
     testPlaceholders();
     testCpu();

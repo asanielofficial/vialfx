@@ -64,6 +64,11 @@ namespace vital {
         kShuffle,
         kDice,
         kModulator,
+        // Detail controls of the three drawable modes (0..1, 0.5 = the standard behaviour).
+        kGain,        // output level, 0..2x
+        kDensity,     // Filter: width of the automatic peak; Phaser: notch count; Flanger: tilt
+        kResonance,   // Filter: height of the automatic peak; Phaser and Flanger: feedback
+        kSpread,      // Flanger: stereo spread
         // Vocode settings (read by the main lane only).
         kVocodeBands,
         kVocodeAttack,
@@ -198,6 +203,10 @@ namespace vital {
         amount_ = amount;
         position_target_ = std::max(0.0f, std::min(input(kPosition)->source->buffer[0][0], 1.0f));
         shuffle_ = input(kShuffle)->source->buffer[0][0];
+        gain_ = std::max(0.0f, std::min(input(kGain)->source->buffer[0][0], 1.0f));
+        density_ = std::max(0.0f, std::min(input(kDensity)->source->buffer[0][0], 1.0f));
+        resonance_ = std::max(0.0f, std::min(input(kResonance)->source->buffer[0][0], 1.0f));
+        spread_ = std::max(0.0f, std::min(input(kSpread)->source->buffer[0][0], 1.0f));
         if (uses_modulator_) {
           vocode_bands_ = std::max(4, std::min(static_cast<int>(input(kVocodeBands)->source->buffer[0][0] + 0.5f),
                                                int(kMaxVocodeBands)));
@@ -555,13 +564,18 @@ namespace vital {
           float centre = 100.0f * powf(120.0f, position());
           // The position slider also transposes the drawn curve along the frequency axis, +-4 octaves (centre: as drawn).
           float shift = (position() - 0.5f) * 8.0f;
+          // Detail controls: the automatic peak's width (0.075 .. 1.2 octaves, 0.3 by default) and height
+          // (0 .. 48 dB, 24 by default), and the output level (0 .. 2x).
+          float width = 0.3f * powf(2.0f, (density_ - 0.5f) * 4.0f);
+          float peak_db = 48.0f * resonance_;
+          float out_gain = 2.0f * gain_;
           for (int k = 0; k <= bins; ++k) {
             float frequency = std::max(k * 0.5f * sample_rate / bins, 1.0f);
-            float octaves = std::log2(frequency / centre) / 0.3f;
-            float automatic = 48.0f * expf(-0.5f * octaves * octaves) - 24.0f;
+            float octaves = std::log2(frequency / centre) / width;
+            float automatic = 2.0f * peak_db * expf(-0.5f * octaves * octaves) - peak_db;
             float drawn = (drawnCurve(0, k, bins, sample_rate, inverted, shift) - 0.5f) * 96.0f;
             float db = automatic + (drawn - automatic) * morph;
-            float gain = std::min(powf(10.0f, db / 20.0f), 64.0f);
+            float gain = std::min(powf(10.0f, db / 20.0f), 64.0f) * out_gain;
             spec[2 * k] *= gain;
             spec[2 * k + 1] *= gain;
           }
@@ -576,9 +590,11 @@ namespace vital {
           // spread them out. The position slider is the sweep: moving it from 0 to 1 slides every notch onto the
           // next one, which is the phaser sweep (modulate it with an LFO). Morph 0: the curve is a log-frequency ramp
           // (an evenly spread classic phaser); morph 1: the drawn curve alone.
-          const float turns = 6.0f;
-          const float feedback = 0.7f;
-          const float norm = (1.0f - feedback) * 0.8f;
+          // Detail controls: density = notch count (1.5 .. 24 turns, 6 by default), resonance = the feedback (0 .. 0.95,
+          // 0.7 by default), gain = output level.
+          const float turns = 6.0f * powf(2.0f, (density_ - 0.5f) * 4.0f);
+          const float feedback = std::min(0.95f, 1.4f * resonance_);
+          const float norm = (1.0f - feedback) * 0.8f * 2.0f * gain_;
           float morph = std::fabs(a);
           bool inverted = a < 0.0f;
           float sweep = position();
@@ -611,17 +627,23 @@ namespace vital {
           //  - The level is made up (peaks up to 1.3) so the effect does not just get quieter.
           float morph = std::fabs(a);
           bool inverted = a < 0.0f;
-          float base_delay = 0.0002f * powf(50.0f, position()) * sample_rate * (c == 0 ? 1.0f : 1.15f);
+          // Detail controls: density = tilt (0 .. 50% shorter delay at 20 kHz, 25% by default), resonance = regeneration
+          // (0 .. 0.95 of the depth, 0.8 by default), spread = how much longer the right channel's delay is (0 .. 30%,
+          // 15% by default), gain = output level.
+          float base_delay = 0.0002f * powf(50.0f, position()) * sample_rate * (c == 0 ? 1.0f : 1.0f + 0.3f * spread_);
+          const float tilt_amount = 0.5f * density_;
+          const float resonance_scale = std::min(0.95f, 1.6f * resonance_);
+          const float out_gain = 2.0f * gain_;
           for (int k = 1; k < bins; ++k) {
             float depth = 0.7f + (drawnCurve(2, k, bins, sample_rate, inverted) - 0.7f) * morph;
             depth = std::max(0.0f, std::min(depth, 1.0f));
-            float resonance = 0.8f * depth;
-            float tilt = 1.0f - 0.25f * defaultCurve(1, k, bins, sample_rate);
+            float resonance = resonance_scale * depth;
+            float tilt = 1.0f - tilt_amount * defaultCurve(1, k, bins, sample_rate);
             float angle = -2.0f * kPi_ * k * base_delay * tilt / n;
             float cs = cosf(angle), sn = sinf(angle);
             float num_re = 1.0f + depth * cs, num_im = depth * sn;
             float den_re = 1.0f - resonance * cs, den_im = -resonance * sn;
-            float den_norm = (1.0f + 0.3f * depth) * (1.0f - resonance) / ((1.0f + depth) * (den_re * den_re + den_im * den_im));
+            float den_norm = out_gain * (1.0f + 0.3f * depth) * (1.0f - resonance) / ((1.0f + depth) * (den_re * den_re + den_im * den_im));
             float h_re = (num_re * den_re + num_im * den_im) * den_norm;
             float h_im = (num_im * den_re - num_re * den_im) * den_norm;
             float re = spec[2 * k], im = spec[2 * k + 1];
@@ -769,6 +791,7 @@ namespace vital {
       float position_ = 0.5f;
       uint32_t seed_ = kDefaultSeed;
       float shuffle_ = 0.0f;
+      float gain_ = 0.5f, density_ = 0.5f, resonance_ = 0.5f, spread_ = 0.5f;
       int vocode_bands_ = 24;
       float vocode_attack_ = 0.004f;
       float vocode_release_ = 0.06f;
