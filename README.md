@@ -29,7 +29,7 @@ It is built from GPLv3 synthesizer source code (see [NOTICE.md](NOTICE.md) for t
   Amplitudes, Low Pass, High Pass, Phase Disperse (a strong two-way disperser: up delays the highs, down
   delays the lows, turning clicks into sweeps), Shepard Tone, Spectral Time Skew (a frequency-dependent group delay of up to 16 frames:
   the highs lag behind the lows), three drawable modes (below), and on the main input only Vocode, which imposes the sidechain lane's spectral envelope on
-  the main lane (a cross-synthesis vocoder: constant-Q envelopes with a fast short-window analysis of the highs, per-bin attack/release, formant shift, carrier flatten, modulator emphasis, gate, level, and automatic unvoiced-sound handling that swaps the carrier's highs for hiss; whitening of the modulator's spectral tilt for clarity; settings in the grouped Vocoder menu). Formant Scale, Harmonic/Inharmonic Stretch, Phase Disperse are bipolar (knob
+  the main lane (a time-domain filterbank vocoder: up to 64 log-spaced 4th-order band-passes, so transients stay sharp, band attack/release, formant shift, carrier flatten, modulator emphasis, gate, level, and a consonant hiss that follows the modulator's highs; whitening of the modulator's spectral tilt for clarity; settings in the grouped Vocoder menu). Formant Scale, Harmonic/Inharmonic Stretch, Phase Disperse are bipolar (knob
   centre is neutral). The FFT size is set on the ADVANCED tab (256, 512, 1024 default, 2048, then 4096, 8192, 16384, 32768 for very fine resolution at the cost of up to ~0.74 s latency) with a live
   latency readout. The stage always delays the audio by one FFT size, whatever the mode, so the latency is
   constant; it is reported to the host for delay compensation and both lanes stay aligned.

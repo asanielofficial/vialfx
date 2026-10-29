@@ -151,6 +151,7 @@ namespace vital {
           channels_[c].in.assign(kMaxFftSize, 0.0f);
           channels_[c].mod.assign(kMaxFftSize, 0.0f);
           channels_[c].acc.assign(kMaxFftSize, 0.0f);
+          channels_[c].vout.assign(kMaxFftSize, 0.0f);
           channels_[c].history.assign(kHistoryFrames * (kMaxFftSize + 2), 0.0f);
           channels_[c].drift.assign(kMaxFftSize / 2 + 2, 0.0f);
           channels_[c].venv.assign(kMaxFftSize / 2 + 2, 0.0f);
@@ -258,11 +259,31 @@ namespace vital {
             clearState();
           }
           warm_hops_ = 0;
+          warm_samples_ = 0;
         }
         else if (idle_) {
           idle_ = false;
-          warm_hops_ = kOverlap;
+          if (mode == kVocode)
+            warm_samples_ = size_;
+          else
+            warm_hops_ = kOverlap;
         }
+        const bool is_vocode = mode == kVocode;
+        if (is_vocode != vocode_prev_) {
+          // Moving between the filterbank and an STFT mode: the one that was idle has to fill its delay first.
+          vocode_prev_ = is_vocode;
+          if (!neutral && !idle_) {
+            if (is_vocode)
+              warm_samples_ = size_;
+            else
+              warm_hops_ = kOverlap;
+          }
+        }
+        if (is_vocode)
+          warm_hops_ = 0;
+        const bool vocoding = is_vocode && uses_modulator_ && (!neutral || mix_ > 0.0f);
+        if (vocoding)
+          updateVocoderCoefficients(static_cast<float>(std::max(getSampleRate(), 8000)));
 
         // The dry/wet fade runs at a fixed rate per sample (64 samples end to end), whatever the host's block size.
         const float kMixStep = 1.0f / 64.0f;
@@ -274,7 +295,7 @@ namespace vital {
         const int hop = n / kOverlap;
 
         for (int i = 0; i < num_samples; ++i) {
-          const float target_mix = (neutral || warm_hops_ > 0) ? 0.0f : 1.0f;
+          const float target_mix = (neutral || warm_hops_ > 0 || warm_samples_ > 0) ? 0.0f : 1.0f;
           mix_ += std::max(-kMixStep, std::min(target_mix - mix_, kMixStep));
           float result[2];
           for (int c = 0; c < 2; ++c) {
@@ -287,6 +308,16 @@ namespace vital {
 
             ch.in[ch.write] = audio[i][c];
             ch.mod[ch.write] = modulator ? modulator[i][c] : 0.0f;
+            // Vocode: the filterbank runs in the time domain and its output waits in a ring, so it comes out exactly n
+            // samples late like every other mode. The ring is kept silent otherwise.
+            if (vocoding) {
+              float voiced = vocodeSample(c, audio[i][c], modulator[i][c]);
+              float old = ch.vout[ch.write];
+              ch.vout[ch.write] = voiced;
+              wet = dry + (old - dry) * std::min(amount_, 1.0f);
+            }
+            else
+              ch.vout[ch.write] = 0.0f;
             ch.write = (ch.write + 1) % n;
             if (c == 0) {
               float magnitude = std::fabs(audio[i][0]) + std::fabs(audio[i][1]);
@@ -297,11 +328,13 @@ namespace vital {
             result[c] = dry + (wet - dry) * mix_;
           }
           out[i] = poly_float(result[0], result[1]);
+          if (warm_samples_ > 0)
+            --warm_samples_;
 
           if (++hop_count_ >= hop) {
             hop_count_ = 0;
             // Skipped: a neutral stage, and a whole ring of digital silence (every frame would be silent too).
-            if (!idle_ && silent_run_ < n) {
+            if (!idle_ && silent_run_ < n && !is_vocode) {
               processFrame(0);
               processFrame(1);
               if (warm_hops_ > 0)
@@ -320,7 +353,7 @@ namespace vital {
       static constexpr int kMaxVocodeBands = 64;
 
       struct Channel {
-        std::vector<float> in, mod, acc;
+        std::vector<float> in, mod, acc, vout;
         // Spectral Time Skew: the last frames' spectra. Phase Disperse: each bin's accumulated phase drift.
         std::vector<float> history, drift;
         // Vocode: the follower level of each band.
@@ -334,10 +367,173 @@ namespace vital {
         int history_filled = 0;
       };
 
+
+      // ---- Vocoder: a classic filterbank --------------------------------------------------------------------------
+      // The carrier (this lane) and the modulator (the sidechain lane) go through the same bank of log-spaced band-pass
+      // filters (two cascaded biquads each, 80 Hz .. 12 kHz). The modulator's band levels are followed (attack /
+      // release) and multiplied onto the carrier's bands, which are summed. There are no FFT frames, so transients
+      // stay sharp. Formant shifts which modulator band drives which carrier band. Whitening evens out the
+      // modulator's long-term spectrum (a voice falls off steeply, which is what made earlier versions muffled),
+      // emphasis lifts the highs, flatten levels the carrier's bands first, noise adds a hiss in the top bands
+      // that follows the modulator's highs (consonants), and the gate silences the output when the modulator does.
+      struct VocoderChannel {
+        float carrier_state[kMaxVocodeBands][4] = {};
+        float modulator_state[kMaxVocodeBands][4] = {};
+        float envelope[kMaxVocodeBands] = {};
+        float carrier_envelope[kMaxVocodeBands] = {};
+        float average[kMaxVocodeBands] = {};
+        float band_gain[kMaxVocodeBands] = {};
+        float hiss_level = 0.0f;
+        float open_target = 1.0f, open = 1.0f;
+        float peak = 0.0f;
+        float hiss_low[2] = { 0.0f, 0.0f };
+        int tick = 0;
+      };
+
+      static void designBandPass(float frequency, float octaves, float sample_rate, float* out) {
+        float w0 = 2.0f * kPi_ * frequency / sample_rate;
+        float s = std::sin(w0);
+        float alpha = s * std::sinh(0.34657359f * octaves * w0 / s);
+        float a0 = 1.0f + alpha;
+        out[0] = alpha / a0;
+        out[1] = -2.0f * std::cos(w0) / a0;
+        out[2] = (1.0f - alpha) / a0;
+      }
+
+      void updateVocoderCoefficients(float sample_rate) {
+        if (vocode_bands_ == coeff_bands_ && vocode_formant_ == coeff_formant_ && sample_rate == coeff_rate_ &&
+            vocode_attack_ == coeff_attack_ && vocode_release_ == coeff_release_ && vocode_emphasis_ == coeff_emphasis_)
+          return;
+        coeff_bands_ = vocode_bands_;
+        coeff_formant_ = vocode_formant_;
+        coeff_rate_ = sample_rate;
+        coeff_attack_ = vocode_attack_;
+        coeff_release_ = vocode_release_;
+        coeff_emphasis_ = vocode_emphasis_;
+        const int bands = vocode_bands_;
+        const float low = 80.0f, high = std::min(12000.0f, 0.45f * sample_rate);
+        const float spacing = std::log2(high / low) / bands;
+        const float ratio = std::exp2(vocode_formant_);
+        for (int b = 0; b < bands; ++b) {
+          float frequency = low * std::exp2((b + 0.5f) * spacing);
+          designBandPass(frequency, spacing * 1.6f, sample_rate, synth_coef_[b]);
+          float shifted = std::max(40.0f, std::min(frequency / ratio, 0.45f * sample_rate));
+          designBandPass(shifted, spacing * 1.6f, sample_rate, analysis_coef_[b]);
+          band_frequency_[b] = frequency;
+          // The follower's times, no shorter than about a period of the band (the rectified band signal ripples).
+          float floor_time = 0.6f / shifted;
+          attack_coef_[b] = 1.0f - std::exp(-1.0f / (std::max(vocode_attack_, floor_time) * sample_rate));
+          release_coef_[b] = 1.0f - std::exp(-1.0f / (std::max(vocode_release_, floor_time) * sample_rate));
+          emphasis_gain_[b] = std::pow(std::max(frequency, 300.0f) / 1000.0f, vocode_emphasis_);
+        }
+        carrier_coef_ = 1.0f - std::exp(-1.0f / (0.02f * sample_rate));
+      }
+
+      float vocodeSample(int c, float carrier, float modulator) {
+        VocoderChannel& v = vocoder_[c];
+        const int bands = vocode_bands_;
+        float sum = 0.0f;
+        for (int b = 0; b < bands; ++b) {
+          const float* ac = analysis_coef_[b];
+          const float* sc = synth_coef_[b];
+          float* mz = v.modulator_state[b];
+          float* cz = v.carrier_state[b];
+          float m = modulator, x = carrier;
+          for (int stage = 0; stage < 2; ++stage) {
+            float y = ac[0] * m + mz[2 * stage];
+            mz[2 * stage] = -ac[1] * y + mz[2 * stage + 1];
+            mz[2 * stage + 1] = -ac[0] * m - ac[2] * y;
+            m = y;
+            float z = sc[0] * x + cz[2 * stage];
+            cz[2 * stage] = -sc[1] * z + cz[2 * stage + 1];
+            cz[2 * stage + 1] = -sc[0] * x - sc[2] * z;
+            x = z;
+          }
+          float level = std::fabs(m);
+          v.envelope[b] += (level - v.envelope[b]) * (level > v.envelope[b] ? attack_coef_[b] : release_coef_[b]);
+          v.carrier_envelope[b] += (std::fabs(x) - v.carrier_envelope[b]) * carrier_coef_;
+          sum += x * v.envelope[b] * v.band_gain[b];
+        }
+
+        if (++v.tick >= kVocodeControlRate) {
+          v.tick = 0;
+          vocodeControl(v);
+        }
+        v.open += (v.open_target - v.open) * 0.01f;
+
+        // Consonant hiss: white noise above 3 kHz, as loud as the modulator's highs.
+        float hiss = 0.0f;
+        if (vocode_noise_ > 0.0f) {
+          vocode_rng_ = vocode_rng_ * 1664525u + 1013904223u;
+          float noise = (vocode_rng_ >> 8) * (2.0f / 16777216.0f) - 1.0f;
+          float lowpass_coef = 1.0f - std::exp(-2.0f * kPi_ * 3000.0f / coeff_rate_);
+          v.hiss_low[0] += (noise - v.hiss_low[0]) * lowpass_coef;
+          float once = noise - v.hiss_low[0];
+          v.hiss_low[1] += (once - v.hiss_low[1]) * lowpass_coef;
+          hiss = (once - v.hiss_low[1]) * v.hiss_level * vocode_noise_;
+        }
+        return (sum + hiss) * v.open * std::exp2(vocode_level_db_ / 6.0206f);
+      }
+
+      // Every kVocodeControlRate samples: the slow work (whitening, flatten, gate, hiss level).
+      void vocodeControl(VocoderChannel& v) {
+        const int bands = vocode_bands_;
+        float total = 0.0f, carrier_total = 0.0f;
+        for (int b = 0; b < bands; ++b) {
+          total += v.envelope[b];
+          carrier_total += v.carrier_envelope[b];
+        }
+        const float carrier_mean = carrier_total / bands;
+        const float follow = 1.0f - std::exp(-static_cast<float>(kVocodeControlRate) / coeff_rate_);   // about a second
+        const float average_coef = follow;
+        float mean_average = 0.0f;
+        for (int b = 0; b < bands; ++b) {
+          v.average[b] += (v.envelope[b] - v.average[b]) * average_coef;
+          mean_average += v.average[b];
+        }
+        mean_average /= bands;
+        const float eps = 1.0e-3f * mean_average + 1.0e-7f;
+        float centre = 0.0f;
+        for (int b = 0; b < bands; ++b)
+          centre += std::log2(v.average[b] + eps);
+        centre /= bands;
+
+        float hiss_sum = 0.0f;
+        int hiss_bands = 0;
+        for (int b = 0; b < bands; ++b) {
+          float whiten = std::exp2(std::max(-2.0f, std::min((centre - std::log2(v.average[b] + eps)) * vocode_whiten_, 3.0f)));
+          // The output band is the carrier's band scaled so that it carries the modulator's level: gain = envelope /
+          // reference. Flatten 0: the reference is the carrier's mean level over all bands, so the carrier keeps its own
+          // spectral shape and takes the modulator's on top. Flatten 1: the reference is the carrier's level in that very
+          // band, so every band is levelled first and the result follows the modulator alone. A quiet carrier stays quiet.
+          const float global = std::max(carrier_mean, 1.0e-3f);
+          const float local = std::max(v.carrier_envelope[b], std::max(0.03f * carrier_mean, 1.0e-4f));
+          v.band_gain[b] = whiten * emphasis_gain_[b] * std::pow(local, -vocode_flatten_) *
+                           std::pow(global, -(1.0f - vocode_flatten_));
+          if (band_frequency_[b] > 3000.0f) {
+            hiss_sum += v.envelope[b] * whiten * emphasis_gain_[b];
+            ++hiss_bands;
+          }
+        }
+        v.hiss_level = hiss_bands ? hiss_sum / hiss_bands * std::sqrt(static_cast<float>(hiss_bands)) * 2.2f : 0.0f;
+
+        // Gate: below a threshold under the modulator's recent peak, the output fades out.
+        if (vocode_gate_ > 0.0f) {
+          v.peak = std::max(total, v.peak * std::exp(-static_cast<float>(kVocodeControlRate) / (2.0f * coeff_rate_)));
+          float threshold = v.peak * std::pow(10.0f, -(80.0f - 50.0f * vocode_gate_) / 20.0f);
+          v.open_target = std::max(0.0f, std::min((total - 0.5f * threshold) / std::max(0.5f * threshold, 1.0e-9f), 1.0f));
+        }
+        else
+          v.open_target = 1.0f;
+      }
+
       // Drops everything the modes keep between frames (not the audio ring, which is the delay line).
       void clearState() {
+        vocoder_[0] = VocoderChannel();
+        vocoder_[1] = VocoderChannel();
         for (Channel& ch : channels_) {
           std::fill(ch.acc.begin(), ch.acc.end(), 0.0f);
+          std::fill(ch.vout.begin(), ch.vout.end(), 0.0f);
           std::fill(ch.history.begin(), ch.history.end(), 0.0f);
           std::fill(ch.drift.begin(), ch.drift.end(), 0.0f);
           std::fill(ch.venv.begin(), ch.venv.end(), 0.0f);
@@ -355,6 +551,7 @@ namespace vital {
           std::fill(ch.in.begin(), ch.in.end(), 0.0f);
           std::fill(ch.mod.begin(), ch.mod.end(), 0.0f);
           std::fill(ch.acc.begin(), ch.acc.end(), 0.0f);
+          std::fill(ch.vout.begin(), ch.vout.end(), 0.0f);
           std::fill(ch.history.begin(), ch.history.end(), 0.0f);
           std::fill(ch.drift.begin(), ch.drift.end(), 0.0f);
           std::fill(ch.venv.begin(), ch.venv.end(), 0.0f);
@@ -767,175 +964,8 @@ namespace vital {
           spec[2 * bins + 1] = 0.0f;
           break;
         }
-        case kVocode: {
-          // Cross-synthesis with smooth spectral envelopes. The modulator's envelope (the other lane) is measured per
-          // bin over a constant-Q window (the Bands setting: 7.6 octaves / bands wide, never narrower than 3 bins), run
-          // through a per-bin attack/release follower, and imposed on this lane (the carrier).
-          for (int i = 0; i < n; ++i)
-            mod_work_[i] = window_[i] * ch.mod[(ch.write + i) % n];
-          std::fill(mod_work_.begin() + n, mod_work_.begin() + 2 * n, 0.0f);
-          fft->transformRealForward(mod_work_.data());
-
-          float* carrier_sum = vocode_power_[0].data();
-          float* modulator_sum = vocode_power_[1].data();
-          carrier_sum[0] = modulator_sum[0] = 0.0f;
-          for (int k = 0; k <= bins; ++k) {
-            float cr = spec[2 * k], ci = spec[2 * k + 1];
-            float mr = mod_work_[2 * k], mi = mod_work_[2 * k + 1];
-            carrier_sum[k + 1] = carrier_sum[k] + cr * cr + ci * ci;
-            modulator_sum[k + 1] = modulator_sum[k] + mr * mr + mi * mi;
-          }
-          auto rangeLevel = [](const float* sum, int lo, int hi) {
-            return sqrtf(std::max(sum[hi] - sum[lo], 0.0f) / std::max(hi - lo, 1));
-          };
-
-          const float bin_width = nyquist / bins;
-          const float window_ratio = exp2f(0.5f * 7.6f / vocode_bands_);
-          const float whole_level = rangeLevel(carrier_sum, 0, bins + 1);
-          const float flatten = vocode_flatten_;
-          const float depth = std::min(a, 1.0f);
-          const float level_gain = exp2f(vocode_level_db_ / 6.0206f);
-
-          // Constant-Q envelopes of the modulator (env2_) and of the carrier (env_). The modulator is measured twice:
-          // with this stage's FFT, which resolves the lows (the voice's pitch and first formant), and with a short
-          // 256-point FFT centred on the same moment, which resolves time (consonants, plosives) in the highs. They
-          // are crossfaded between 400 and 800 Hz.
-          for (int k = 0; k <= bins; ++k) {
-            int lo = std::max(0, std::min(static_cast<int>(k / window_ratio), k - 1));
-            int hi = std::min(bins, std::max(static_cast<int>(std::ceil(k * window_ratio)), k + 1));
-            env2_[k] = sqrtf(std::max(modulator_sum[hi + 1] - modulator_sum[lo], 0.0f) / (hi - lo + 1));
-            env_[k] = sqrtf(std::max(carrier_sum[hi + 1] - carrier_sum[lo], 0.0f) / (hi - lo + 1));
-          }
-          if (n > 256) {
-            for (int i = 0; i < 256; ++i)
-              mod_small_[i] = window_small_[i] * ch.mod[(ch.write + n / 2 - 128 + i) % n];
-            std::fill(mod_small_.begin() + 256, mod_small_.begin() + 512, 0.0f);
-            transforms_[0]->transformRealForward(mod_small_.data());
-            small_sum_[0] = 0.0f;
-            for (int j = 0; j <= 128; ++j)
-              small_sum_[j + 1] = small_sum_[j] + mod_small_[2 * j] * mod_small_[2 * j] + mod_small_[2 * j + 1] * mod_small_[2 * j + 1];
-            const float small_to_stage = sqrtf(n / 256.0f);   // magnitudes of the short FFT in this stage's units
-            const float small_width = nyquist / 128.0f;
-            for (int k = 0; k <= bins; ++k) {
-              float frequency = k * bin_width;
-              float fast = std::max(0.0f, std::min((frequency - 400.0f) / 400.0f, 1.0f));
-              if (fast <= 0.0f)
-                continue;
-              float centre = frequency / small_width;
-              float half = std::max(1.5f, centre * (window_ratio - 1.0f));
-              int lo = std::max(0, static_cast<int>(centre - half));
-              int hi = std::min(128, std::max(static_cast<int>(std::ceil(centre + half)), lo + 1));
-              float level = small_to_stage * sqrtf(std::max(small_sum_[hi + 1] - small_sum_[lo], 0.0f) / (hi - lo + 1));
-              env2_[k] += (level - env2_[k]) * fast;
-            }
-          }
-
-          // Pre-emphasis of the modulator: speech keeps little energy in the highs, which carry the consonants.
-          if (vocode_emphasis_ > 0.0f) {
-            for (int k = 1; k <= bins; ++k)
-              env2_[k] *= exp2f(vocode_emphasis_ * log2f(std::max(k * bin_width, 300.0f) / 1000.0f));
-          }
-
-          // Gate: below a threshold under the modulator's recent peak the whole envelope fades out (breath, hum).
-          if (vocode_gate_ > 0.0f) {
-            int speech_lo = std::min(bins, static_cast<int>(100.0f / bin_width));
-            int speech_hi = std::min(bins + 1, static_cast<int>(8000.0f / bin_width) + 1);
-            float frame_level = rangeLevel(modulator_sum, speech_lo, std::max(speech_hi, speech_lo + 1));
-            float hop_seconds_peak = static_cast<float>(n / kOverlap) / sample_rate;
-            vocode_peak_ = std::max(frame_level, vocode_peak_ * expf(-hop_seconds_peak / 2.0f));
-            float threshold = vocode_peak_ * powf(10.0f, -(80.0f - 50.0f * vocode_gate_) / 20.0f);
-            float open = std::max(0.0f, std::min((frame_level - 0.5f * threshold) / std::max(0.5f * threshold, 1e-9f), 1.0f));
-            for (int k = 0; k <= bins; ++k)
-              env2_[k] *= open;
-          }
-
-          // Whitening. A voice (or any real modulator) falls off steeply towards the highs, and a vocoder multiplies
-          // that onto a carrier that already falls off, which is what makes the result muffled. Each bin's level is
-          // compared with its own slow average (about a second) and the spectrum is tilted back towards its overall
-          // average, so quiet bands count as much as loud ones and what the modulator does *over time* in each
-          // band (the words) is kept. The gate keeps a silent modulator silent.
-          if (vocode_whiten_ > 0.0f) {
-            const float average_coef = expf(-static_cast<float>(n / kOverlap) / (sample_rate * 1.0f));
-            float* average = ch.vavg.data();
-            if (!ch.vavg_valid) {
-              for (int k = 0; k <= bins; ++k)
-                average[k] = env2_[k];
-              ch.vavg_valid = true;
-            }
-            const float eps = 1e-6f * std::max(whole_level, 1e-6f) + 1e-12f;
-            const int first = std::max(1, std::min(bins, static_cast<int>(100.0f / bin_width)));
-            const int last = std::max(first + 1, std::min(bins, static_cast<int>(12000.0f / bin_width)));
-            float log_sum = 0.0f;
-            for (int k = 0; k <= bins; ++k)
-              average[k] = env2_[k] + (average[k] - env2_[k]) * average_coef;
-            for (int k = first; k <= last; ++k)
-              log_sum += log2f(average[k] + eps);
-            const float centre = log_sum / (last - first + 1);
-            for (int k = 0; k <= bins; ++k) {
-              float tilt = (centre - log2f(average[k] + eps)) * vocode_whiten_;
-              env2_[k] *= exp2f(std::max(-2.0f, std::min(tilt, 3.0f)));   // at most 12 dB down / 18 dB up
-            }
-          }
-
-          // Unvoiced sounds (s, f, sh, t): when the modulator has more energy in the highs than in the lows, its frame is
-          // mostly noise, so the carrier's highs (a buzz) give way to hiss. Smoothed over a few frames.
-          float unvoiced = 0.0f;
-          if (vocode_noise_ > 0.0f) {
-            int low_a = std::min(bins, static_cast<int>(100.0f / bin_width)), low_b = std::min(bins + 1, static_cast<int>(1200.0f / bin_width) + 1);
-            int high_a = std::min(bins, static_cast<int>(3000.0f / bin_width)), high_b = std::min(bins + 1, static_cast<int>(8000.0f / bin_width) + 1);
-            float low_sum = 0.0f, high_sum = 0.0f;
-            for (int k = low_a; k < std::max(low_b, low_a + 1); ++k)
-              low_sum += env2_[k];
-            for (int k = high_a; k < std::max(high_b, high_a + 1); ++k)
-              high_sum += env2_[k];
-            float low_mean = low_sum / std::max(low_b - low_a, 1), high_mean = high_sum / std::max(high_b - high_a, 1);
-            float target = std::max(0.0f, std::min((high_mean / std::max(low_mean, 1e-9f) - 0.35f) * 2.2f, 1.0f));
-            if (low_mean + high_mean < 1e-6f * std::max(whole_level, 1e-9f))
-              target = 0.0f;
-            vocode_unvoiced_[c] += (target - vocode_unvoiced_[c]) * 0.5f;
-            unvoiced = vocode_unvoiced_[c];
-          }
-
-          // Per-bin followers.
-          const float hop_seconds = static_cast<float>(n / kOverlap) / sample_rate;
-          const float attack_coef = expf(-hop_seconds / std::max(vocode_attack_, 1e-4f));
-          const float release_coef = expf(-hop_seconds / std::max(vocode_release_, 1e-4f));
-          float* follower = ch.venv.data();
-          for (int k = 0; k <= bins; ++k) {
-            float level = env2_[k];
-            follower[k] = level + (follower[k] - level) * (level > follower[k] ? attack_coef : release_coef);
-          }
-
-          // Formant shift: this bin reads the modulator's envelope at k / ratio.
-          const float ratio = powf(2.0f, vocode_formant_);
-          const float floor_level = 0.03f * whole_level;
-          for (int k = 0; k <= bins; ++k) {
-            float modulator_level = sampleAt(follower, bins, k / ratio);
-            // flatten 0: the carrier is scaled by the modulator's level; flatten 1: it is levelled first, so every bin
-            // carries the modulator's level whatever the carrier does there.
-            float reference = powf(std::max(env_[k], floor_level), flatten) * powf(std::max(whole_level, 1e-9f), 1.0f - flatten);
-            float gain = std::min(modulator_level / std::max(reference, 1e-9f), 4.0f * float(kMaxGain)) * level_gain;
-            gain = exp2f(log2f(std::max(gain, 1e-4f)) * depth);
-            float high_fade = std::max(0.0f, std::min((k * bin_width - 1500.0f) / 3500.0f, 1.0f));
-            gain *= 1.0f - 0.75f * unvoiced * high_fade * std::min(1.0f, 2.0f * vocode_noise_);
-            float re = spec[2 * k] * gain, im = spec[2 * k + 1] * gain;
-
-            // Consonant noise: a hiss as loud as the modulator's envelope, fading in between 1.5 kHz and 5 kHz.
-            if (vocode_noise_ > 0.0f) {
-              float fade = std::max(0.0f, std::min((k * bin_width - 1500.0f) / 3500.0f, 1.0f));
-              if (fade > 0.0f) {
-                vocode_rng_ = vocode_rng_ * 1664525u + 1013904223u;
-                float angle = (vocode_rng_ >> 8) * (2.0f * kPi_ / 16777216.0f);
-                float magnitude = 1.0f * vocode_noise_ * (1.0f + 2.5f * unvoiced) * fade * modulator_level * level_gain * depth;
-                re += magnitude * cosf(angle);
-                im += magnitude * sinf(angle);
-              }
-            }
-            spec[2 * k] = re;
-            spec[2 * k + 1] = im;
-          }
-          break;
-        }
+        case kVocode:
+          break;   // the vocoder is a time-domain filterbank (vocodeSample), not an STFT mode
         default:
           break;
         }
@@ -950,10 +980,24 @@ namespace vital {
           ch.acc[(ch.read + i) % n] += work_[i] * window_[i] * scale;
       }
 
+      static constexpr int kVocodeControlRate = 32;
+      VocoderChannel vocoder_[2];
+      float synth_coef_[kMaxVocodeBands][3] = {};
+      float analysis_coef_[kMaxVocodeBands][3] = {};
+      float attack_coef_[kMaxVocodeBands] = {};
+      float release_coef_[kMaxVocodeBands] = {};
+      float emphasis_gain_[kMaxVocodeBands] = {};
+      float band_frequency_[kMaxVocodeBands] = {};
+      float carrier_coef_ = 0.01f;
+      int coeff_bands_ = -1;
+      float coeff_formant_ = 0.0f, coeff_rate_ = 44100.0f, coeff_attack_ = -1.0f, coeff_release_ = -1.0f,
+            coeff_emphasis_ = -1.0f;
       bool uses_modulator_;
       int fft_index_ = -1;
       int size_ = 1024;
       int hop_count_ = 0;
+      int warm_samples_ = 0;   // vocoder: samples still to run before its output fades in
+      bool vocode_prev_ = false;
       bool idle_ = true;       // neutral: no FFT frames run
       int warm_hops_ = 0;      // frames still to run before the wet signal fades in
       int silent_run_ = 0;     // consecutive samples of digital silence on the inputs
