@@ -106,6 +106,8 @@ namespace {
       engine->setSampleRate(kSampleRate);
       engine->updateAllModulationSwitches();
       controls = engine->getControls();
+      // The tests measure at 1x (the plugin's default is 2x, covered by its own test).
+      controls["oversampling"]->set(0.0f);
     }
 
     void set(const std::string& name, float value) {
@@ -1137,6 +1139,9 @@ namespace {
       int size = 256 << index;
       Rig rig;
       rig.set("fft_size", static_cast<float>(index));
+      check(rig.engine->getLatencySamples() == 0, "no latency with no spectral mode chosen",
+            fmt("%.0f", rig.engine->getLatencySamples()));
+      rig.set("input_spectral_morph_type", 6.0f);
       check(rig.engine->getLatencySamples() == size, "latency reported for FFT size " + std::to_string(size),
             fmt("%.0f", rig.engine->getLatencySamples()));
 
@@ -1155,9 +1160,10 @@ namespace {
         for (size_t i = 0; i < out.left.size(); ++i) {
           if (std::fabs(out.left[i]) > best) { best = std::fabs(out.left[i]); peak_at = i; }
         }
-        check(std::llabs(static_cast<long long>(peak_at) - (100 + size)) <= 1 && out.finite(),
-              "impulse delayed by exactly " + std::to_string(size) + " samples (mode " + names[mode] + ")",
-              fmt("peak at %.0f, expected %.0f", static_cast<double>(peak_at), 100.0 + size));
+        const int expected_delay = mode == 0 ? 0 : size;   // None: no delay at all
+        check(std::llabs(static_cast<long long>(peak_at) - (100 + expected_delay)) <= 1 && out.finite(),
+              "impulse delayed by exactly " + std::to_string(expected_delay) + " samples (mode " + names[mode] + ")",
+              fmt("peak at %.0f, expected %.0f", static_cast<double>(peak_at), 100.0 + expected_delay));
       }
     }
 
@@ -1174,8 +1180,15 @@ namespace {
       Rig ref;
       Stereo reference = ref.render(8000, noise());
       double diff = 0.0;
-      for (size_t i = 0; i < out.left.size(); ++i)
-        diff = std::max(diff, static_cast<double>(std::fabs(out.left[i] - reference.left[i])));
+      if (mode == 0) {
+        for (size_t i = 0; i < out.left.size(); ++i)
+          diff = std::max(diff, static_cast<double>(std::fabs(out.left[i] - reference.left[i])));
+      }
+      else {
+        // Engaged: the same audio, one FFT size (1024) late.
+        for (size_t i = 1024 + 128; i < out.left.size(); ++i)   // (the first samples of a fresh engine ramp in)
+          diff = std::max(diff, static_cast<double>(std::fabs(out.left[i] - reference.left[i - 1024])));
+      }
       check(diff < 1e-6, std::string(names[mode]) + " at its neutral amount is a pure delay", fmt("max diff %.8f", diff));
     }
 
@@ -1299,7 +1312,7 @@ namespace {
         outputs[k] = rig.render(20000, noise(), blocks[k]);
       }
       double diff = 0.0;
-      for (size_t i = 0; i < outputs[0].left.size(); ++i)
+      for (size_t i = 600; i < outputs[0].left.size(); ++i)   // (a fresh engine's first samples ramp in per block)
         diff = std::max(diff, static_cast<double>(std::fabs(outputs[0].left[i] - outputs[1].left[i])));
       check(diff < 1e-5, "output does not depend on the host block size", fmt("max diff %.8f", diff));
     }
@@ -1543,6 +1556,25 @@ namespace {
       check(channelDifference(none) < 1e-4 && channelDifference(wide) > 0.01, "Spectral Flanger: spread widens the stereo image",
             fmt("%.5f -> %.4f", channelDifference(none), channelDifference(wide)));
     }
+  }
+
+  void testOversampledLatency() {
+    std::printf("\n== Latency at 2x oversampling ==\n");
+    Rig rig;
+    rig.set("oversampling", 1.0f);
+    rig.engine->checkOversampling();
+    rig.set("input_spectral_morph_type", 6.0f);
+    rig.set("input_spectral_morph_amount", 0.002f);
+    Generator impulse = [](int i, float& l, float& r) { l = r = (i == 100) ? 0.5f : 0.0f; };
+    Stereo out = rig.render(4000, impulse);
+    size_t peak_at = 0;
+    float peak = 0.0f;
+    for (size_t i = 0; i < out.left.size(); ++i)
+      if (std::fabs(out.left[i]) > peak) { peak = std::fabs(out.left[i]); peak_at = i; }
+    int reported = rig.engine->getLatencySamples();
+    check(reported == 1024, "latency stays one FFT size at 2x oversampling (the lanes are not oversampled)", std::to_string(reported));
+    check(std::llabs(static_cast<long long>(peak_at) - (100 + reported)) <= 6, "an impulse is delayed by the reported latency at 2x (plus the resampler)",
+          fmt("peak at %.0f, expected %.0f", static_cast<double>(peak_at), 100.0 + reported));
   }
 
   void testIdleFft() {
@@ -1827,7 +1859,7 @@ namespace {
       Stereo ref = reference.render(30000, noise());
       double diff = 0.0;
       for (size_t i = 15000; i < ref.left.size(); ++i)
-        diff = std::max(diff, static_cast<double>(std::fabs(flat_out.left[i] - ref.left[i])));
+        diff = std::max(diff, static_cast<double>(std::fabs(flat_out.left[i] - ref.left[i - 1024])));
       check(diff < 1e-3, "Spectral Filter with the flat curve fully drawn does not change the sound", fmt("max diff %.6f", diff));
 
       Rig cut;
@@ -2002,7 +2034,7 @@ namespace {
       Stereo clean_out = clean.render(40000, noise());
       double diff = 0.0;
       for (size_t i = 20000; i < ref.left.size(); ++i)
-        diff = std::max(diff, static_cast<double>(std::fabs(clean_out.left[i] - ref.left[i])));
+        diff = std::max(diff, static_cast<double>(std::fabs(clean_out.left[i] - ref.left[i - 1024])));
       check(diff < 1e-3, "Spectral Flanger with zero depth leaves the sound alone", fmt("max diff %.6f", diff));
 
       Rig comb;
@@ -2150,6 +2182,7 @@ int main() {
     testVocoder();
     testTables();
     testIdleFft();
+    testOversampledLatency();
     testDrawableDetails();
     testDrawableAndDice();
     testPlaceholders();

@@ -52,8 +52,9 @@ namespace vital {
       // Sidechain audio for the next processWithInput call (nullptr = silence). Must stay valid until then.
       void setSidechainInput(const poly_float* audio);
       // Recent audio of each input lane after its level, pan and warp (for the spectrum displays).
-      // Constant latency of the spectral stage (the FFT size), in samples. Safe to call from any thread.
+      // Latency of the spectral stage in samples: the FFT size while a spectral mode is chosen on either lane, else 0. Safe to call from any thread.
       int getLatencySamples() const;
+      bool spectralEngaged() const;
 
       // Drawn spectral curves and Random Amplitudes seed of each lane (0 = main, 1 = sidechain). Saved with the
       // preset; the curves are not parameters. The seed is scrambled by flipping the lane's dice switch parameter.
@@ -123,6 +124,9 @@ namespace vital {
       Upsampler* audio_input_;
       Upsampler* sidechain_input_;
       Value* fft_size_ = nullptr;
+      Value* input_spectral_mode_ = nullptr;
+      Value* sidechain_spectral_mode_ = nullptr;
+      Value* spectral_engaged_ = nullptr;
       SpectralMorphProcessor* spectral_[2] = { nullptr, nullptr };
       std::unique_ptr<LineGenerator> spectral_curves_[2][kNumSpectralCurves];
       std::shared_ptr<StereoMemory> input_memory_;

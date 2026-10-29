@@ -71,6 +71,10 @@ namespace vital {
     Output* sidechain_spectral_position = createMonoModControl("sidechain_spectral_position");
     Value* fft_size = createBaseControl("fft_size");
     fft_size_ = fft_size;
+    input_spectral_mode_ = input_spectral_mode;
+    sidechain_spectral_mode_ = sidechain_spectral_mode;
+    spectral_engaged_ = new Value(0.0f);
+    addIdleProcessor(spectral_engaged_);
     Value* input_destination = createBaseControl("input_destination");
     Value* sidechain_destination = createBaseControl("sidechain_destination");
 
@@ -156,6 +160,7 @@ namespace vital {
     sidechain_spectral->plug(sidechain_spectral_mode, SpectralMorphProcessor::kMode);
     sidechain_spectral->plug(sidechain_spectral_amount, SpectralMorphProcessor::kAmount);
     sidechain_spectral->plug(fft_size, SpectralMorphProcessor::kFftSize);
+    sidechain_spectral->plug(spectral_engaged_, SpectralMorphProcessor::kEngaged);
     sidechain_spectral->plug(sidechain_spectral_position, SpectralMorphProcessor::kPosition);
     sidechain_spectral->plug(sidechain_random_shuffle, SpectralMorphProcessor::kShuffle);
     sidechain_spectral->plug(sidechain_random_dice, SpectralMorphProcessor::kDice);
@@ -172,6 +177,7 @@ namespace vital {
     main_spectral->plug(input_spectral_mode, SpectralMorphProcessor::kMode);
     main_spectral->plug(input_spectral_amount, SpectralMorphProcessor::kAmount);
     main_spectral->plug(fft_size, SpectralMorphProcessor::kFftSize);
+    main_spectral->plug(spectral_engaged_, SpectralMorphProcessor::kEngaged);
     main_spectral->plug(input_spectral_position, SpectralMorphProcessor::kPosition);
     main_spectral->plug(input_random_shuffle, SpectralMorphProcessor::kShuffle);
     main_spectral->plug(input_random_dice, SpectralMorphProcessor::kDice);
@@ -437,6 +443,7 @@ namespace vital {
 
     FloatVectorOperations::disableDenormalisedNumberSupport();
     modulation_handler_->setLegato(legato_->value());
+    spectral_engaged_->set(spectralEngaged() ? 1.0f : 0.0f);
 
     audio_input_->processWithInput(audio_in, num_samples);
     sidechain_input_->processWithInput(sidechain_in_ ? sidechain_in_ : silence_, num_samples);
@@ -478,9 +485,21 @@ namespace vital {
     return spectral_curves_[lane][index].get();
   }
 
+  // The spectral stage only delays the audio while a spectral mode is chosen on either lane (the sidechain lane has
+  // no Vocode). With both on None there is no latency at all.
+  bool SoundEngine::spectralEngaged() const {
+    if (input_spectral_mode_ == nullptr || sidechain_spectral_mode_ == nullptr)
+      return false;
+    int main_mode = static_cast<int>(input_spectral_mode_->value() + 0.5f);
+    int side_mode = static_cast<int>(sidechain_spectral_mode_->value() + 0.5f);
+    return main_mode != SpectralMorphProcessor::kNone || (side_mode != SpectralMorphProcessor::kNone &&
+                                                          side_mode != SpectralMorphProcessor::kVocode);
+  }
+
   int SoundEngine::getLatencySamples() const {
-    if (fft_size_ == nullptr)
+    if (fft_size_ == nullptr || !spectralEngaged())
       return 0;
+    // The lanes and the spectral stage run at the host's rate (only the effect chain is oversampled).
     return SpectralMorphProcessor::fftSizeFromIndex(static_cast<int>(fft_size_->value() + 0.5f));
   }
 

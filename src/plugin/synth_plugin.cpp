@@ -191,7 +191,7 @@ const String SynthPlugin::getProgramName(int index) {
   return editor->getSynth()->getPresetName();
 }
 
-// The spectral stage always delays by one FFT size. The host must know before it plays, and again whenever the
+// The spectral stage delays by one FFT size while a spectral mode is chosen (none: no latency). The host must know before it plays, and again whenever the
 // FFT size changes, so the latency is set at prepare time and re-checked every block. (JUCE's own
 // getLatencySamples() is a plain getter of what setLatencySamples() was last given, so this class's
 // SynthBase::getEngineLatencySamples() is the engine's live value.)

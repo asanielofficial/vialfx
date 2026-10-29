@@ -83,6 +83,7 @@ namespace vital {
         kVocodeGate,
         kVocodeLevel,
         kVocodeWhiten,
+        kEngaged,   // 1 while either lane uses a spectral mode: then every lane delays by one FFT size; 0: no delay at all
         kNumInputs
       };
 
@@ -287,6 +288,8 @@ namespace vital {
 
         // The dry/wet fade runs at a fixed rate per sample (64 samples end to end), whatever the host's block size.
         const float kMixStep = 1.0f / 64.0f;
+        const float kBlendStep = 1.0f / 256.0f;
+        const bool engaged = input(kEngaged)->source->buffer[0][0] > 0.5f;
 
         const poly_float* audio = input(kAudio)->source->buffer;
         const poly_float* modulator = uses_modulator_ ? input(kModulator)->source->buffer : nullptr;
@@ -297,6 +300,7 @@ namespace vital {
         for (int i = 0; i < num_samples; ++i) {
           const float target_mix = (neutral || warm_hops_ > 0 || warm_samples_ > 0) ? 0.0f : 1.0f;
           mix_ += std::max(-kMixStep, std::min(target_mix - mix_, kMixStep));
+          delay_blend_ += std::max(-kBlendStep, std::min((engaged ? 1.0f : 0.0f) - delay_blend_, kBlendStep));
           float result[2];
           for (int c = 0; c < 2; ++c) {
             Channel& ch = channels_[c];
@@ -325,7 +329,10 @@ namespace vital {
                 magnitude += std::fabs(modulator[i][0]) + std::fabs(modulator[i][1]);
               silent_run_ = magnitude < 1.0e-10f ? std::min(silent_run_ + 1, 1 << 30) : 0;
             }
-            result[c] = dry + (wet - dry) * mix_;
+            // Engaged: the delayed signal (dry or effect). Not engaged: the input itself, with no delay. The change
+            // between the two is a short crossfade.
+            float delayed = dry + (wet - dry) * mix_;
+            result[c] = audio[i][c] + (delayed - audio[i][c]) * delay_blend_;
           }
           out[i] = poly_float(result[0], result[1]);
           if (warm_samples_ > 0)
@@ -1004,6 +1011,7 @@ namespace vital {
       int mode_ = kNone;
       float amount_ = 0.0f;
       float mix_ = 0.0f;
+      float delay_blend_ = 0.0f;   // 0: output is the input (no latency), 1: delayed by one FFT size
       float position_target_ = 0.5f;
       float position_ = 0.5f;
       uint32_t seed_ = kDefaultSeed;
