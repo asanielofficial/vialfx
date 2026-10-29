@@ -1368,18 +1368,26 @@ namespace {
         crig.set("input_spectral_morph_type", static_cast<float>(mode));
         crig.set("input_spectral_morph_amount", knob);
         Stereo click_out = crig.render(60000, clicks());
+        float click_peak_after = 0.0f;
+        {
+          // The first frames after switching on run silently (the overlap-add fills), so measure after them.
+          float settled = 0.0f;
+          for (size_t i = 20000; i < click_out.left.size(); ++i)
+            settled = std::max(settled, std::fabs(click_out.left[i]));
+          click_peak_after = settled;
+        }
         std::printf("   %-20s knob %.2f: saw spectrum change %5.1f dB rms | click peak %.2f -> %.2f\n",
                     names[mode], knob, spec, click_ref.peak(), click_out.peak());
         if (knob == 0.75f && mode == 14)
           check(spec > 10.0, "Vocode at 75% clearly reshapes the spectrum (tonal modulator)", fmt("%.1f dB", spec));
         if (knob == 0.75f && mode == 8)
-          check(click_out.peak() < 0.3f, "Phase Disperse at 75% smears transients",
+          check(click_peak_after < 0.3f, "Phase Disperse at 75% smears transients",
                 fmt("click peak %.2f", click_out.peak()));
         if (knob == 0.25f && mode == 8)
-          check(click_out.peak() < 0.3f, "Phase Disperse works in the other direction too (25%)",
+          check(click_peak_after < 0.3f, "Phase Disperse works in the other direction too (25%)",
                 fmt("click peak %.2f", click_out.peak()));
         if (knob == 0.75f && mode == 10)
-          check(click_out.peak() < 0.4f, "Spectral Time Skew at 75% smears transients", fmt("click peak %.2f", click_out.peak()));
+          check(click_peak_after < 0.4f, "Spectral Time Skew at 75% smears transients", fmt("click peak %.2f", click_out.peak()));
       }
     }
   }
@@ -1534,6 +1542,98 @@ namespace {
       };
       check(channelDifference(none) < 1e-4 && channelDifference(wide) > 0.01, "Spectral Flanger: spread widens the stereo image",
             fmt("%.5f -> %.4f", channelDifference(none), channelDifference(wide)));
+    }
+  }
+
+  void testIdleFft() {
+    std::printf("\n== FFT idles when unused ==\n");
+    auto seconds = [&](float mode, float amount, bool silent) {
+      Rig rig;
+      rig.set("fft_size", 3.0f);
+      rig.set("input_spectral_morph_type", mode);
+      rig.set("input_spectral_morph_amount", amount);
+      Generator quiet = [](int, float& l, float& r) { l = r = 0.0f; };
+      auto start = std::chrono::steady_clock::now();
+      rig.render(kSampleRate * 4, silent ? quiet : noise());
+      return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    };
+    double neutral = seconds(0.0f, 0.0f, false);
+    double active = seconds(10.0f, 0.8f, false);
+    double silent = seconds(10.0f, 0.8f, true);
+    check(neutral < 0.6 * active, "a neutral spectral stage runs no FFT", fmt("neutral %.3f s vs active %.3f s", neutral, active));
+    check(silent < 0.6 * active, "digital silence runs no FFT", fmt("silent %.3f s vs active %.3f s", silent, active));
+  }
+
+  void testTables() {
+    std::printf("\n== Table modes (Distort Table, Spectral Table) ==\n");
+    // Distort Table: amount 0 is the clean frame, every position is finite and bounded, and the frames differ.
+    {
+      Rig clean;
+      Stereo reference = clean.render(30000, sine(220.0f));
+      Rig zero;
+      zero.set("input_distortion_type", 9.0f);
+      zero.set("input_distortion_amount", 0.0f);
+      Stereo off = zero.render(30000, sine(220.0f));
+      double diff = 0.0;
+      for (size_t i = 0; i < off.left.size(); ++i)
+        diff = std::max(diff, static_cast<double>(std::fabs(off.left[i] - reference.left[i])));
+      check(diff < 1e-5, "Distort Table at 0 passes the audio untouched", fmt("%.7f", diff));
+
+      int changed = 0;
+      bool bounded = true;
+      for (int frame = 1; frame < 16; ++frame) {
+        for (int lane = 0; lane < 2; ++lane) {
+          std::string prefix = lane ? "sidechain" : "input";
+          Rig rig;
+          if (lane)
+            rig.set("sidechain_on", 1.0f);
+          rig.set(prefix + "_distortion_type", 9.0f);
+          rig.set(prefix + "_distortion_amount", frame / 15.0f);
+          Stereo out = rig.render(30000, sine(220.0f));
+          double sum = 0.0;
+          for (size_t i = 10000; i < out.left.size(); ++i) {
+            if (!std::isfinite(out.left[i]) || std::fabs(out.left[i]) > 8.0f)
+              bounded = false;
+            sum += std::pow(static_cast<double>(out.left[i]) - reference.left[i], 2.0);
+          }
+          if (lane == 0 && std::sqrt(sum / 20000.0) > 0.003)
+            ++changed;
+        }
+      }
+      check(bounded, "Distort Table frames are finite and bounded on both lanes");
+      check(changed >= 13, "Distort Table frames each reshape the sound", std::to_string(changed) + " of 15");
+    }
+
+    // Spectral Table: amount 0 is a flat response; frame 8 is a narrow band at 1 kHz that the position slider moves.
+    {
+      auto level = [&](float frequency, float knob, float position) {
+        Rig rig;
+        rig.set("input_spectral_morph_type", 15.0f);
+        rig.set("input_spectral_morph_amount", knob);
+        rig.set("input_spectral_position", position);
+        Stereo out = rig.render(40000, sine(frequency));
+        return toneAmplitude(out.left, frequency);
+      };
+      double flat = level(1000.0f, 0.0f, 0.5f);
+      check(flat > 0.1, "Spectral Table at 0 is flat", fmt("%.4f", flat));
+      double on_band = level(1000.0f, 8.0f / 15.0f, 0.5f);
+      double off_band = level(5000.0f, 8.0f / 15.0f, 0.5f);
+      check(on_band > 4.0 * off_band, "Spectral Table frame 8 keeps 1 kHz and removes 5 kHz",
+            fmt("1 kHz %.4f, 5 kHz %.5f", on_band, off_band));
+      double moved = level(1000.0f, 8.0f / 15.0f, 0.75f);
+      check(moved < 0.3 * on_band, "Spectral Table position slider transposes the response",
+            fmt("%.4f -> %.4f", on_band, moved));
+      bool finite = true;
+      for (int frame = 1; frame < 16; ++frame) {
+        Rig rig;
+        rig.set("input_spectral_morph_type", 15.0f);
+        rig.set("input_spectral_morph_amount", frame / 15.0f);
+        Stereo out = rig.render(20000, noise());
+        for (float v : out.left)
+          if (!std::isfinite(v) || std::fabs(v) > 100.0f)
+            finite = false;
+      }
+      check(finite, "Spectral Table frames are finite and bounded");
     }
   }
 
@@ -2032,6 +2132,8 @@ int main() {
     testTimeSkewSustained();
     testModulatorIndependentOfLevel();
     testVocoder();
+    testTables();
+    testIdleFft();
     testDrawableDetails();
     testDrawableAndDice();
     testPlaceholders();

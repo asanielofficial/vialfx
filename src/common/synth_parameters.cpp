@@ -310,16 +310,17 @@ namespace vital {
     // Lane switch, level (knob 1.0 = unity gain, up to +6 dB) and pan for each input. The sidechain lane is
     // off by default.
     // Distortion warp mode (the knob amount is input_distortion_amount / sidechain_distortion_amount).
-    // FM and RM need the sidechain as their modulator, so only the main lane offers them.
-    { "input_distortion_type", 0x000000, 0.0, 8.0, 0.0, 0.0, 1.0,
+    // FM and RM need the sidechain as their modulator, so only the main lane offers them (the sidechain's menu hides
+    // them; Table is offered by both lanes).
+    { "input_distortion_type", 0x000000, 0.0, 9.0, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Input Warp Mode", strings::kWarpNames },
-    { "sidechain_distortion_type", 0x000000, 0.0, 6.0, 0.0, 0.0, 1.0,
+    { "sidechain_distortion_type", 0x000000, 0.0, 9.0, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Sidechain Warp Mode", strings::kWarpNames },
     // Spectral morph mode (the knob amount is input_spectral_morph_amount / sidechain_spectral_morph_amount).
     // Vocode (the last mode) uses the sidechain lane, so only the main lane offers it.
-    { "input_spectral_morph_type", 0x000000, 0.0, 14.0, 0.0, 0.0, 1.0,
+    { "input_spectral_morph_type", 0x000000, 0.0, 15.0, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Input Spectral Mode", strings::kFxSpectralNames },
-    { "sidechain_spectral_morph_type", 0x000000, 0.0, 13.0, 0.0, 0.0, 1.0,
+    { "sidechain_spectral_morph_type", 0x000000, 0.0, 15.0, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Sidechain Spectral Mode", strings::kFxSpectralNames },
     // Position slider of the drawable modes (Spectral Filter, Phaser, Flanger): where the swept filter sits, how
     // far the phase curve is applied, the flanger delay. Modulatable, so an LFO can drive it. (The drawn curves

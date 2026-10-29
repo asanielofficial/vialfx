@@ -101,3 +101,11 @@ GPLv3, see [LICENSE](LICENSE). If you distribute builds you must comply with tha
 the corresponding source available.
 
 Additional conditions inherited with the source code are listed in [NOTICE.md](NOTICE.md).
+
+
+## Table modes and idle FFT
+
+- **Distort Table** (warp mode, both lanes): waveshaping by a built-in wavetable of 16 transfer curves (clean, soft, hard, folds, Chebyshev, stairs, diode, rectify, crush, ripple, chaos). The amount scrubs through the frames, 0 is clean.
+- **Spectral Table** (spectral mode, both lanes): a filter driven by a built-in wavetable of 16 frequency responses (flat, sub, tilt, vowels Oo/Oh/Ah/Eh/Ee, band, combs, notch, high pass, telephone, scoop, ripples). The amount scrubs through the frames, 0 is flat; the position slider transposes the response by up to four octaves.
+- Mode indices of the existing modes did not change (Distort Table is warp mode 9, Spectral Table is spectral mode 15). The sidechain menus hide FM, RM and Vocode.
+- The FFT only runs while a spectral mode is active and the inputs are not digital silence. A neutral stage is just the delay line; switching a mode on runs a few frames silently first so the wet signal fades in without a dip.

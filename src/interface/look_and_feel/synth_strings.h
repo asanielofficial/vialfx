@@ -325,7 +325,8 @@ namespace strings {
     "Squeeze",
     "Pulse",
     "FM",
-    "RM"
+    "RM",
+    "Distort Table"
   };
 
   // Spectral morph modes of the effect build's input lanes (the sidechain lane offers all but the last;
@@ -345,7 +346,8 @@ namespace strings {
     "Spectral Filter",
     "Spectral Phaser",
     "Spectral Flanger",
-    "Vocode"
+    "Vocode",
+    "Spectral Table"
   };
 
   const std::string kDiceNames[] = { "0%", "100%" };

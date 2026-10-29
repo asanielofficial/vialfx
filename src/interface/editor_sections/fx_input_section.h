@@ -51,10 +51,11 @@ class FxInputSection : public SynthSection {
     };
 
     // prefix is "input" or "sidechain". num_warp_modes is how many distortion warp modes the lane offers
-    // (the main lane has all 8; the sidechain has no modulator lane for FM and RM, so it offers 6).
-    FxInputSection(String title, const std::string& prefix, int num_warp_modes = 9, int num_spectral_modes = 15) :
+    // (10 in all; the sidechain has no modulator lane, so its menu skips FM, RM and Vocode).
+    FxInputSection(String title, const std::string& prefix, int num_warp_modes = 10, int num_spectral_modes = 16) :
         SynthSection(title), prefix_(prefix), current_destination_(vital::constants::kDualFilters),
-        num_warp_modes_(num_warp_modes), num_spectral_modes_(num_spectral_modes) {
+        num_warp_modes_(num_warp_modes), num_spectral_modes_(num_spectral_modes),
+        has_modulator_(prefix == "input") {
       spectral_morph_ = std::make_unique<SynthSlider>(prefix + "_spectral_morph_amount");
       addSlider(spectral_morph_.get());
       spectral_morph_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
@@ -354,16 +355,20 @@ class FxInputSection : public SynthSection {
       }
       else if (clicked_button == warp_selector_.get()) {
         PopupItems options;
-        for (int i = 0; i < num_warp_modes_; ++i)
-          options.addItem(i, strings::kWarpNames[i]);
+        for (int i = 0; i < num_warp_modes_; ++i) {
+          if (warpAllowed(i))
+            options.addItem(i, strings::kWarpNames[i]);
+        }
 
         Point<int> position(warp_selector_->getX(), warp_selector_->getBottom());
         showPopupSelector(this, position, options, [=](int selection) { setWarp(selection); });
       }
       else if (clicked_button == spectral_selector_.get()) {
         PopupItems options;
-        for (int i = 0; i < num_spectral_modes_; ++i)
-          options.addItem(i, strings::kFxSpectralNames[i]);
+        for (int i = 0; i < num_spectral_modes_; ++i) {
+          if (spectralAllowed(i))
+            options.addItem(i, strings::kFxSpectralNames[i]);
+        }
 
         Point<int> position(spectral_selector_->getX(), spectral_selector_->getBottom());
         showPopupSelector(this, position, options, [=](int selection) { setSpectral(selection); });
@@ -371,13 +376,13 @@ class FxInputSection : public SynthSection {
       else if (clicked_button == tool_button_.get())
         useTool();
       else if (clicked_button == prev_spectral_.get())
-        setSpectral((current_spectral_ + num_spectral_modes_ - 1) % num_spectral_modes_);
+        setSpectral(stepSpectral(-1));
       else if (clicked_button == next_spectral_.get())
-        setSpectral((current_spectral_ + 1) % num_spectral_modes_);
+        setSpectral(stepSpectral(1));
       else if (clicked_button == prev_warp_.get())
-        setWarp((current_warp_ + num_warp_modes_ - 1) % num_warp_modes_);
+        setWarp(stepWarp(-1));
       else if (clicked_button == next_warp_.get())
-        setWarp((current_warp_ + 1) % num_warp_modes_);
+        setWarp(stepWarp(1));
       else if (clicked_button == prev_destination_.get())
         setDestination((current_destination_ + kNumDestinations - 1) % kNumDestinations);
       else if (clicked_button == next_destination_.get())
@@ -389,6 +394,31 @@ class FxInputSection : public SynthSection {
   private:
     static int clampDestination(int destination) {
       return std::max(0, std::min(destination, kNumDestinations - 1));
+    }
+
+    // FM and RM (7, 8) use the sidechain lane as their modulator and Vocode (14) the sidechain's spectrum, so the
+    // sidechain lane's menus skip them. The table modes are offered by both lanes.
+    bool warpAllowed(int mode) const { return has_modulator_ || mode < 7 || mode > 8; }
+    bool spectralAllowed(int mode) const { return has_modulator_ || mode != kVocodeMode; }
+
+    int stepWarp(int direction) const {
+      int mode = current_warp_;
+      for (int i = 0; i < num_warp_modes_; ++i) {
+        mode = (mode + direction + num_warp_modes_) % num_warp_modes_;
+        if (warpAllowed(mode))
+          break;
+      }
+      return mode;
+    }
+
+    int stepSpectral(int direction) const {
+      int mode = current_spectral_;
+      for (int i = 0; i < num_spectral_modes_; ++i) {
+        mode = (mode + direction + num_spectral_modes_) % num_spectral_modes_;
+        if (spectralAllowed(mode))
+          break;
+      }
+      return mode;
     }
 
     int clampWarp(int mode) const { return std::max(0, std::min(mode, num_warp_modes_ - 1)); }
@@ -543,6 +573,7 @@ class FxInputSection : public SynthSection {
     int current_destination_;
     int num_warp_modes_;
     int num_spectral_modes_;
+    bool has_modulator_;
     int current_warp_ = 0;
     int current_spectral_ = 0;
     SpectralWarpEditor* spectral_editor_ = nullptr;

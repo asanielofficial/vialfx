@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "fx_tables.h"
 #include "processor.h"
 #include "fourier_transform.h"
 #include "line_generator.h"
@@ -101,6 +102,7 @@ namespace vital {
         kSpectralPhaser,   // drawable: per-bin phase rotation curve
         kSpectralFlanger,  // drawable: per-bin comb depth curve
         kVocode,
+        kSpectralTable,   // the amount scrubs a wavetable of filter responses (FxTables)
         kNumModes
       };
 
@@ -246,8 +248,24 @@ namespace vital {
           seed_ = scrambleSeed(seed_);
         }
 
-        float target_mix = neutral ? 0.0f : 1.0f;
-        float mix_step = (target_mix - mix_) / std::max(num_samples, 1);
+        // The FFT only runs when it has something to do. With the mode neutral (and the dry/wet fade finished) the
+        // frames are skipped altogether and the stage is just the delay line; the state of the modes is cleared so a
+        // later switch starts fresh. Coming back, a few frames run first (kOverlap of them, enough to fill the
+        // overlap-add) while the output is still the dry delay, then the wet signal fades in.
+        if (neutral) {
+          if (!idle_ && mix_ <= 0.0f) {
+            idle_ = true;
+            clearState();
+          }
+          warm_hops_ = 0;
+        }
+        else if (idle_) {
+          idle_ = false;
+          warm_hops_ = kOverlap;
+        }
+
+        // The dry/wet fade runs at a fixed rate per sample (64 samples end to end), whatever the host's block size.
+        const float kMixStep = 1.0f / 64.0f;
 
         const poly_float* audio = input(kAudio)->source->buffer;
         const poly_float* modulator = uses_modulator_ ? input(kModulator)->source->buffer : nullptr;
@@ -256,7 +274,8 @@ namespace vital {
         const int hop = n / kOverlap;
 
         for (int i = 0; i < num_samples; ++i) {
-          mix_ += mix_step;
+          const float target_mix = (neutral || warm_hops_ > 0) ? 0.0f : 1.0f;
+          mix_ += std::max(-kMixStep, std::min(target_mix - mix_, kMixStep));
           float result[2];
           for (int c = 0; c < 2; ++c) {
             Channel& ch = channels_[c];
@@ -269,19 +288,29 @@ namespace vital {
             ch.in[ch.write] = audio[i][c];
             ch.mod[ch.write] = modulator ? modulator[i][c] : 0.0f;
             ch.write = (ch.write + 1) % n;
+            if (c == 0) {
+              float magnitude = std::fabs(audio[i][0]) + std::fabs(audio[i][1]);
+              if (modulator)
+                magnitude += std::fabs(modulator[i][0]) + std::fabs(modulator[i][1]);
+              silent_run_ = magnitude < 1.0e-10f ? std::min(silent_run_ + 1, 1 << 30) : 0;
+            }
             result[c] = dry + (wet - dry) * mix_;
           }
           out[i] = poly_float(result[0], result[1]);
 
           if (++hop_count_ >= hop) {
             hop_count_ = 0;
-            processFrame(0);
-            processFrame(1);
+            // Skipped: a neutral stage, and a whole ring of digital silence (every frame would be silent too).
+            if (!idle_ && silent_run_ < n) {
+              processFrame(0);
+              processFrame(1);
+              if (warm_hops_ > 0)
+                --warm_hops_;
+            }
             // The position is a modulatable parameter (an LFO can drive it); glide towards it between frames.
             position_ += (position_target_ - position_) * 0.4f;
           }
         }
-        mix_ = target_mix;
       }
 
     private:
@@ -304,6 +333,20 @@ namespace vital {
         int history_pos = 0;
         int history_filled = 0;
       };
+
+      // Drops everything the modes keep between frames (not the audio ring, which is the delay line).
+      void clearState() {
+        for (Channel& ch : channels_) {
+          std::fill(ch.acc.begin(), ch.acc.end(), 0.0f);
+          std::fill(ch.history.begin(), ch.history.end(), 0.0f);
+          std::fill(ch.drift.begin(), ch.drift.end(), 0.0f);
+          std::fill(ch.venv.begin(), ch.venv.end(), 0.0f);
+          std::fill(ch.vavg.begin(), ch.vavg.end(), 0.0f);
+          ch.vavg_valid = false;
+          ch.history_pos = 0;
+          ch.history_filled = 0;
+        }
+      }
 
       void setFftSize(int index) {
         fft_index_ = index;
@@ -605,6 +648,23 @@ namespace vital {
           }
           break;
         }
+        case kSpectralTable: {
+          // The knob picks a frame of the built-in table of filter responses (frame 0 is flat, so zero is neutral). The
+          // position slider transposes the response along the frequency axis, +-4 octaves; Gain is the output level.
+          float shift = (position() - 0.5f) * 8.0f;
+          float out_gain = 2.0f * gain_;
+          float depth = 2.0f * density_;
+          float table_position = std::max(0.0f, std::min(a, 1.0f));
+          for (int k = 0; k <= bins; ++k) {
+            float frequency = std::max(k * 0.5f * sample_rate / bins, 1.0f);
+            float octave = std::log2(frequency / FxTables::kMinHz) - shift;
+            float db = FxTables::spectralDb(octave, table_position) * depth;
+            float gain = std::min(powf(10.0f, db / 20.0f), 64.0f) * out_gain;
+            spec[2 * k] *= gain;
+            spec[2 * k + 1] *= gain;
+          }
+          break;
+        }
         case kSpectralPhaser: {
           // A resonant phaser: every bin goes through H = (1 + e^(j phi)) / (1 - r e^(j phi)), the response of a
           // phase-rotating feedback loop. Where phi is half a turn the bin is cancelled (a notch), where it is a whole
@@ -894,6 +954,9 @@ namespace vital {
       int fft_index_ = -1;
       int size_ = 1024;
       int hop_count_ = 0;
+      bool idle_ = true;       // neutral: no FFT frames run
+      int warm_hops_ = 0;      // frames still to run before the wet signal fades in
+      int silent_run_ = 0;     // consecutive samples of digital silence on the inputs
       int mode_ = kNone;
       float amount_ = 0.0f;
       float mix_ = 0.0f;

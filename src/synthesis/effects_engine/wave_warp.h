@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "fx_tables.h"
 #include "processor.h"
 #include "utils.h"
 #include "value.h"
@@ -41,6 +42,8 @@ namespace vital {
   //  Pulse    asymmetric clipper: the positive half clips early, the negative half stays open.
   //  FM       phase modulation: the modulator lane (the sidechain) moves a short delay tap of the signal.
   //  RM       ring modulation: the signal multiplied by the modulator lane, mixed in by the amount.
+  //  Table    waveshaping by a wavetable of transfer curves (FxTables): the amount scrubs through the 16 frames,
+  //           0 is the clean frame. Both lanes offer it.
   //
   // FM and RM are the only modes that use the modulator, which is the sidechain lane after its own level, pan
   // and warp (the sidechain lane always processes first). If the modulator lane is switched off, FM and RM
@@ -67,6 +70,7 @@ namespace vital {
         kPulse,
         kFm,
         kRm,
+        kTable,
         kNumModes
       };
 
@@ -138,6 +142,8 @@ namespace vital {
             float power = amount >= 0.0f ? 1.0f + 3.0f * amount : 1.0f / (1.0f + 3.0f * -amount);
             return std::copysign(std::pow(magnitude, power), x);
           }
+          case kTable:
+            return FxTables::distort(x, amount);
           case kPulse: {
             float ceiling = 1.0f - 0.7f * amount;
             float y = std::min(x * (1.0f + 3.0f * amount), ceiling);
