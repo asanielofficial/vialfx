@@ -56,7 +56,12 @@ FullInterface::FullInterface(SynthGuiData* synth_data) : SynthSection("full_inte
   setSkinValues(default_skin, true);
   default_skin.copyValuesToLookAndFeel(DefaultLookAndFeel::instance());
 
+#if VITAL_FX
+  // The effect build has wavetable creators too (for the table modes), but no synth interface.
+  bool synth = false;
+#else
   bool synth = synth_data->wavetable_creators[0];
+#endif
   if (synth) {
     synthesis_interface_ = std::make_unique<SynthesisInterface>(&auth_,
                                                                 synth_data->mono_modulations,
@@ -77,6 +82,17 @@ FullInterface::FullInterface(SynthGuiData* synth_data) : SynthSection("full_inte
                                                              synth_data->poly_modulations,
                                                              synth_data->synth->getEngine());
     addSubSection(fx_voice_interface_.get());
+
+    // The table modes' wavetable editors, one per slot (input / sidechain Distort Table, input / sidechain Spectral
+    // Table), opened from the pencil next to the mode's knob.
+    for (int i = 0; i < vital::kNumWavetableSlots; ++i) {
+      if (synth_data->wavetable_creators[i] == nullptr)
+        continue;
+      wavetable_edits_[i] = std::make_unique<WavetableEditSection>(i, synth_data->wavetable_creators[i]);
+      addSubSection(wavetable_edits_[i].get());
+      wavetable_edits_[i]->setVisible(false);
+    }
+    fx_voice_interface_->setTableEditorCallback([this](int index) { showWavetableEditSection(index); });
   }
 
   effects_interface_ = std::make_unique<EffectsInterface>(synth_data->mono_modulations);
@@ -520,7 +536,7 @@ void FullInterface::resized() {
 
   modulation_manager_->setBounds(bounds);
   
-  for (int i = 0; i < vital::kNumOscillators; ++i) {
+  for (int i = 0; i < vital::kNumWavetableSlots; ++i) {
     if (wavetable_edits_[i])
       wavetable_edits_[i]->setBounds(left, 0, width, height);
   }
@@ -604,8 +620,8 @@ void FullInterface::setAllValues(vital::control_map& controls) {
 }
 
 void FullInterface::setWavetableNames() {
-  for (int i = 0; i < vital::kNumOscillators; ++i) {
-    if (wavetable_edits_[i])
+  for (int i = 0; i < vital::kNumWavetableSlots; ++i) {
+    if (wavetable_edits_[i] && synthesis_interface_)
       synthesis_interface_->setWavetableName(i, wavetable_edits_[i]->getName());
   }
 }
@@ -794,7 +810,7 @@ void FullInterface::showFullScreenSection(SynthSection* full_screen) {
     full_screen_section_->setBounds(getLocalBounds());
   }
 
-  for (int i = 0; i < vital::kNumOscillators; ++i) {
+  for (int i = 0; i < vital::kNumWavetableSlots; ++i) {
     if (wavetable_edits_[i])
       wavetable_edits_[i]->setVisible(false);
   }
@@ -824,7 +840,7 @@ void FullInterface::showWavetableEditSection(int index) {
     return;
 
   ScopedLock lock(open_gl_critical_section_);
-  for (int i = 0; i < vital::kNumOscillators; ++i) {
+  for (int i = 0; i < vital::kNumWavetableSlots; ++i) {
     if (wavetable_edits_[i])
       wavetable_edits_[i]->setVisible(i == index);
   }

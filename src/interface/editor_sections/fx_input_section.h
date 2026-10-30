@@ -18,6 +18,8 @@
 
 #include "JuceHeader.h"
 
+#include <functional>
+
 #include "oscilloscope.h"
 #include "open_gl_image_component.h"
 #include "paths.h"
@@ -173,6 +175,14 @@ class FxInputSection : public SynthSection {
       tool_button_->setShape(Paths::pencil());
       tool_button_->setVisible(false);
 
+      // Opens the wavetable editor of the Distort Table warp (the Spectral Table uses the spectral tool button).
+      warp_tool_button_ = std::make_unique<OpenGlShapeButton>("Table Editor");
+      addAndMakeVisible(warp_tool_button_.get());
+      addOpenGlComponent(warp_tool_button_->getGlComponent());
+      warp_tool_button_->addListener(this);
+      warp_tool_button_->setShape(Paths::pencil());
+      warp_tool_button_->setVisible(false);
+
       setSkinOverride(Skin::kOscillator);
       updateDestinationText();
     }
@@ -184,6 +194,8 @@ class FxInputSection : public SynthSection {
     // The popup that draws the Spectral Filter / Phaser / Flanger curves (owned by the full interface).
     void setSpectralEditor(SpectralWarpEditor* editor) { spectral_editor_ = editor; }
     void setVocoderEditor(VocoderEditor* editor) { vocoder_editor_ = editor; }
+    // Called with the wavetable slot to edit: 0 / 1 the input / sidechain Distort Table, 2 / 3 the Spectral Tables.
+    void setTableEditorCallback(std::function<void(int)> callback) { table_editor_callback_ = callback; }
 
     int getDestination() const { return current_destination_; }
 
@@ -308,6 +320,12 @@ class FxInputSection : public SynthSection {
         tool_button_->setBounds(knob_cell.getRight() - tool_size, knob_cell.getY(), tool_size, tool_size);
         shuffle_->setBounds(0, 0, 0, 0);
       }
+      {
+        Rectangle<int> warp_cell = distortion_->getBounds();
+        int warp_tool_size = std::max(1, static_cast<int>(warp_cell.getHeight() * 0.22f));
+        warp_tool_button_->setBounds(warp_cell.getRight() - warp_tool_size, warp_cell.getY(), warp_tool_size,
+                                     warp_tool_size);
+      }
       connectMemory();
     }
 
@@ -375,6 +393,10 @@ class FxInputSection : public SynthSection {
       }
       else if (clicked_button == tool_button_.get())
         useTool();
+      else if (clicked_button == warp_tool_button_.get()) {
+        if (isWarpTableMode() && table_editor_callback_)
+          table_editor_callback_(lane());
+      }
       else if (clicked_button == prev_spectral_.get())
         setSpectral(stepSpectral(-1));
       else if (clicked_button == next_spectral_.get())
@@ -431,6 +453,7 @@ class FxInputSection : public SynthSection {
       distortion_->setBipolar(bipolar);
       distortion_->setDoubleClickReturnValue(true, bipolar ? 0.5f : 0.0f);
       distortion_->redoImage();
+      warp_tool_button_->setVisible(isWarpTableMode());
     }
 
     int clampSpectral(int mode) const { return std::max(0, std::min(mode, num_spectral_modes_ - 1)); }
@@ -442,6 +465,8 @@ class FxInputSection : public SynthSection {
 
     static constexpr int kRandomAmplitudesMode = 5;
     static constexpr int kVocodeMode = 14;
+    static constexpr int kSpectralTableMode = 15;
+    static constexpr int kWarpTableMode = 9;
     static constexpr int kFirstDrawableMode = 11;  // Spectral Filter, Phaser, Flanger
 
     // A die: a rounded square with five holes.
@@ -458,6 +483,9 @@ class FxInputSection : public SynthSection {
     // Vocode (the last mode) exists on the main input only; its settings open in the Vocoder menu.
     bool isVocodeMode() const { return current_spectral_ == kVocodeMode && vocoder_editor_ != nullptr; }
 
+    bool isSpectralTableMode() const { return current_spectral_ == kSpectralTableMode; }
+    bool isWarpTableMode() const { return current_warp_ == kWarpTableMode; }
+
     bool isDrawableMode() const {
       return current_spectral_ >= kFirstDrawableMode && current_spectral_ < kFirstDrawableMode + 3;
     }
@@ -465,13 +493,13 @@ class FxInputSection : public SynthSection {
     // Dice for Random Amplitudes, pencil for the three drawable modes, nothing for the rest.
     void updateToolButton() {
       bool dice = current_spectral_ == kRandomAmplitudesMode;
-      tool_button_->setVisible(dice || isDrawableMode() || isVocodeMode());
+      tool_button_->setVisible(dice || isDrawableMode() || isVocodeMode() || isSpectralTableMode());
       shuffle_->setVisible(dice);
       resized();
       repaintBackground();   // the knob shadow is part of the cached background and follows the knob
       if (dice)
         tool_button_->setShape(dicePath());
-      else if (isDrawableMode())
+      else if (isDrawableMode() || isSpectralTableMode())
         tool_button_->setShape(Paths::pencil());
       else if (isVocodeMode())
         tool_button_->setShape(Paths::gear());
@@ -498,6 +526,8 @@ class FxInputSection : public SynthSection {
         spectral_editor_->showCurve(lane(), current_spectral_ - kFirstDrawableMode);
       else if (isVocodeMode() && vocoder_editor_)
         vocoder_editor_->setVisible(true);
+      else if (isSpectralTableMode() && table_editor_callback_)
+        table_editor_callback_(2 + lane());
     }
 
     void updateSpectralKnob() {
@@ -574,6 +604,8 @@ class FxInputSection : public SynthSection {
     int num_warp_modes_;
     int num_spectral_modes_;
     bool has_modulator_;
+    std::function<void(int)> table_editor_callback_;
+    std::unique_ptr<OpenGlShapeButton> warp_tool_button_;
     int current_warp_ = 0;
     int current_spectral_ = 0;
     SpectralWarpEditor* spectral_editor_ = nullptr;

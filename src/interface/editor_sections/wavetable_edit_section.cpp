@@ -23,6 +23,7 @@
 #include "bar_renderer.h"
 #include "load_save.h"
 #include "oscillator_section.h"
+#include "fx_tables.h"
 #include "synth_slider.h"
 #include "synth_gui_interface.h"
 #include "text_look_and_feel.h"
@@ -93,6 +94,8 @@ namespace {
       wavetable_edit_section->exportToWav();
     else if (result == WavetableEditSection::kResynthesizeWavetable)
       wavetable_edit_section->resynthesizeToWavetable();
+    else if (result == WavetableEditSection::kLoadDefaultTable)
+      wavetable_edit_section->loadDefaultWavetable();
   }
 }
 
@@ -411,7 +414,11 @@ void WavetableEditSection::showPopupMenu() {
   options.addItem(kImportWavetable, "Import Wavetable");
   options.addItem(kExportWavetable, "Export Wavetable");
   options.addItem(kExportWav, "Export to .wav File");
+#if VITAL_FX
+  options.addItem(kLoadDefaultTable, "Reset to Built-in Table");
+#else
   options.addItem(kResynthesizeWavetable, "Synthesize Preset to Table");
+#endif
 
   showPopupSelector(this, Point<int>(menu_button_->getX(), menu_button_->getBottom()), options,
                                      [=](int selection) { menuCallback(selection, this); });
@@ -564,7 +571,17 @@ void WavetableEditSection::componentsChanged() {
 }
 
 void WavetableEditSection::loadDefaultWavetable() {
+#if VITAL_FX
+  // The effect build's tables start from the built-in ones (transfer curves / filter responses).
+  const int kind = index_ < 2 ? 0 : 1;
+  std::vector<float> frames(vital::FxTables::kFrames * vital::WaveFrame::kWaveformSize);
+  for (int f = 0; f < vital::FxTables::kFrames; ++f)
+    vital::FxTables::fillFrame(kind, f, frames.data() + f * vital::WaveFrame::kWaveformSize);
+  wavetable_creator_->initFromFrames(frames.data(), vital::FxTables::kFrames,
+                                     kind == 0 ? "Distort Table" : "Spectral Table");
+#else
   wavetable_creator_->init();
+#endif
   reset();
 }
 

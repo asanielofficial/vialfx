@@ -55,6 +55,7 @@ class WavetableEditSection : public SynthSection,
       kExportWavetable,
       kExportWav,
       kResynthesizeWavetable,
+      kLoadDefaultTable,
       kNumMenuItems
     };
 

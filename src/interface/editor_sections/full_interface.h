@@ -162,7 +162,7 @@ class FullInterface : public SynthSection, public AuthenticationSection::Listene
 
   private:
     bool wavetableEditorsInitialized() {
-      for (int i = 0; i < vital::kNumOscillators; ++i) {
+      for (int i = 0; i < vital::kNumWavetableSlots; ++i) {
         if (wavetable_edits_[i] == nullptr)
           return false;
       }
@@ -187,7 +187,7 @@ class FullInterface : public SynthSection, public AuthenticationSection::Listene
     std::unique_ptr<ModulationInterface> modulation_interface_;
     std::unique_ptr<ExtraModSection> extra_mod_section_;
     std::unique_ptr<EffectsInterface> effects_interface_;
-    std::unique_ptr<WavetableEditSection> wavetable_edits_[vital::kNumOscillators];
+    std::unique_ptr<WavetableEditSection> wavetable_edits_[vital::kNumWavetableSlots];
     std::unique_ptr<KeyboardInterface> keyboard_interface_;
     std::unique_ptr<BendSection> bend_section_;
     std::unique_ptr<PortamentoSection> portamento_section_;

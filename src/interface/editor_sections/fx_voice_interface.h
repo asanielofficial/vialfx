@@ -18,6 +18,8 @@
 
 #include "JuceHeader.h"
 
+#include <functional>
+
 #include "filter_section.h"
 #include "fx_input_section.h"
 #include "spectral_warp_editor.h"
@@ -29,6 +31,9 @@
 // serial routing.
 class FxVoiceInterface : public SynthSection, public FilterSection::Listener, public FxInputSection::Listener {
   public:
+    // Called with the wavetable slot to edit when a table mode's pencil is clicked (see FxInputSection).
+    void setTableEditorCallback(std::function<void(int)> callback) { table_editor_callback_ = callback; }
+
     FxVoiceInterface(const vital::output_map& mono_modulations, const vital::output_map& poly_modulations,
                      vital::SoundEngine* engine) : SynthSection("synthesis") {
       main_input_ = std::make_unique<FxInputSection>("INPUT", "input");
@@ -66,6 +71,8 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
         filter_section_2_->setVisible(!shown);
       });
       main_input_->setVocoderEditor(vocoder_editor_.get());
+      for (FxInputSection* input : { main_input_.get(), sidechain_input_.get() })
+        input->setTableEditorCallback([this](int index) { if (table_editor_callback_) table_editor_callback_(index); });
       main_input_->setSpectralEditor(spectral_editor_.get());
       sidechain_input_->setSpectralEditor(spectral_editor_.get());
 
@@ -138,6 +145,7 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
     std::unique_ptr<FilterSection> filter_section_1_;
     std::unique_ptr<FilterSection> filter_section_2_;
     std::unique_ptr<SpectralWarpEditor> spectral_editor_;
+    std::function<void(int)> table_editor_callback_;
     std::unique_ptr<VocoderEditor> vocoder_editor_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FxVoiceInterface)
