@@ -1636,6 +1636,25 @@ namespace {
       check(changed >= 13, "Distort Table frames each reshape the sound", std::to_string(changed) + " of 15");
     }
 
+    // The tables are wavetables: replacing the contents of the engine's table changes what the mode does.
+    {
+      Rig rig;
+      vital::Wavetable* table = rig.engine->getWavetable(0);
+      check(table != nullptr && rig.engine->getWavetable(3) != nullptr && rig.engine->getWavetable(4) == nullptr,
+            "the engine owns four wavetables for the table modes");
+      table->setNumFrames(2);
+      vital::WaveFrame silent_frame;
+      silent_frame.clear();
+      silent_frame.toFrequencyDomain();
+      table->loadWaveFrame(&silent_frame, 0);
+      table->loadWaveFrame(&silent_frame, 1);
+      rig.set("input_distortion_type", 9.0f);
+      rig.set("input_distortion_amount", 0.5f);
+      Stereo out = rig.render(20000, sine(220.0f));
+      double level = rms(out.left, 10000);
+      check(level < 1e-4, "Distort Table follows the contents of its wavetable (a flat curve silences)", fmt("%.6f", level));
+    }
+
     // Spectral Table: amount 0 is a flat response; frame 8 is a narrow band at 1 kHz that the position slider moves.
     {
       auto level = [&](float frequency, float knob, float position) {

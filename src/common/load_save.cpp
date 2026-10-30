@@ -120,8 +120,10 @@ json LoadSave::stateToJson(SynthBase* synth, const CriticalSection& critical_sec
 
   if (synth->getWavetableCreator(0)) {
     json wavetables;
-    for (int i = 0; i < vital::kNumOscillators; ++i) {
+    for (int i = 0; i < vital::kNumWavetableSlots; ++i) {
       WavetableCreator* wavetable_creator = synth->getWavetableCreator(i);
+      if (wavetable_creator == nullptr)
+        continue;
       wavetables.push_back(wavetable_creator->stateToJson());
     }
 
@@ -226,6 +228,8 @@ void LoadSave::loadWavetables(SynthBase* synth, const json& wavetables) {
   int i = 0;
   for (const json& wavetable : wavetables) {
     WavetableCreator* wavetable_creator = synth->getWavetableCreator(i);
+    if (wavetable_creator == nullptr)
+      break;
     wavetable_creator->jsonToState(wavetable);
     wavetable_creator->render();
     i++;

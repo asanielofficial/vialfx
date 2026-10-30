@@ -42,8 +42,8 @@ namespace vital {
   //  Pulse    asymmetric clipper: the positive half clips early, the negative half stays open.
   //  FM       phase modulation: the modulator lane (the sidechain) moves a short delay tap of the signal.
   //  RM       ring modulation: the signal multiplied by the modulator lane, mixed in by the amount.
-  //  Table    waveshaping by a wavetable of transfer curves (FxTables): the amount scrubs through the 16 frames,
-  //           0 is the clean frame. Both lanes offer it.
+  //  Table    waveshaping by a wavetable (FxTables): each frame is a transfer curve over -1..1 and the amount scrubs
+  //           through the frames; frame 0 of the built-in table is the clean one. Both lanes offer it.
   //
   // FM and RM are the only modes that use the modulator, which is the sidechain lane after its own level, pan
   // and warp (the sidechain lane always processes first). If the modulator lane is switched off, FM and RM
@@ -96,6 +96,9 @@ namespace vital {
 
       Processor* clone() const override { return new WaveWarp(*this); }
 
+      // The wavetable of transfer curves for Table mode (owned by the engine).
+      void setTable(Wavetable* table) { table_ = table; }
+
       static bool isBipolar(int mode) {
         return mode == kSync || mode == kFormant || mode == kBend || mode == kSqueeze;
       }
@@ -142,8 +145,6 @@ namespace vital {
             float power = amount >= 0.0f ? 1.0f + 3.0f * amount : 1.0f / (1.0f + 3.0f * -amount);
             return std::copysign(std::pow(magnitude, power), x);
           }
-          case kTable:
-            return FxTables::distort(x, amount);
           case kPulse: {
             float ceiling = 1.0f - 0.7f * amount;
             float y = std::min(x * (1.0f + 3.0f * amount), ceiling);
@@ -191,6 +192,11 @@ namespace vital {
         float level_smoothing = 1.0f - std::exp(-1.0f / (float(kLevelSeconds) * std::max(getSampleRate(), 8000)));
 
         const poly_float* modulator = uses_modulator_ ? input(kModulator)->source->buffer : nullptr;
+        const Wavetable::WavetableData* table_data = nullptr;
+        if (mode == kTable && table_) {
+          table_->markUsed();   // tells the editing thread the table is being read
+          table_data = table_->getAllActiveData();
+        }
         for (int i = 0; i < num_samples; ++i) {
           float result[kLanes];
           for (int lane = 0; lane < kLanes; ++lane) {
@@ -217,13 +223,18 @@ namespace vital {
                 average_[lane] += level_smoothing * (std::fabs(x) - average_[lane]);
                 reference = std::max(2.0f * average_[lane], float(kMinReference));
               }
-              result[lane] = reference * shape(mode, x / reference, amount);
+              if (mode == kTable)
+                result[lane] = reference * FxTables::distort(table_data, x / reference, amount);
+              else
+                result[lane] = reference * shape(mode, x / reference, amount);
             }
           }
           if (mode == kQuantize)
             advanceHold(amount);
           out[i] = poly_float(result[0], result[1], result[2], result[3]);
         }
+        if (table_data)
+          table_->markUnused();
         write_index_ = (write_index_ + num_samples) & (kFmBufferSize - 1);
       }
 
@@ -262,6 +273,7 @@ namespace vital {
       }
 
       bool uses_modulator_;
+      Wavetable* table_ = nullptr;
       int write_index_;
       int hold_counter_;
       float held_[kLanes];

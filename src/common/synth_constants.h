@@ -24,6 +24,14 @@ namespace vital {
 
   constexpr int kNumLfos = 8;
   constexpr int kNumOscillators = 3;
+  // The effect build's four wavetables: 0 input warp table, 1 sidechain warp table, 2 input spectral table,
+  // 3 sidechain spectral table.
+  constexpr int kNumFxTables = 4;
+#if VITAL_FX
+  constexpr int kNumWavetableSlots = kNumFxTables;
+#else
+  constexpr int kNumWavetableSlots = kNumOscillators;
+#endif
   constexpr int kNumOscillatorWaveFrames = 257;
   constexpr int kNumEnvelopes = 6;
   constexpr int kNumRandomLfos = 4;

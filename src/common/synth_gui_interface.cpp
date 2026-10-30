@@ -26,7 +26,7 @@ SynthGuiData::SynthGuiData(SynthBase* synth_base) : synth(synth_base) {
   mono_modulations = synth->getEngine()->getMonoModulations();
   poly_modulations = synth->getEngine()->getPolyModulations();
   modulation_sources = synth->getEngine()->getModulationSources();
-  for (int i = 0; i < vital::kNumOscillators; ++i)
+  for (int i = 0; i < vital::kNumWavetableSlots; ++i)
     wavetable_creators[i] = synth->getWavetableCreator(i);
 }
 

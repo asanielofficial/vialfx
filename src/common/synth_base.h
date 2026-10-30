@@ -75,6 +75,7 @@ class SynthBase : public MidiManager::Listener {
 
     vital::Wavetable* getWavetable(int index);
     WavetableCreator* getWavetableCreator(int index);
+    void initWavetableCreator(int index);
     vital::Sample* getSample();
     LineGenerator* getLfoSource(int index);
 
@@ -173,7 +174,7 @@ class SynthBase : public MidiManager::Listener {
     std::unique_ptr<MidiManager> midi_manager_;
     std::unique_ptr<MidiKeyboardState> keyboard_state_;
 
-    std::unique_ptr<WavetableCreator> wavetable_creators_[vital::kNumOscillators];
+    std::unique_ptr<WavetableCreator> wavetable_creators_[vital::kNumWavetableSlots];
     std::shared_ptr<SynthBase*> self_reference_;
 
     File active_file_;

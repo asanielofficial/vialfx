@@ -20,6 +20,8 @@
 #include "synth_module.h"
 #include "note_handler.h"
 #include "tuning.h"
+#include "synth_constants.h"
+#include "wavetable.h"
 
 class LineGenerator;
 
@@ -123,6 +125,7 @@ namespace vital {
       EffectsModulationHandler* modulation_handler_;
       Upsampler* audio_input_;
       Upsampler* sidechain_input_;
+      std::unique_ptr<Wavetable> fx_tables_[kNumFxTables];
       Value* fft_size_ = nullptr;
       Value* input_spectral_mode_ = nullptr;
       Value* sidechain_spectral_mode_ = nullptr;

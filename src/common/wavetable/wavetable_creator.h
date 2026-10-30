@@ -58,6 +58,9 @@ class WavetableCreator {
     void loadDefaultCreator();
 
     void initPredefinedWaves();
+    // Frames of kWaveformSize samples each (num_frames of them, spread evenly over the table), as editable keyframes.
+    // Used for the effect build's built-in tables: the values are kept as they are (no normalising, no DC removal).
+    void initFromFrames(const float* frames, int num_frames, const std::string& name);
     void initFromAudioFile(const float* audio_buffer, int num_samples, int sample_rate,
                            AudioFileLoadStyle load_style, FileSource::FadeStyle fade_style);
 

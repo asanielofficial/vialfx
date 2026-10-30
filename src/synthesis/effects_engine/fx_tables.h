@@ -16,9 +16,11 @@
 
 #pragma once
 
+#include "wave_frame.h"
+#include "wavetable.h"
+
 #include <algorithm>
 #include <cmath>
-#include <vector>
 
 namespace vital {
   // Built-in wavetables for the two "table" modes. A table is a row of frames and the amount knob scrubs through
@@ -31,7 +33,6 @@ namespace vital {
   class FxTables {
     public:
       static constexpr int kFrames = 16;
-      static constexpr int kPoints = 1024;
       static constexpr float kMinHz = 20.0f;
       static constexpr float kOctaves = 9.9658f;   // log2(20000 / 20)
 
@@ -49,44 +50,69 @@ namespace vital {
         return names[std::max(0, std::min(frame, kFrames - 1))];
       }
 
-      // Transfer curve value for x (any level; clamped to +-1) at table position 0..1.
-      static float distort(float x, float position) {
-        const Tables& t = tables();
-        float p = std::max(0.0f, std::min(position, 1.0f)) * (kFrames - 1);
-        int frame = std::min(static_cast<int>(p), kFrames - 2);
+      // The wavetable view of a table: every frame is kWaveformSize samples. Position 0..1 scrubs the frames (linear
+      // between neighbours), u is 0..1 across a frame.
+      static float sample(const Wavetable::WavetableData* data, float position, float u) {
+        if (data == nullptr || data->num_frames <= 0 || !data->wave_data)
+          return 0.0f;
+        const int size = Wavetable::kWaveformSize;
+        float p = std::max(0.0f, std::min(position, 1.0f)) * (data->num_frames - 1);
+        int frame = std::min(static_cast<int>(p), std::max(data->num_frames - 2, 0));
+        int next = std::min(frame + 1, data->num_frames - 1);
         float blend = p - frame;
-        float u = (std::max(-1.0f, std::min(x, 1.0f)) * 0.5f + 0.5f) * (kPoints - 1);
-        int i = std::min(static_cast<int>(u), kPoints - 2);
-        float f = u - i;
-        const float* a = &t.distort[frame * kPoints];
-        const float* b = &t.distort[(frame + 1) * kPoints];
+        float x = std::max(0.0f, std::min(u, 1.0f)) * (size - 1);
+        int i = std::min(static_cast<int>(x), size - 2);
+        float f = x - i;
+        const float* a = data->wave_data[frame];
+        const float* b = data->wave_data[next];
         float ya = a[i] + f * (a[i + 1] - a[i]);
         float yb = b[i] + f * (b[i + 1] - b[i]);
         return ya + blend * (yb - ya);
       }
 
-      // Gain in dB at log2(f / 20 Hz) = octave, at table position 0..1.
-      static float spectralDb(float octave, float position) {
-        const Tables& t = tables();
-        float p = std::max(0.0f, std::min(position, 1.0f)) * (kFrames - 1);
-        int frame = std::min(static_cast<int>(p), kFrames - 2);
-        float blend = p - frame;
-        float u = std::max(0.0f, std::min(octave / kOctaves, 1.0f)) * (kPoints - 1);
-        int i = std::min(static_cast<int>(u), kPoints - 2);
-        float f = u - i;
-        const float* a = &t.spectral[frame * kPoints];
-        const float* b = &t.spectral[(frame + 1) * kPoints];
-        float ya = a[i] + f * (a[i + 1] - a[i]);
-        float yb = b[i] + f * (b[i + 1] - b[i]);
-        return ya + blend * (yb - ya);
+      // Distort Table: x in -1..1 through the transfer curve of the table at the position.
+      static float distort(const Wavetable::WavetableData* data, float x, float position) {
+        if (data == nullptr)
+          return x;
+        return sample(data, position, std::max(-1.0f, std::min(x, 1.0f)) * 0.5f + 0.5f);
+      }
+
+      // Spectral Table: the frame is the response over log frequency (20 Hz .. 20 kHz): -1..1 is -48..+48 dB.
+      static float spectralDb(const Wavetable::WavetableData* data, float octave, float position) {
+        if (data == nullptr)
+          return 0.0f;
+        return 48.0f * sample(data, position, octave / kOctaves);
+      }
+
+      // Fills one frame of a built-in table. kind 0: transfer curves; kind 1: spectral responses (value = dB / 48).
+      static void fillFrame(int kind, int frame, float* out) {
+        const int size = Wavetable::kWaveformSize;
+        for (int i = 0; i < size; ++i) {
+          if (kind == 0) {
+            float x = 2.0f * i / (size - 1) - 1.0f;
+            out[i] = std::max(-1.0f, std::min(distortFrame(frame, x), 1.0f));
+          }
+          else {
+            float o = kOctaves * i / (size - 1);
+            out[i] = spectralFrame(frame, o) / 48.0f;
+          }
+        }
+      }
+
+      // Loads the 16 built-in frames of a kind into a wavetable.
+      static void fillWavetable(Wavetable* table, int kind) {
+        table->setNumFrames(kFrames);
+        WaveFrame frame;
+        for (int f = 0; f < kFrames; ++f) {
+          frame.clear();
+          fillFrame(kind, f, frame.time_domain);
+          frame.toFrequencyDomain();
+          table->loadWaveFrame(&frame, f);
+        }
+        table->setName(kind == 0 ? "Distort Table" : "Spectral Table");
       }
 
     private:
-      struct Tables {
-        std::vector<float> distort;
-        std::vector<float> spectral;
-      };
-
       static float fold(float u) {
         float w = u * 0.25f + 0.25f;
         w -= std::floor(w);
@@ -148,22 +174,5 @@ namespace vital {
         return std::max(-48.0f, std::min(db, 48.0f));
       }
 
-      static const Tables& tables() {
-        static const Tables built = [] {
-          Tables t;
-          t.distort.resize(kFrames * kPoints);
-          t.spectral.resize(kFrames * kPoints);
-          for (int frame = 0; frame < kFrames; ++frame) {
-            for (int i = 0; i < kPoints; ++i) {
-              float x = 2.0f * i / (kPoints - 1) - 1.0f;
-              t.distort[frame * kPoints + i] = std::max(-1.0f, std::min(distortFrame(frame, x), 1.0f));
-              float o = kOctaves * i / (kPoints - 1);
-              t.spectral[frame * kPoints + i] = spectralFrame(frame, o);
-            }
-          }
-          return t;
-        }();
-        return built;
-      }
   };
 } // namespace vital

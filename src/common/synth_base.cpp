@@ -18,6 +18,9 @@
 
 #include "sample_source.h"
 #include "sound_engine.h"
+#if VITAL_FX
+#include "fx_tables.h"
+#endif
 #include "load_save.h"
 #include "memory.h"
 #include "modulation_connection_processor.h"
@@ -36,11 +39,11 @@ SynthBase::SynthBase() : expired_(false) {
 
   mod_connections_.reserve(vital::kMaxModulationConnections);
 
-  for (int i = 0; i < vital::kNumOscillators; ++i) {
+  for (int i = 0; i < vital::kNumWavetableSlots; ++i) {
     vital::Wavetable* wavetable = engine_->getWavetable(i);
     if (wavetable) {
       wavetable_creators_[i] = std::make_unique<WavetableCreator>(wavetable);
-      wavetable_creators_[i]->init();
+      initWavetableCreator(i);
     }
   }
 
@@ -291,7 +294,26 @@ vital::Wavetable* SynthBase::getWavetable(int index) {
 }
 
 WavetableCreator* SynthBase::getWavetableCreator(int index) {
+  if (index < 0 || index >= vital::kNumWavetableSlots)
+    return nullptr;
   return wavetable_creators_[index].get();
+}
+
+// The oscillators start from Vital's default wavetable. The effect build's four table slots start from the
+// built-in tables (transfer curves for the warp tables, filter responses for the spectral tables).
+void SynthBase::initWavetableCreator(int index) {
+  WavetableCreator* creator = getWavetableCreator(index);
+  if (creator == nullptr)
+    return;
+#if VITAL_FX
+  const int kind = index < 2 ? 0 : 1;
+  std::vector<float> frames(vital::FxTables::kFrames * vital::WaveFrame::kWaveformSize);
+  for (int f = 0; f < vital::FxTables::kFrames; ++f)
+    vital::FxTables::fillFrame(kind, f, frames.data() + f * vital::WaveFrame::kWaveformSize);
+  creator->initFromFrames(frames.data(), vital::FxTables::kFrames, kind == 0 ? "Distort Table" : "Spectral Table");
+#else
+  creator->init();
+#endif
 }
 
 vital::Sample* SynthBase::getSample() {
@@ -313,8 +335,8 @@ int SynthBase::getSampleRate() {
 void SynthBase::initEngine() {
   clearModulations();
   if (getWavetableCreator(0)) {
-    for (int i = 0; i < vital::kNumOscillators; ++i)
-      getWavetableCreator(i)->init();
+    for (int i = 0; i < vital::kNumWavetableSlots; ++i)
+      initWavetableCreator(i);
 
     engine_->getSample()->init();
   }

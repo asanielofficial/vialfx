@@ -192,6 +192,33 @@ void WavetableCreator::initPredefinedWaves() {
   render();
 }
 
+void WavetableCreator::initFromFrames(const float* frames, int num_frames, const std::string& name) {
+  clear();
+  num_frames = std::max(1, num_frames);
+
+  WavetableGroup* new_group = new WavetableGroup();
+  WaveSource* wave_source = new WaveSource();
+  for (int i = 0; i < num_frames; ++i) {
+    int position = num_frames == 1 ? 0 : ((vital::kNumOscillatorWaveFrames - 1) * i) / (num_frames - 1);
+    wave_source->insertNewKeyframe(position);
+    WaveSourceKeyframe* keyframe = wave_source->getKeyframe(i);
+    keyframe->setInterpolationMode(WaveSource::kTime);
+    vital::WaveFrame* wave_frame = keyframe->wave_frame();
+    wave_frame->clear();
+    memcpy(wave_frame->time_domain, frames + i * vital::WaveFrame::kWaveformSize,
+           vital::WaveFrame::kWaveformSize * sizeof(float));
+    wave_frame->toFrequencyDomain();
+  }
+  wave_source->setInterpolationStyle(WavetableComponent::kLinear);
+  full_normalize_ = false;
+  remove_all_dc_ = false;
+
+  new_group->addComponent(wave_source);
+  addGroup(new_group);
+  render();
+  wavetable_->setName(name);
+}
+
 void WavetableCreator::initFromAudioFile(const float* audio_buffer, int num_samples, int sample_rate,
                                          AudioFileLoadStyle load_style, FileSource::FadeStyle fade_style) {
   int beginning_sample = getFirstNonZeroSample(audio_buffer, num_samples);

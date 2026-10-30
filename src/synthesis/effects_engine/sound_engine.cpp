@@ -16,6 +16,8 @@
 
 #include "sound_engine.h"
 
+#include "fx_tables.h"
+
 #include "chorus_module.h"
 #include "compressor_module.h"
 #include "flanger_module.h"
@@ -40,6 +42,12 @@ namespace vital {
                                sidechain_input_(nullptr), sidechain_in_(nullptr), silence_(),
                                filter_router_(nullptr), filters_module_(nullptr), upsampler_(nullptr),
                                last_oversampling_amount_(-1), last_sample_rate_(-1), peak_meter_(nullptr) {
+    // The four wavetables (input/sidechain warp table, input/sidechain spectral table) start as the built-in ones;
+    // the editor can replace their contents. They exist before the graph, whose processors read them.
+    for (int i = 0; i < kNumFxTables; ++i) {
+      fx_tables_[i] = std::make_unique<Wavetable>(kNumOscillatorWaveFrames);
+      FxTables::fillWavetable(fx_tables_[i].get(), i < 2 ? 0 : 1);
+    }
     init();
     bps_ = data_->controls["beats_per_minute"];
     modulation_processors_.reserve(kMaxModulationConnections);
@@ -170,6 +178,7 @@ namespace vital {
     sidechain_spectral->plug(createMonoModControl("sidechain_spectral_spread"), SpectralMorphProcessor::kSpread);
     sidechain_spectral->plug(createMonoModControl("sidechain_spectral_depth"), SpectralMorphProcessor::kDepth);
     sidechain_spectral->plug(createMonoModControl("sidechain_spectral_phase"), SpectralMorphProcessor::kPhase);
+    sidechain_spectral->setTable(fx_tables_[3].get());
     addProcessor(sidechain_spectral);
 
     SpectralMorphProcessor* main_spectral = new SpectralMorphProcessor(true);
@@ -198,6 +207,7 @@ namespace vital {
     main_spectral->plug(createMonoModControl("input_vocoder_gate"), SpectralMorphProcessor::kVocodeGate);
     main_spectral->plug(createMonoModControl("input_vocoder_level"), SpectralMorphProcessor::kVocodeLevel);
     main_spectral->plug(createMonoModControl("input_vocoder_whiten"), SpectralMorphProcessor::kVocodeWhiten);
+    main_spectral->setTable(fx_tables_[2].get());
     addProcessor(main_spectral);
 
     // Drawn curves (Spectral Filter / Phaser / Flanger) and Random Amplitudes seeds, per lane.
@@ -216,6 +226,7 @@ namespace vital {
     sidechain_warp->plug(sidechain_spectral, WaveWarp::kAudio);
     sidechain_warp->plug(sidechain_warp_mode, WaveWarp::kMode);
     sidechain_warp->plug(sidechain_warp_amount, WaveWarp::kAmount);
+    sidechain_warp->setTable(fx_tables_[1].get());
     addProcessor(sidechain_warp);
 
     AudioLane* sidechain_out = new AudioLane();
@@ -226,6 +237,7 @@ namespace vital {
     addProcessor(sidechain_out);
 
     WaveWarp* main_warp = new WaveWarp(true);
+    main_warp->setTable(fx_tables_[0].get());
     main_warp->plug(main_spectral, WaveWarp::kAudio);
     main_warp->plug(input_warp_mode, WaveWarp::kMode);
     main_warp->plug(input_warp_amount, WaveWarp::kAmount);
@@ -603,7 +615,9 @@ namespace vital {
   }
 
   Wavetable* SoundEngine::getWavetable(int index) {
-    return nullptr;
+    if (index < 0 || index >= kNumFxTables)
+      return nullptr;
+    return fx_tables_[index].get();
   }
 
   Sample* SoundEngine::getSample() {

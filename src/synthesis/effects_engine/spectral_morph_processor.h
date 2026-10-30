@@ -179,6 +179,9 @@ namespace vital {
 
       Processor* clone() const override { return new SpectralMorphProcessor(*this); }
 
+      // The wavetable of filter responses for Spectral Table (owned by the engine).
+      void setTable(Wavetable* table) { table_ = table; }
+
       // Latency in samples at the current FFT size. Safe to call from any thread.
       int latencySamples() const { return latency_; }
 
@@ -296,6 +299,11 @@ namespace vital {
         poly_float* out = output()->buffer;
         const int n = size_;
         const int hop = n / kOverlap;
+        const bool reads_table = mode == kSpectralTable && table_ != nullptr && !neutral;
+        if (reads_table) {
+          table_->markUsed();   // tells the editing thread the table is being read
+          table_data_ = table_->getAllActiveData();
+        }
 
         for (int i = 0; i < num_samples; ++i) {
           const float target_mix = (neutral || warm_hops_ > 0 || warm_samples_ > 0) ? 0.0f : 1.0f;
@@ -350,6 +358,10 @@ namespace vital {
             // The position is a modulatable parameter (an LFO can drive it); glide towards it between frames.
             position_ += (position_target_ - position_) * 0.4f;
           }
+        }
+        if (reads_table) {
+          table_->markUnused();
+          table_data_ = nullptr;
         }
       }
 
@@ -862,7 +874,7 @@ namespace vital {
           for (int k = 0; k <= bins; ++k) {
             float frequency = std::max(k * 0.5f * sample_rate / bins, 1.0f);
             float octave = std::log2(frequency / FxTables::kMinHz) - shift;
-            float db = FxTables::spectralDb(octave, table_position) * depth;
+            float db = FxTables::spectralDb(table_data_, octave, table_position) * depth;
             float gain = std::min(powf(10.0f, db / 20.0f), 64.0f) * out_gain;
             spec[2 * k] *= gain;
             spec[2 * k + 1] *= gain;
@@ -1000,6 +1012,8 @@ namespace vital {
       float coeff_formant_ = 0.0f, coeff_rate_ = 44100.0f, coeff_attack_ = -1.0f, coeff_release_ = -1.0f,
             coeff_emphasis_ = -1.0f;
       bool uses_modulator_;
+      Wavetable* table_ = nullptr;
+      const Wavetable::WavetableData* table_data_ = nullptr;
       int fft_index_ = -1;
       int size_ = 1024;
       int hop_count_ = 0;

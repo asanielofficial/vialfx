@@ -36,7 +36,7 @@ struct SynthGuiData {
   vital::output_map mono_modulations;
   vital::output_map poly_modulations;
   vital::output_map modulation_sources;
-  WavetableCreator* wavetable_creators[vital::kNumOscillators];
+  WavetableCreator* wavetable_creators[vital::kNumWavetableSlots];
   SynthBase* synth;
 };
 
