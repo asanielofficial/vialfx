@@ -995,8 +995,21 @@ void FullInterface::dualPopupSelector(Component* source, Point<int> position, in
 void FullInterface::popupDisplay(Component* source, const std::string& text,
                                  BubbleComponent::BubblePlacement placement, bool primary) {
   PopupDisplay* display = primary ? popup_display_1_.get() : popup_display_2_.get();
-  display->setContent(text, getLocalArea(source, source->getLocalBounds()), placement);
+  Rectangle<int> source_bounds = getLocalArea(source, source->getLocalBounds());
+  // A tooltip that would run off the bottom edge goes above its knob instead.
+  if (placement == BubbleComponent::below && source_bounds.getBottom() + 3 * findValue(Skin::kLabelHeight) > getHeight())
+    placement = BubbleComponent::above;
+  display->setContent(text, source_bounds, placement);
   display->setVisible(true);
+}
+
+// A section moved or resized knobs after the layout pass (a mode changed a knob's width, say): the modulation
+// rings and meters follow the knobs' new bounds.
+void FullInterface::modulationLayoutChanged() {
+  if (modulation_manager_ == nullptr)
+    return;
+  modulation_manager_->updateModulationMeterLocations();
+  modulation_manager_->setVisibleMeterBounds();
 }
 
 void FullInterface::hideDisplay(bool primary) {

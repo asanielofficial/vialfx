@@ -528,6 +528,7 @@ class FxInputSection : public SynthSection {
       spectral_edit_button_->setVisible(isSpectralTableMode());
       shuffle_->setVisible(dice);
       resized();
+      modulationLayoutChanged();
       repaintBackground();   // the knob shadow is part of the cached background and follows the knob
       if (dice)
         tool_button_->setShape(dicePath());

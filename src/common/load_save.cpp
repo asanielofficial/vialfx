@@ -1787,14 +1787,14 @@ File LoadSave::getDataDirectory() {
   String xdg_data_home = SystemStats::getEnvironmentVariable ("XDG_DATA_HOME", {});
 
   if (!xdg_data_home.trim().isEmpty())
-    directory = File(xdg_data_home).getChildFile("vial");
+    directory = File(xdg_data_home).getChildFile("vialfx");
 
 #elif defined(__APPLE__)
   File home_directory = File::getSpecialLocation(File::userHomeDirectory);
-  File directory = home_directory.getChildFile("Music").getChildFile("Vial");
+  File directory = home_directory.getChildFile("Music").getChildFile("vialfx");
 #else
   File documents_dir = File::getSpecialLocation(File::userDocumentsDirectory);
-  File directory = documents_dir.getChildFile("Vial");
+  File directory = documents_dir.getChildFile("vialfx");
 #endif
 
   return directory;

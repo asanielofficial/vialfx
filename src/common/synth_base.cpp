@@ -338,7 +338,8 @@ void SynthBase::initEngine() {
     for (int i = 0; i < vital::kNumWavetableSlots; ++i)
       initWavetableCreator(i);
 
-    engine_->getSample()->init();
+    if (engine_->getSample())   // the effect build has no sample
+      engine_->getSample()->init();
   }
 
   for (int i = 0; i < vital::kNumLfos; ++i)

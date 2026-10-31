@@ -118,6 +118,12 @@ void SynthSection::repaintBackground() {
     parent->repaintChildBackground(this);
 }
 
+void SynthSection::modulationLayoutChanged() {
+  FullInterface* parent = findParentComponentOfClass<FullInterface>();
+  if (parent)
+    parent->modulationLayoutChanged();
+}
+
 void SynthSection::showPopupBrowser(SynthSection* owner, Rectangle<int> bounds, std::vector<File> directories,
                                     String extensions, std::string passthrough_name,
                                     std::string additional_folders_name) {

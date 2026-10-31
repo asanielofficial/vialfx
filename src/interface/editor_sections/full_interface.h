@@ -144,6 +144,7 @@ class FullInterface : public SynthSection, public AuthenticationSection::Listene
     void popupDisplay(Component* source, const std::string& text,
                       BubbleComponent::BubblePlacement placement, bool primary);
     void hideDisplay(bool primary);
+    void modulationLayoutChanged();
     void modulationChanged();
     void modulationValueChanged(int index);
     void openSaveDialog() { save_section_->setIsPreset(true); save_section_->setVisible(true); }

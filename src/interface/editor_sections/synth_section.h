@@ -205,6 +205,8 @@ class SynthSection : public Component, public Slider::Listener,
     virtual void setSkinValues(const Skin& skin, bool top_level);
     void setSkinOverride(Skin::SectionOverride skin_override) { skin_override_ = skin_override; }
     virtual void repaintBackground();
+    // Knobs changed size or place after layout: refresh the modulation rings (see FullInterface).
+    void modulationLayoutChanged();
     void showPopupBrowser(SynthSection* owner, Rectangle<int> bounds, std::vector<File> directories,
                           String extensions, std::string passthrough_name, std::string additional_folders_name);
     void updatePopupBrowser(SynthSection* owner);
