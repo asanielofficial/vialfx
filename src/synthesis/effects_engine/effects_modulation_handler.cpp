@@ -294,6 +294,10 @@ namespace vital {
   void EffectsModulationHandler::correctToTime(double seconds) {
     for (int i = 0; i < kNumLfos; ++i)
       lfos_[i]->correctToTime(seconds);
+
+    // The random LFOs in sync mode only move when they are told the time.
+    for (int i = 0; i < kNumRandomLfos; ++i)
+      random_lfos_[i]->correctToTime(seconds);
   }
 
   void EffectsModulationHandler::disableUnnecessaryModSources() {
