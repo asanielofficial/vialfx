@@ -323,17 +323,23 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
       preset_selector_->setBounds(title_x, y, reset_button_->getX() - margin - title_x, top_height);
 
       // The drawing well fills the width, with the position slider flush underneath (like the LFO's phase bar).
-      int detail_y = getHeight() - margin - slider_height;
-      int slider_y = detail_y - margin / 2 - slider_height;
+      // The flanger has six detail controls: they are layered in two rows of three so each keeps room for its name
+      // even in a half-width (split) panel; the other modes use one row.
+      int num_details = curve_ == kNumCurves - 1 ? kNumDetails : 3;
+      int num_rows = num_details > 3 ? 2 : 1;
+      int per_row = (num_details + num_rows - 1) / num_rows;
+      int row_gap = margin / 2;
+      int detail_top = getHeight() - margin - num_rows * slider_height - (num_rows - 1) * row_gap;
+      int slider_y = detail_top - row_gap - slider_height;
       for (auto& slider : position_)
         slider->setBounds(margin, slider_y, getWidth() - 2 * margin, slider_height);
 
-      // The detail bar: the used controls share the width, each with its name to the left.
-      int num_details = curve_ == kNumCurves - 1 ? kNumDetails : 3;
-      int cell_width = (getWidth() - 2 * margin) / num_details;
-      int label_width = size_ratio_ * 70;
+      int cell_width = (getWidth() - 2 * margin) / per_row;
+      int label_width = std::min<int>(size_ratio_ * 70, cell_width / 2);
       for (int i = 0; i < kNumDetails; ++i) {
-        int cell_x = margin + i * cell_width;
+        int row = i / per_row;
+        int cell_x = margin + (i % per_row) * cell_width;
+        int detail_y = detail_top + row * (slider_height + row_gap);
         detail_labels_[i]->setTextSize(text_size);
         detail_labels_[i]->setColor(body_text);
         detail_labels_[i]->setBounds(cell_x, detail_y, label_width, slider_height);

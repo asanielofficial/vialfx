@@ -34,7 +34,7 @@
 // and follows the mode's amount knob; the fine controls are along the bottom:
 //   Spectral Table: gain, pitch, resonance, mix.
 //   Distort Table:  phase, bias, smooth, drive, DC filter, mix.
-class TableSettingsEditor : public SynthSection {
+class TableSettingsEditor : public SynthSection, public Wavetable3d::Listener {
   public:
     enum Kind { kSpectral, kDistort };
     static constexpr int kMaxKnobs = 5;
@@ -87,6 +87,7 @@ class TableSettingsEditor : public SynthSection {
       wavetable_ = std::make_unique<Wavetable3d>(slot, mono_modulations, poly_modulations);
       addOpenGlComponent(wavetable_.get());
       wavetable_->setRenderType(Wavetable3d::kWave3d);
+      wavetable_->addListener(this);
 
       dimension_button_ = std::make_unique<OpenGlToggleButton>("dimension");
       addAndMakeVisible(dimension_button_.get());
@@ -112,6 +113,22 @@ class TableSettingsEditor : public SynthSection {
 
     // Called when the menu is shown or hidden (the filters underneath hide while it is open).
     void setVisibilityCallback(std::function<void(bool)> callback) { visibility_callback_ = callback; }
+
+    // Audio files dropped on the display become the table (whole-file splice, vocode or pitch splice, by drop zone).
+    void setImportCallback(std::function<bool(String, InputStream*, WavetableCreator::AudioFileLoadStyle)> callback) {
+      import_callback_ = callback;
+    }
+
+    bool loadAudioAsWavetable(String name, InputStream* audio_stream,
+                              WavetableCreator::AudioFileLoadStyle style) override {
+      if (!import_callback_) {
+        delete audio_stream;
+        return false;
+      }
+      bool loaded = import_callback_(name, audio_stream, style);
+      refreshTable();
+      return loaded;
+    }
 
     // The table was edited elsewhere: redraw it.
     void refreshTable() { wavetable_->setDirty(); repaintBackground(); }
@@ -197,5 +214,6 @@ class TableSettingsEditor : public SynthSection {
     std::unique_ptr<OpenGlToggleButton> dimension_button_;
     std::unique_ptr<OpenGlShapeButton> close_button_;
     std::function<void(bool)> visibility_callback_;
+    std::function<bool(String, InputStream*, WavetableCreator::AudioFileLoadStyle)> import_callback_;
     int title_height_ = 28;
 };

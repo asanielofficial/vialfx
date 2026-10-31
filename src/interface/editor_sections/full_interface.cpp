@@ -93,6 +93,14 @@ FullInterface::FullInterface(SynthGuiData* synth_data) : SynthSection("full_inte
       wavetable_edits_[i]->setVisible(false);
     }
     fx_voice_interface_->setTableEditorCallback([this](int index) { showWavetableEditSection(index); });
+    fx_voice_interface_->setTableImportCallback(
+        [this](int index, String name, InputStream* stream, WavetableCreator::AudioFileLoadStyle style) {
+          if (index < 0 || index >= vital::kNumWavetableSlots || wavetable_edits_[index] == nullptr) {
+            delete stream;
+            return false;
+          }
+          return wavetable_edits_[index]->loadAudioAsWavetable(name, stream, style);
+        });
   }
 
   effects_interface_ = std::make_unique<EffectsInterface>(synth_data->mono_modulations);

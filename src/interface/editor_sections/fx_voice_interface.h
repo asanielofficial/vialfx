@@ -34,6 +34,10 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
   public:
     // Called with the wavetable slot to edit when a table mode's pencil is clicked (see FxInputSection).
     void setTableEditorCallback(std::function<void(int)> callback) { table_editor_callback_ = callback; }
+    void setTableImportCallback(
+        std::function<bool(int, String, InputStream*, WavetableCreator::AudioFileLoadStyle)> callback) {
+      table_import_callback_ = callback;
+    }
 
     FxVoiceInterface(const vital::output_map& mono_modulations, const vital::output_map& poly_modulations,
                      vital::SoundEngine* engine) : SynthSection("synthesis") {
@@ -80,6 +84,9 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
         TableSettingsEditor* menu = table_menus_[slot].get();
         menu->setVisibilityCallback([this, menu](bool shown) { panelVisibilityChanged(menu, shown); });
         FxInputSection* input = slot % 2 == 0 ? main_input_.get() : sidechain_input_.get();
+        menu->setImportCallback([this, slot](String name, InputStream* stream, WavetableCreator::AudioFileLoadStyle style) {
+          return table_import_callback_ ? table_import_callback_(slot, name, stream, style) : false;
+        });
         table_menus_[slot]->setFrameSlider(spectral ? input->getSpectralSlider() : input->getDistortionSlider());
       }
       for (FxInputSection* input : { main_input_.get(), sidechain_input_.get() })
@@ -239,6 +246,7 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
     std::unique_ptr<FilterSection> filter_section_2_;
     std::unique_ptr<SpectralWarpEditor> spectral_editor_;
     std::function<void(int)> table_editor_callback_;
+    std::function<bool(int, String, InputStream*, WavetableCreator::AudioFileLoadStyle)> table_import_callback_;
     int filter_y_ = 0, filter_height_ = 0, width_left_ = 0, width_right_ = 0;
     bool in_layout_ = false;
     std::unique_ptr<VocoderEditor> vocoder_editor_;
