@@ -130,6 +130,13 @@ class TableSettingsEditor : public SynthSection, public Wavetable3d::Listener {
       return loaded;
     }
 
+    // The rest of the display's interface belongs to its right-click menu, which the effect build does not show.
+    void loadWavetable(json& wavetable_data) override { }
+    void loadDefaultWavetable() override { }
+    void resynthesizeToWavetable() override { }
+    void textToWavetable() override { }
+    void saveWavetable() override { }
+
     // The table was edited elsewhere: redraw it.
     void refreshTable() { wavetable_->setDirty(); repaintBackground(); }
 
