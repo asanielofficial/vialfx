@@ -116,3 +116,4 @@ Additional conditions inherited with the source code are listed in [NOTICE.md](N
 - Pencil (top left of the knob): the wavetable editor of the table (save, import, edit). Cogwheel (top right): the settings menu, which shows the wavetable (3D / 2D / SP button) following the knob, with the fine controls underneath.
 - Spectral Table menu: gain, pitch (transposes the response), resonance (how far the response reaches), mix.
 - Distort Table menu: phase (shifts the transfer curve), bias, smooth, drive, DC filter (removes the offset bias and the curve create), mix. Drive, bias and smooth act even on the clean first frame.
+- Presets are now .vialfx and skins .vialskin (older .vital / .vitalskin still open); the default skin is the attached Default.vialskin.

@@ -623,7 +623,7 @@ class DisplaySettings : public SynthSection {
           loadSkin(skin);
         }
         else if (skin_->getValue() == skins_.size() + 1) {
-          FileChooser open_box("Open Skin", File(), String("*.") + vital::kSkinExtension);
+          FileChooser open_box("Open Skin", File(), String(vital::kSkinExtensionsList));
           if (open_box.browseForFileToOpen()) {
             File skin_file = open_box.getResult();
             skin_file.copyFileTo(LoadSave::getDefaultSkin());

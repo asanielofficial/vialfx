@@ -193,7 +193,7 @@ class SynthApplication : public JUCEApplication {
           }
           else if (info.commandID == kOpen) {
             File active_file = editor_->getActiveFile();
-            FileChooser open_box("Open Preset", active_file, String("*.") + vital::kPresetExtension);
+            FileChooser open_box("Open Preset", active_file, String(vital::kPresetExtensionsList));
             if (!open_box.browseForFileToOpen())
               return true;
             

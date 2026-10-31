@@ -18,7 +18,7 @@ namespace BinaryData
     const int            Pythagorean_sclSize = 108;
 
     extern const char*   default_vitalskin;
-    const int            default_vitalskinSize = 10485;
+    const int            default_vitalskinSize = 10564;
 
     extern const char*   DroidSansMono_ttf;
     const int            DroidSansMono_ttfSize = 119380;

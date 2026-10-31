@@ -57,11 +57,14 @@ namespace vital {
   constexpr wchar_t kDefaultKeyboardOctaveDown = 'z';
   const std::wstring kDefaultKeyboard = L"awsedftgyhujkolp;'";
 
-  const std::string kPresetExtension = "vital";
+  // Presets and skins. The older .vital / .vitalskin files still open.
+  const std::string kPresetExtension = "vialfx";
+  const std::string kPresetExtensionsList = "*.vialfx;*.vital";
   const std::string kWavetableExtension = "vitaltable";
   const std::string kWavetableExtensionsList = "*." + vital::kWavetableExtension + ";*.wav;*.flac";
   const std::string kSampleExtensionsList = "*.wav;*.flac";
-  const std::string kSkinExtension = "vitalskin";
+  const std::string kSkinExtension = "vialskin";
+  const std::string kSkinExtensionsList = "*.vialskin;*.vitalskin";
   // LFO and spectral curve shapes. Files are the line generator state as JSON; the older .vitallfo files still open.
   const std::string kLfoExtension = "vialshape";
   const std::string kLfoExtensionsList = "*.vialshape;*.vitallfo";

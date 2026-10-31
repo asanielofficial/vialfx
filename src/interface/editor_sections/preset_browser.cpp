@@ -357,7 +357,7 @@ void PresetList::finishRename() {
 void PresetList::reloadPresets() {
   presets_.clear();
   if (current_folder_.exists() && current_folder_.isDirectory())
-    current_folder_.findChildFiles(presets_, File::findFiles, true, "*." + vital::kPresetExtension);
+    current_folder_.findChildFiles(presets_, File::findFiles, true, String(vital::kPresetExtensionsList));
   else
     LoadSave::getAllPresets(presets_);
   sort();
@@ -938,7 +938,7 @@ void PresetBrowser::jumpToPreset(int indices) {
   File parent = external_preset_.getParentDirectory();
   if (parent.exists()) {
     Array<File> presets;
-    parent.findChildFiles(presets, File::findFiles, false, String("*.") + vital::kPresetExtension);
+    parent.findChildFiles(presets, File::findFiles, false, String(vital::kPresetExtensionsList));
     presets.sort(kFileSorter);
     int index = presets.indexOf(external_preset_);
     index = (index + indices + presets.size()) % presets.size();

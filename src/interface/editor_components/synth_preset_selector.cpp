@@ -284,7 +284,7 @@ void SynthPresetSelector::savePreset() {
 void SynthPresetSelector::importPreset() {
   SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
   File active_file = parent->getSynth()->getActiveFile();
-  FileChooser open_box("Open Preset", active_file, String("*.") + vital::kPresetExtension);
+  FileChooser open_box("Open Preset", active_file, String(vital::kPresetExtensionsList));
   if (!open_box.browseForFileToOpen())
     return;
   
@@ -405,7 +405,7 @@ void SynthPresetSelector::openSkinDesigner() {
 }
 
 void SynthPresetSelector::loadSkin() {
-  FileChooser open_box("Open Skin", File(), String("*.") + vital::kSkinExtension);
+  FileChooser open_box("Open Skin", File(), String(vital::kSkinExtensionsList));
   if (open_box.browseForFileToOpen()) {
     File loaded = open_box.getResult();
     loaded.copyFileTo(LoadSave::getDefaultSkin());

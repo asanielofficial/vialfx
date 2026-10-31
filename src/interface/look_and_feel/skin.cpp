@@ -640,7 +640,7 @@ class SkinColorPicker : public Component, public Button::Listener, public Slider
 
     void buttonClicked(Button* clicked_button) override {
       if (clicked_button == &load_button_) {
-        FileChooser open_box("Open Skin", File(), String("*.") + vital::kSkinExtension);
+        FileChooser open_box("Open Skin", File(), String(vital::kSkinExtensionsList));
         if (open_box.browseForFileToOpen()) {
           if (!skin_->loadFromFile(open_box.getResult())) {
             AlertWindow::showNativeDialogBox("Error opening skin", "Skin file is corrupted and won't load.", false);

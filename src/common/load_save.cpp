@@ -1891,7 +1891,7 @@ void LoadSave::getAllFilesOfTypeInDirectories(Array<File>& files, const String& 
 }
 
 void LoadSave::getAllPresets(Array<File>& presets) {
-  getAllFilesOfTypeInDirectories(presets, String("*.") + vital::kPresetExtension, getPresetDirectories());
+  getAllFilesOfTypeInDirectories(presets, String(vital::kPresetExtensionsList), getPresetDirectories());
 }
 
 void LoadSave::getAllWavetables(Array<File>& wavetables) {
@@ -1899,7 +1899,7 @@ void LoadSave::getAllWavetables(Array<File>& wavetables) {
 }
 
 void LoadSave::getAllSkins(Array<File>& skins) {
-  getAllFilesOfTypeInDirectories(skins, String("*.") + vital::kSkinExtension, getSkinDirectories());
+  getAllFilesOfTypeInDirectories(skins, String(vital::kSkinExtensionsList), getSkinDirectories());
 }
 
 void LoadSave::getAllLfos(Array<File>& lfos) {
@@ -1915,7 +1915,7 @@ void LoadSave::getAllUserPresets(Array<File>& presets) {
     getDataDirectory().getChildFile(kPresetFolderName),
     getUserPresetDirectory()
   };
-  getAllFilesOfTypeInDirectories(presets, String("*.") + vital::kPresetExtension, directories);
+  getAllFilesOfTypeInDirectories(presets, String(vital::kPresetExtensionsList), directories);
 }
 
 void LoadSave::getAllUserWavetables(Array<File>& wavetables) {
