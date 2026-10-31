@@ -175,13 +175,28 @@ class FxInputSection : public SynthSection {
       tool_button_->setShape(Paths::pencil());
       tool_button_->setVisible(false);
 
-      // Opens the wavetable editor of the Distort Table warp (the Spectral Table uses the spectral tool button).
-      warp_tool_button_ = std::make_unique<OpenGlShapeButton>("Table Editor");
+      // Table modes: a pencil (top left of the knob) opens the wavetable editor, a cogwheel (top right) the settings
+      // menu with the wavetable display and the fine controls. Spectral Table uses tool_button_ for its cogwheel.
+      warp_tool_button_ = std::make_unique<OpenGlShapeButton>("Table Settings");
       addAndMakeVisible(warp_tool_button_.get());
       addOpenGlComponent(warp_tool_button_->getGlComponent());
       warp_tool_button_->addListener(this);
-      warp_tool_button_->setShape(Paths::pencil());
+      warp_tool_button_->setShape(Paths::gear());
       warp_tool_button_->setVisible(false);
+
+      warp_edit_button_ = std::make_unique<OpenGlShapeButton>("Table Editor");
+      addAndMakeVisible(warp_edit_button_.get());
+      addOpenGlComponent(warp_edit_button_->getGlComponent());
+      warp_edit_button_->addListener(this);
+      warp_edit_button_->setShape(Paths::pencil());
+      warp_edit_button_->setVisible(false);
+
+      spectral_edit_button_ = std::make_unique<OpenGlShapeButton>("Spectral Table Editor");
+      addAndMakeVisible(spectral_edit_button_.get());
+      addOpenGlComponent(spectral_edit_button_->getGlComponent());
+      spectral_edit_button_->addListener(this);
+      spectral_edit_button_->setShape(Paths::pencil());
+      spectral_edit_button_->setVisible(false);
 
       setSkinOverride(Skin::kOscillator);
       updateDestinationText();
@@ -196,6 +211,10 @@ class FxInputSection : public SynthSection {
     void setVocoderEditor(VocoderEditor* editor) { vocoder_editor_ = editor; }
     // Called with the wavetable slot to edit: 0 / 1 the input / sidechain Distort Table, 2 / 3 the Spectral Tables.
     void setTableEditorCallback(std::function<void(int)> callback) { table_editor_callback_ = callback; }
+    // Same slots: the cogwheel opens the table's settings menu.
+    void setTableSettingsCallback(std::function<void(int)> callback) { table_settings_callback_ = callback; }
+    SynthSlider* getSpectralSlider() { return spectral_morph_.get(); }
+    SynthSlider* getDistortionSlider() { return distortion_.get(); }
 
     int getDestination() const { return current_destination_; }
 
@@ -325,6 +344,9 @@ class FxInputSection : public SynthSection {
         int warp_tool_size = std::max(1, static_cast<int>(warp_cell.getHeight() * 0.22f));
         warp_tool_button_->setBounds(warp_cell.getRight() - warp_tool_size, warp_cell.getY(), warp_tool_size,
                                      warp_tool_size);
+        warp_edit_button_->setBounds(warp_cell.getX(), warp_cell.getY(), warp_tool_size, warp_tool_size);
+        int spectral_edit_size = std::max(1, static_cast<int>(knob_cell.getHeight() * 0.22f));
+        spectral_edit_button_->setBounds(knob_cell.getX(), knob_cell.getY(), spectral_edit_size, spectral_edit_size);
       }
       connectMemory();
     }
@@ -394,8 +416,16 @@ class FxInputSection : public SynthSection {
       else if (clicked_button == tool_button_.get())
         useTool();
       else if (clicked_button == warp_tool_button_.get()) {
+        if (isWarpTableMode() && table_settings_callback_)
+          table_settings_callback_(lane());
+      }
+      else if (clicked_button == warp_edit_button_.get()) {
         if (isWarpTableMode() && table_editor_callback_)
           table_editor_callback_(lane());
+      }
+      else if (clicked_button == spectral_edit_button_.get()) {
+        if (isSpectralTableMode() && table_editor_callback_)
+          table_editor_callback_(2 + lane());
       }
       else if (clicked_button == prev_spectral_.get())
         setSpectral(stepSpectral(-1));
@@ -454,6 +484,7 @@ class FxInputSection : public SynthSection {
       distortion_->setDoubleClickReturnValue(true, bipolar ? 0.5f : 0.0f);
       distortion_->redoImage();
       warp_tool_button_->setVisible(isWarpTableMode());
+      warp_edit_button_->setVisible(isWarpTableMode());
     }
 
     int clampSpectral(int mode) const { return std::max(0, std::min(mode, num_spectral_modes_ - 1)); }
@@ -494,14 +525,15 @@ class FxInputSection : public SynthSection {
     void updateToolButton() {
       bool dice = current_spectral_ == kRandomAmplitudesMode;
       tool_button_->setVisible(dice || isDrawableMode() || isVocodeMode() || isSpectralTableMode());
+      spectral_edit_button_->setVisible(isSpectralTableMode());
       shuffle_->setVisible(dice);
       resized();
       repaintBackground();   // the knob shadow is part of the cached background and follows the knob
       if (dice)
         tool_button_->setShape(dicePath());
-      else if (isDrawableMode() || isSpectralTableMode())
+      else if (isDrawableMode())
         tool_button_->setShape(Paths::pencil());
-      else if (isVocodeMode())
+      else if (isVocodeMode() || isSpectralTableMode())
         tool_button_->setShape(Paths::gear());
     }
 
@@ -526,8 +558,8 @@ class FxInputSection : public SynthSection {
         spectral_editor_->showCurve(lane(), current_spectral_ - kFirstDrawableMode);
       else if (isVocodeMode() && vocoder_editor_)
         vocoder_editor_->setVisible(true);
-      else if (isSpectralTableMode() && table_editor_callback_)
-        table_editor_callback_(2 + lane());
+      else if (isSpectralTableMode() && table_settings_callback_)
+        table_settings_callback_(2 + lane());
     }
 
     void updateSpectralKnob() {
@@ -605,7 +637,10 @@ class FxInputSection : public SynthSection {
     int num_spectral_modes_;
     bool has_modulator_;
     std::function<void(int)> table_editor_callback_;
+    std::function<void(int)> table_settings_callback_;
     std::unique_ptr<OpenGlShapeButton> warp_tool_button_;
+    std::unique_ptr<OpenGlShapeButton> warp_edit_button_;
+    std::unique_ptr<OpenGlShapeButton> spectral_edit_button_;
     int current_warp_ = 0;
     int current_spectral_ = 0;
     SpectralWarpEditor* spectral_editor_ = nullptr;

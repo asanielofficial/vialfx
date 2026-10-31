@@ -1558,6 +1558,65 @@ namespace {
     }
   }
 
+  void testTableSettings() {
+    std::printf("\n== Table settings (drive, bias, phase, smooth, DC filter, mix, pitch, resonance) ==\n");
+    auto distort = [&](float frame, std::vector<std::pair<std::string, float>> settings) {
+      Rig rig;
+      rig.set("input_distortion_type", 9.0f);
+      rig.set("input_distortion_amount", frame / 15.0f);
+      for (auto& setting : settings)
+        rig.set(setting.first, setting.second);
+      return rig.render(30000, sine(220.0f));
+    };
+    auto difference = [&](const Stereo& a, const Stereo& b) {
+      double sum = 0.0;
+      for (size_t i = 10000; i < a.left.size(); ++i)
+        sum += std::pow(static_cast<double>(a.left[i]) - b.left[i], 2.0);
+      return std::sqrt(sum / (a.left.size() - 10000));
+    };
+    auto mean = [&](const Stereo& a) {
+      double sum = 0.0;
+      for (size_t i = 10000; i < a.left.size(); ++i)
+        sum += a.left[i];
+      return sum / (a.left.size() - 10000);
+    };
+    Stereo base = distort(1.0f, {});
+    check(difference(base, distort(1.0f, { { "input_distortion_drive", 1.0f } })) > 0.01, "Distort Table drive changes the sound");
+    check(difference(base, distort(1.0f, { { "input_distortion_phase", 0.3f } })) > 0.01, "Distort Table phase changes the sound");
+    check(difference(distort(9.0f, {}), distort(9.0f, { { "input_distortion_smooth", 1.0f } })) > 0.005,
+          "Distort Table smooth changes the sound");
+    Rig dry;
+    Stereo clean = dry.render(30000, sine(220.0f));
+    check(difference(distort(2.0f, { { "input_distortion_mix", 0.0f } }), clean) < 1e-4, "Distort Table mix 0 is the dry signal");
+    double with_bias_no_filter = std::fabs(mean(distort(2.0f, { { "input_distortion_bias", 0.5f }, { "input_distortion_dc_filter", 0.0f } })));
+    double with_filter = std::fabs(mean(distort(2.0f, { { "input_distortion_bias", 0.5f }, { "input_distortion_dc_filter", 1.0f } })));
+    check(with_bias_no_filter > 0.02 && with_filter < 0.25 * with_bias_no_filter, "Distort Table DC filter removes the offset bias creates",
+          fmt("%.4f -> %.4f", with_bias_no_filter, with_filter));
+    {
+      Stereo clip = distort(0.0f, { { "input_distortion_drive", 1.0f } });
+      check(difference(clip, clean) > 0.01, "Distort Table drive acts even on the clean frame");
+    }
+
+    auto spectral = [&](float frequency, float knob, std::vector<std::pair<std::string, float>> settings) {
+      Rig rig;
+      rig.set("input_spectral_morph_type", 15.0f);
+      rig.set("input_spectral_morph_amount", knob);
+      for (auto& setting : settings)
+        rig.set(setting.first, setting.second);
+      Stereo out = rig.render(40000, sine(frequency));
+      return toneAmplitude(out.left, frequency);
+    };
+    double full = spectral(1000.0f, 8.0f / 15.0f, {});
+    check(spectral(1000.0f, 8.0f / 15.0f, { { "input_spectral_table_mix", 0.0f } }) < 0.3 * full &&
+          std::fabs(spectral(1000.0f, 8.0f / 15.0f, { { "input_spectral_table_mix", 0.0f } }) - 0.25) < 0.03,
+          "Spectral Table mix 0 is the dry signal");
+    check(std::fabs(spectral(1000.0f, 8.0f / 15.0f, { { "input_spectral_resonance", 0.0f } }) - 0.25) < 0.03,
+          "Spectral Table resonance 0 flattens the response");
+    { double base_level = spectral(100.0f, 1.0f / 15.0f, {}), loud = spectral(100.0f, 1.0f / 15.0f, { { "input_spectral_gain", 1.0f } });
+      check(loud > 1.7 * base_level, "Spectral Table gain raises the level", fmt("%.3f -> %.3f", base_level, loud)); }
+    check(spectral(1000.0f, 8.0f / 15.0f, { { "input_spectral_position", 0.75f } }) < 0.3 * full, "Spectral Table pitch moves the response");
+  }
+
   void testOversampledLatency() {
     std::printf("\n== Latency at 2x oversampling ==\n");
     Rig rig;
@@ -2202,6 +2261,7 @@ int main() {
     testTables();
     testIdleFft();
     testOversampledLatency();
+    testTableSettings();
     testDrawableDetails();
     testDrawableAndDice();
     testPlaceholders();

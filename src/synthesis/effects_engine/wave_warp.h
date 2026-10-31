@@ -57,6 +57,12 @@ namespace vital {
         kAmount,
         kModulator,
         kModulatorOn,
+        kPhase,      // Table: shifts the transfer curve (0..1)
+        kBias,       // Table: offset added before the curve (-1..1)
+        kSmooth,     // Table: blurs the curve (0..1)
+        kDrive,      // Table: pushes the signal into the curve (0..1 = 1x..16x)
+        kDcFilter,   // Table: 1 removes the DC the curve creates
+        kMix,        // Table: dry / wet (0..1)
         kNumInputs
       };
 
@@ -171,7 +177,23 @@ namespace vital {
             history_[(write_index_ + i) & (kFmBufferSize - 1)][lane] = audio[i][lane];
         }
 
-        if (mode == kNone || isNeutral(mode, amount) || (modulated_mode && !uses_modulator_)) {
+        float table_phase = 0.0f, table_bias = 0.0f, table_smooth = 0.0f, table_drive = 0.0f, table_mix = 1.0f;
+        bool table_dc = true;
+        if (mode == kTable) {
+          table_phase = utils::clamp(input(kPhase)->source->buffer[0][0], 0.0f, 1.0f);
+          table_bias = utils::clamp(input(kBias)->source->buffer[0][0], -1.0f, 1.0f);
+          table_smooth = utils::clamp(input(kSmooth)->source->buffer[0][0], 0.0f, 1.0f);
+          table_drive = utils::clamp(input(kDrive)->source->buffer[0][0], 0.0f, 1.0f);
+          table_mix = utils::clamp(input(kMix)->source->buffer[0][0], 0.0f, 1.0f);
+          table_dc = input(kDcFilter)->source->buffer[0][0] > 0.5f;
+        }
+        // With the drive, bias or smoothing in play the table does something even at its clean first frame.
+        bool table_settled = mode == kTable && table_drive == 0.0f && table_bias == 0.0f && table_smooth == 0.0f;
+        const float drive_gain = std::exp2(4.0f * table_drive);
+        const float dc_coef = 1.0f - std::exp(-2.0f * 3.14159265f * 10.0f / std::max(getSampleRate(), 8000));
+
+        if (mode == kNone || (mode == kTable ? (table_settled && amount < 1.0e-6f) : isNeutral(mode, amount)) ||
+            (modulated_mode && !uses_modulator_)) {
           for (int i = 0; i < num_samples; ++i)
             out[i] = audio[i];
           write_index_ = (write_index_ + num_samples) & (kFmBufferSize - 1);
@@ -223,8 +245,15 @@ namespace vital {
                 average_[lane] += level_smoothing * (std::fabs(x) - average_[lane]);
                 reference = std::max(2.0f * average_[lane], float(kMinReference));
               }
-              if (mode == kTable)
-                result[lane] = reference * FxTables::distort(table_data, x / reference, amount);
+              if (mode == kTable) {
+                float shaped = reference * FxTables::distort(table_data, drive_gain * x / reference + table_bias, amount,
+                                                             table_phase, table_smooth);
+                if (table_dc) {
+                  dc_[lane] += (shaped - dc_[lane]) * dc_coef;
+                  shaped -= dc_[lane];
+                }
+                result[lane] = x + (shaped - x) * table_mix;
+              }
               else
                 result[lane] = reference * shape(mode, x / reference, amount);
             }
@@ -280,6 +309,7 @@ namespace vital {
       float envelope_[kLanes];
       float modulator_envelope_[kLanes];
       float average_[kLanes];
+      float dc_[kLanes] = {};
       float history_[kFmBufferSize][kLanes];
 
       JUCE_LEAK_DETECTOR(WaveWarp)

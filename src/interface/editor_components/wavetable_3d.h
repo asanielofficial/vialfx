@@ -147,6 +147,7 @@ class Wavetable3d : public OpenGlComponent, public AudioFileDropSource {
     vital::Wavetable* getWavetable() { return wavetable_; }
 
   private:
+    float frameSliderValue() const;
     bool updateRenderValues();
     void loadIntoTimeDomain(int index);
     void loadWaveData(int index);

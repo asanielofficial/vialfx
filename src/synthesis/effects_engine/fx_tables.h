@@ -70,11 +70,20 @@ namespace vital {
         return ya + blend * (yb - ya);
       }
 
-      // Distort Table: x in -1..1 through the transfer curve of the table at the position.
-      static float distort(const Wavetable::WavetableData* data, float x, float position) {
+      // Distort Table: x in -1..1 through the transfer curve of the table at the position. The curve is treated as one
+      // cycle of a wave: phase (0..1) shifts it round, smooth (0..1) averages three taps spread over a widening
+      // neighbourhood.
+      static float distort(const Wavetable::WavetableData* data, float x, float position,
+                           float phase = 0.0f, float smooth = 0.0f) {
         if (data == nullptr)
           return x;
-        return sample(data, position, std::max(-1.0f, std::min(x, 1.0f)) * 0.5f + 0.5f);
+        float u = std::max(-1.0f, std::min(x, 1.0f)) * 0.5f + 0.5f;
+        if (smooth <= 0.0f)
+          return sample(data, position, wrap(u + phase));
+        float width = 0.2f * smooth;
+        return 0.25f * sample(data, position, wrap(u - width + phase)) +
+               0.5f * sample(data, position, wrap(u + phase)) +
+               0.25f * sample(data, position, wrap(u + width + phase));
       }
 
       // Spectral Table: the frame is the response over log frequency (20 Hz .. 20 kHz): -1..1 is -48..+48 dB.
@@ -113,6 +122,8 @@ namespace vital {
       }
 
     private:
+      static float wrap(float u) { return u - std::floor(u); }
+
       static float fold(float u) {
         float w = u * 0.25f + 0.25f;
         w -= std::floor(w);

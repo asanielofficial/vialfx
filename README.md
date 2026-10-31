@@ -110,3 +110,9 @@ Additional conditions inherited with the source code are listed in [NOTICE.md](N
 - Mode indices of the existing modes did not change (Distort Table is warp mode 9, Spectral Table is spectral mode 15). The sidechain menus hide FM, RM and Vocode.
 - The FFT only runs while a spectral mode is active and the inputs are not digital silence. A neutral stage is just the delay line; switching a mode on runs a few frames silently first so the wet signal fades in without a dip.
 - With no spectral mode chosen on either lane there is no latency at all (the plugin reports 0). Choosing a spectral mode on either lane engages the stage: both lanes then delay by one FFT size so they stay aligned, and the reported latency changes accordingly. The default oversampling is 2x.
+
+## Table mode controls
+
+- Pencil (top left of the knob): the wavetable editor of the table (save, import, edit). Cogwheel (top right): the settings menu, which shows the wavetable (3D / 2D / SP button) following the knob, with the fine controls underneath.
+- Spectral Table menu: gain, pitch (transposes the response), resonance (how far the response reaches), mix.
+- Distort Table menu: phase (shifts the transfer curve), bias, smooth, drive, DC filter (removes the offset bias and the curve create), mix. Drive, bias and smooth act even on the clean first frame.

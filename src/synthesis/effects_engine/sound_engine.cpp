@@ -169,6 +169,7 @@ namespace vital {
     sidechain_spectral->plug(sidechain_spectral_amount, SpectralMorphProcessor::kAmount);
     sidechain_spectral->plug(fft_size, SpectralMorphProcessor::kFftSize);
     sidechain_spectral->plug(spectral_engaged_, SpectralMorphProcessor::kEngaged);
+    sidechain_spectral->plug(createMonoModControl("sidechain_spectral_table_mix"), SpectralMorphProcessor::kTableMix);
     sidechain_spectral->plug(sidechain_spectral_position, SpectralMorphProcessor::kPosition);
     sidechain_spectral->plug(sidechain_random_shuffle, SpectralMorphProcessor::kShuffle);
     sidechain_spectral->plug(sidechain_random_dice, SpectralMorphProcessor::kDice);
@@ -187,6 +188,7 @@ namespace vital {
     main_spectral->plug(input_spectral_amount, SpectralMorphProcessor::kAmount);
     main_spectral->plug(fft_size, SpectralMorphProcessor::kFftSize);
     main_spectral->plug(spectral_engaged_, SpectralMorphProcessor::kEngaged);
+    main_spectral->plug(createMonoModControl("input_spectral_table_mix"), SpectralMorphProcessor::kTableMix);
     main_spectral->plug(input_spectral_position, SpectralMorphProcessor::kPosition);
     main_spectral->plug(input_random_shuffle, SpectralMorphProcessor::kShuffle);
     main_spectral->plug(input_random_dice, SpectralMorphProcessor::kDice);
@@ -226,6 +228,12 @@ namespace vital {
     sidechain_warp->plug(sidechain_spectral, WaveWarp::kAudio);
     sidechain_warp->plug(sidechain_warp_mode, WaveWarp::kMode);
     sidechain_warp->plug(sidechain_warp_amount, WaveWarp::kAmount);
+    sidechain_warp->plug(createMonoModControl("sidechain_distortion_phase"), WaveWarp::kPhase);
+    sidechain_warp->plug(createMonoModControl("sidechain_distortion_bias"), WaveWarp::kBias);
+    sidechain_warp->plug(createMonoModControl("sidechain_distortion_smooth"), WaveWarp::kSmooth);
+    sidechain_warp->plug(createMonoModControl("sidechain_distortion_drive"), WaveWarp::kDrive);
+    sidechain_warp->plug(createBaseControl("sidechain_distortion_dc_filter"), WaveWarp::kDcFilter);
+    sidechain_warp->plug(createMonoModControl("sidechain_distortion_mix"), WaveWarp::kMix);
     sidechain_warp->setTable(fx_tables_[1].get());
     addProcessor(sidechain_warp);
 
@@ -237,6 +245,12 @@ namespace vital {
     addProcessor(sidechain_out);
 
     WaveWarp* main_warp = new WaveWarp(true);
+    main_warp->plug(createMonoModControl("input_distortion_phase"), WaveWarp::kPhase);
+    main_warp->plug(createMonoModControl("input_distortion_bias"), WaveWarp::kBias);
+    main_warp->plug(createMonoModControl("input_distortion_smooth"), WaveWarp::kSmooth);
+    main_warp->plug(createMonoModControl("input_distortion_drive"), WaveWarp::kDrive);
+    main_warp->plug(createBaseControl("input_distortion_dc_filter"), WaveWarp::kDcFilter);
+    main_warp->plug(createMonoModControl("input_distortion_mix"), WaveWarp::kMix);
     main_warp->setTable(fx_tables_[0].get());
     main_warp->plug(main_spectral, WaveWarp::kAudio);
     main_warp->plug(input_warp_mode, WaveWarp::kMode);

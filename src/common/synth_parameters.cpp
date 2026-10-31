@@ -397,6 +397,42 @@ namespace vital {
     // reported to the host.
     { "fft_size", 0x000000, 0.0, 7.0, 2.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "FFT Size", strings::kFftSizeNames },
+    // Table mode settings of the input lane. Spectral Table: pitch is the lane's spectral position, gain and resonance
+    // (depth of the response) are the spectral gain and resonance; mix blends the filtered sound with the dry one.
+    // Distort Table: phase shifts the transfer curve, bias adds an offset before it, smooth blurs it, drive pushes
+    // the signal into it, the DC filter removes the offset it creates, mix blends with the dry signal.
+    { "input_spectral_table_mix", 0x000000, 0.0, 1.0, 1.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Input Spectral Table Mix", nullptr },
+    { "input_distortion_phase", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Input Distortion Phase", nullptr },
+    { "input_distortion_bias", 0x000000, -1.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Input Distortion Bias", nullptr },
+    { "input_distortion_smooth", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Input Distortion Smooth", nullptr },
+    { "input_distortion_drive", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Input Distortion Drive", nullptr },
+    { "input_distortion_dc_filter", 0x000000, 0.0, 1.0, 1.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Input Distortion DC Filter", strings::kOffOnNames },
+    { "input_distortion_mix", 0x000000, 0.0, 1.0, 1.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Input Distortion Mix", nullptr },
+    // Table mode settings of the sidechain lane. Spectral Table: pitch is the lane's spectral position, gain and resonance
+    // (depth of the response) are the spectral gain and resonance; mix blends the filtered sound with the dry one.
+    // Distort Table: phase shifts the transfer curve, bias adds an offset before it, smooth blurs it, drive pushes
+    // the signal into it, the DC filter removes the offset it creates, mix blends with the dry signal.
+    { "sidechain_spectral_table_mix", 0x000000, 0.0, 1.0, 1.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Sidechain Spectral Table Mix", nullptr },
+    { "sidechain_distortion_phase", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Sidechain Distortion Phase", nullptr },
+    { "sidechain_distortion_bias", 0x000000, -1.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Sidechain Distortion Bias", nullptr },
+    { "sidechain_distortion_smooth", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Sidechain Distortion Smooth", nullptr },
+    { "sidechain_distortion_drive", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Sidechain Distortion Drive", nullptr },
+    { "sidechain_distortion_dc_filter", 0x000000, 0.0, 1.0, 1.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Sidechain Distortion DC Filter", strings::kOffOnNames },
+    { "sidechain_distortion_mix", 0x000000, 0.0, 1.0, 1.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Sidechain Distortion Mix", nullptr },
     { "input_on", 0x000000, 0.0, 1.0, 1.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Input Switch", strings::kOffOnNames },
     { "input_level", 0x000000, 0.0, 1.41421356237, 1.0, 0.0, 1.0,

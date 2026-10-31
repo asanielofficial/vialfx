@@ -83,6 +83,7 @@ namespace vital {
         kVocodeGate,
         kVocodeLevel,
         kVocodeWhiten,
+        kTableMix,   // Spectral Table: dry / wet (0..1)
         kEngaged,   // 1 while either lane uses a spectral mode: then every lane delays by one FFT size; 0: no delay at all
         kNumInputs
       };
@@ -225,6 +226,7 @@ namespace vital {
         shuffle_ = input(kShuffle)->source->buffer[0][0];
         gain_ = std::max(0.0f, std::min(input(kGain)->source->buffer[0][0], 1.0f));
         density_ = std::max(0.0f, std::min(input(kDensity)->source->buffer[0][0], 1.0f));
+        table_mix_ = std::max(0.0f, std::min(input(kTableMix)->source->buffer[0][0], 1.0f));
         resonance_ = std::max(0.0f, std::min(input(kResonance)->source->buffer[0][0], 1.0f));
         spread_ = std::max(0.0f, std::min(input(kSpread)->source->buffer[0][0], 1.0f));
         depth_ = std::max(0.0f, std::min(input(kDepth)->source->buffer[0][0], 1.0f));
@@ -869,13 +871,14 @@ namespace vital {
           // position slider transposes the response along the frequency axis, +-4 octaves; Gain is the output level.
           float shift = (position() - 0.5f) * 8.0f;
           float out_gain = 2.0f * gain_;
-          float depth = 2.0f * density_;
+          float depth = 2.0f * resonance_;   // resonance: how far the response reaches (0 .. 2x its dB)
           float table_position = std::max(0.0f, std::min(a, 1.0f));
           for (int k = 0; k <= bins; ++k) {
             float frequency = std::max(k * 0.5f * sample_rate / bins, 1.0f);
             float octave = std::log2(frequency / FxTables::kMinHz) - shift;
             float db = FxTables::spectralDb(table_data_, octave, table_position) * depth;
             float gain = std::min(powf(10.0f, db / 20.0f), 64.0f) * out_gain;
+            gain = 1.0f + (gain - 1.0f) * table_mix_;
             spec[2 * k] *= gain;
             spec[2 * k + 1] *= gain;
           }
@@ -1030,6 +1033,7 @@ namespace vital {
       float position_ = 0.5f;
       uint32_t seed_ = kDefaultSeed;
       float shuffle_ = 0.0f;
+      float table_mix_ = 1.0f;
       float gain_ = 0.5f, density_ = 0.5f, resonance_ = 0.5f, spread_ = 0.5f, depth_ = 0.5f, comb_phase_ = 0.0f;
       int vocode_bands_ = 24;
       float vocode_attack_ = 0.004f;

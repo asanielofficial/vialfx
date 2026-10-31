@@ -23,6 +23,7 @@
 #include "filter_section.h"
 #include "fx_input_section.h"
 #include "spectral_warp_editor.h"
+#include "table_settings_editor.h"
 #include "synth_section.h"
 
 // VOICE tab of the effect build: the main input and sidechain input panels on top, and the two filters
@@ -73,6 +74,24 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
       main_input_->setVocoderEditor(vocoder_editor_.get());
       for (FxInputSection* input : { main_input_.get(), sidechain_input_.get() })
         input->setTableEditorCallback([this](int index) { if (table_editor_callback_) table_editor_callback_(index); });
+      // The table modes' settings menus (wavetable display and fine controls), one per lane and kind.
+      for (int slot = 0; slot < 4; ++slot) {
+        bool spectral = slot >= 2;
+        std::string prefix = slot % 2 == 0 ? "input" : "sidechain";
+        table_menus_[slot] = std::make_unique<TableSettingsEditor>(
+            spectral ? TableSettingsEditor::kSpectral : TableSettingsEditor::kDistort, prefix, slot,
+            mono_modulations, poly_modulations);
+        addSubSection(table_menus_[slot].get());
+        table_menus_[slot]->setVisible(false);
+        table_menus_[slot]->setVisibilityCallback([this](bool shown) {
+          filter_section_1_->setVisible(!shown);
+          filter_section_2_->setVisible(!shown);
+        });
+        FxInputSection* input = slot % 2 == 0 ? main_input_.get() : sidechain_input_.get();
+        table_menus_[slot]->setFrameSlider(spectral ? input->getSpectralSlider() : input->getDistortionSlider());
+      }
+      for (FxInputSection* input : { main_input_.get(), sidechain_input_.get() })
+        input->setTableSettingsCallback([this](int slot) { showTableMenu(slot); });
       main_input_->setSpectralEditor(spectral_editor_.get());
       sidechain_input_->setSpectralEditor(spectral_editor_.get());
 
@@ -106,10 +125,24 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
       filter_section_2_->setBounds(width_left + padding, filter_y, width_right, filter_height);
       spectral_editor_->setBounds(0, filter_y, getWidth(), filter_height);
       vocoder_editor_->setBounds(0, filter_y, getWidth(), filter_height);
+      for (auto& menu : table_menus_)
+        menu->setBounds(0, filter_y, getWidth(), filter_height);
       SynthSection::resized();
     }
 
     void setFocus() { grabKeyboardFocus(); }
+
+    // The settings menu of a table slot (0 / 1 the input / sidechain Distort Table, 2 / 3 the Spectral Tables).
+    void showTableMenu(int slot) {
+      if (slot >= 0 && slot < 4 && table_menus_[slot])
+        table_menus_[slot]->setVisible(true);
+    }
+
+    // The table of this slot was edited in the wavetable editor: the menu's display redraws it.
+    void tableEdited(int slot) {
+      if (slot >= 0 && slot < 4 && table_menus_[slot])
+        table_menus_[slot]->refreshTable();
+    }
 
     void filterSerialSelected(FilterSection* section) override {
       if (section == filter_section_1_.get())
@@ -147,6 +180,7 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
     std::unique_ptr<SpectralWarpEditor> spectral_editor_;
     std::function<void(int)> table_editor_callback_;
     std::unique_ptr<VocoderEditor> vocoder_editor_;
+    std::unique_ptr<TableSettingsEditor> table_menus_[4];
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FxVoiceInterface)
 };
