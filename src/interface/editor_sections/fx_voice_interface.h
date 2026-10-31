@@ -18,7 +18,9 @@
 
 #include "JuceHeader.h"
 
+#include <algorithm>
 #include <functional>
+#include <vector>
 
 #include "filter_section.h"
 #include "fx_input_section.h"
@@ -94,10 +96,19 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
       main_input_->setSpectralEditor(spectral_editor_.get());
       sidechain_input_->setSpectralEditor(spectral_editor_.get());
 
+      panel_dragger_ = std::make_unique<PanelDragger>(this);
+      for (SynthSection* panel : allPanels())
+        panel->addMouseListener(panel_dragger_.get(), true);
+
       setOpaque(false);
     }
 
-    virtual ~FxVoiceInterface() { }
+    virtual ~FxVoiceInterface() {
+      for (SynthSection* panel : allPanels()) {
+        if (panel)
+          panel->removeMouseListener(panel_dragger_.get());
+      }
+    }
 
     void paintBackground(Graphics& g) override { paintChildrenBackgrounds(g); }
 
@@ -127,41 +138,42 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
     }
 
 
-    // The spectral-side panels (curve editor, Vocoder menu, Spectral Table menus) and the Distort Table menus are
-    // docked at the top of the filter area, compressed so the two filters stay visible underneath. One panel of each
-    // group at a time; with one of each open they split the width like the two filters do (spectral on the left,
-    // Distort Table on the right).
+    // The morph panels (curve editor, Vocoder menu, Spectral / Distort Table menus) are docked at the top of the filter
+    // area, compressed so the two filters stay visible underneath. Any two can be open at once and split the width
+    // like the two filters do. Opening a third replaces the one that was opened first; dragging a panel's top (title
+    // area) across to the other side swaps the two.
     static constexpr float kPanelHeightRatio = 0.62f;
 
-    bool isSpectralPanel(SynthSection* panel) const {
-      return panel == spectral_editor_.get() || panel == vocoder_editor_.get() ||
-             panel == table_menus_[2].get() || panel == table_menus_[3].get();
+    std::vector<SynthSection*> allPanels() {
+      return { spectral_editor_.get(), vocoder_editor_.get(), table_menus_[0].get(), table_menus_[1].get(),
+               table_menus_[2].get(), table_menus_[3].get() };
     }
 
     void panelVisibilityChanged(SynthSection* panel, bool shown) {
       if (in_layout_)
         return;
-      in_layout_ = true;
-      if (shown) {
-        std::vector<SynthSection*> all = { spectral_editor_.get(), vocoder_editor_.get(), table_menus_[0].get(),
-                                           table_menus_[1].get(), table_menus_[2].get(), table_menus_[3].get() };
-        for (SynthSection* other : all) {
-          if (other != panel && other->isVisible() && isSpectralPanel(other) == isSpectralPanel(panel))
-            other->setVisible(false);
-        }
-      }
-      in_layout_ = false;
-      layoutPanels();
-    }
 
-    SynthSection* visiblePanel(bool spectral) {
-      std::vector<SynthSection*> all = { spectral_editor_.get(), vocoder_editor_.get(), table_menus_[0].get(),
-                                         table_menus_[1].get(), table_menus_[2].get(), table_menus_[3].get() };
-      for (SynthSection* panel : all) {
-        if (panel && panel->isVisible() && isSpectralPanel(panel) == spectral)
-          return panel;
+      auto found = std::find(open_panels_.begin(), open_panels_.end(), panel);
+      if (shown) {
+        if (found == open_panels_.end()) {
+          if (open_panels_.size() >= 2) {
+            size_t victim = open_panels_[0] == last_opened_ ? 1 : 0;
+            in_layout_ = true;
+            open_panels_[victim]->setVisible(false);
+            in_layout_ = false;
+            open_panels_[victim] = panel;
+          }
+          else
+            open_panels_.push_back(panel);
+        }
+        last_opened_ = panel;
       }
-      return nullptr;
+      else if (found != open_panels_.end()) {
+        open_panels_.erase(found);
+        if (last_opened_ == panel)
+          last_opened_ = open_panels_.empty() ? nullptr : open_panels_.back();
+      }
+      layoutPanels();
     }
 
     void layoutPanels() {
@@ -169,32 +181,78 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
         return;
 
       int padding = getPadding();
-      SynthSection* spectral = visiblePanel(true);
-      SynthSection* distort = visiblePanel(false);
-      bool any = spectral || distort;
+      bool any = !open_panels_.empty();
+      bool split = open_panels_.size() > 1;
 
       int panel_height = any ? static_cast<int>(filter_height_ * kPanelHeightRatio) : 0;
+      panel_height_ = panel_height;
       int filters_y = any ? filter_y_ + panel_height + padding : filter_y_;
       int filters_height = getHeight() - filters_y;
       filter_section_1_->setBounds(0, filters_y, width_left_, filters_height);
       filter_section_2_->setBounds(width_left_ + padding, filters_y, width_right_, filters_height);
 
-      std::vector<SynthSection*> all = { spectral_editor_.get(), vocoder_editor_.get(), table_menus_[0].get(),
-                                         table_menus_[1].get(), table_menus_[2].get(), table_menus_[3].get() };
-      for (SynthSection* panel : all) {
-        if (panel == nullptr)
-          continue;
-        if (panel == spectral && distort)
-          panel->setBounds(0, filter_y_, width_left_, panel_height);
-        else if (panel == distort && spectral)
-          panel->setBounds(width_left_ + padding, filter_y_, width_right_, panel_height);
+      for (size_t i = 0; i < open_panels_.size(); ++i) {
+        if (split && i == 0)
+          open_panels_[i]->setBounds(0, filter_y_, width_left_, panel_height);
+        else if (split)
+          open_panels_[i]->setBounds(width_left_ + padding, filter_y_, width_right_, panel_height);
         else
-          panel->setBounds(0, filter_y_, getWidth(), std::max(panel_height, 1));
+          open_panels_[i]->setBounds(0, filter_y_, getWidth(), std::max(panel_height, 1));
       }
 
       // Whatever the panels covered or uncovered has to be redrawn (the backgrounds are cached).
       if (filter_section_1_->isShowing())
         filter_section_1_->repaintBackground();
+    }
+
+    // Dragging a panel by its top: when the pointer crosses to the other half, the two panels trade places.
+    class PanelDragger : public MouseListener {
+      public:
+        explicit PanelDragger(FxVoiceInterface* owner) : owner_(owner) { }
+
+        void mouseDown(const MouseEvent& e) override { dragged_ = owner_->panelForHeaderDrag(e); }
+        void mouseDrag(const MouseEvent& e) override {
+          if (dragged_ != nullptr)
+            owner_->dragPanel(dragged_, e);
+        }
+        void mouseUp(const MouseEvent& e) override { dragged_ = nullptr; }
+
+      private:
+        FxVoiceInterface* owner_;
+        SynthSection* dragged_ = nullptr;
+    };
+
+    SynthSection* panelForHeaderDrag(const MouseEvent& e) {
+      if (open_panels_.size() < 2)
+        return nullptr;
+
+      Component* hit = e.originalComponent;
+      for (SynthSection* panel : open_panels_) {
+        if (panel == nullptr || !(hit == panel || panel->isParentOf(hit)))
+          continue;
+
+        // Only the non-interactive parts of the top bar start a drag: titles, labels and the bar's background.
+        if (dynamic_cast<Button*>(hit) || dynamic_cast<Slider*>(hit) || dynamic_cast<TextEditor*>(hit) ||
+            hit->findParentComponentOfClass<PresetSelector>() || dynamic_cast<PresetSelector*>(hit))
+          return nullptr;
+
+        int header = std::max(24, static_cast<int>(panel_height_ * 0.14f));
+        if (e.getEventRelativeTo(panel).y <= header)
+          return panel;
+      }
+      return nullptr;
+    }
+
+    void dragPanel(SynthSection* panel, const MouseEvent& e) {
+      if (open_panels_.size() < 2)
+        return;
+
+      bool pointer_right = e.getEventRelativeTo(this).x > getWidth() / 2;
+      bool panel_right = open_panels_[1] == panel;
+      if (pointer_right != panel_right) {
+        std::swap(open_panels_[0], open_panels_[1]);
+        layoutPanels();
+      }
     }
 
     void setFocus() { grabKeyboardFocus(); }
@@ -249,6 +307,10 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
     std::function<bool(int, String, InputStream*, WavetableCreator::AudioFileLoadStyle)> table_import_callback_;
     int filter_y_ = 0, filter_height_ = 0, width_left_ = 0, width_right_ = 0;
     bool in_layout_ = false;
+    int panel_height_ = 0;
+    std::vector<SynthSection*> open_panels_;
+    SynthSection* last_opened_ = nullptr;
+    std::unique_ptr<PanelDragger> panel_dragger_;
     std::unique_ptr<VocoderEditor> vocoder_editor_;
     std::unique_ptr<TableSettingsEditor> table_menus_[4];
 

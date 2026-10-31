@@ -154,6 +154,16 @@ class FullInterface : public SynthSection, public AuthenticationSection::Listene
         resized();
     }
 
+    // While the window is being dragged the layout follows at ~25 fps (the frames in between are stretched), and
+    // once the size settles the exact layout is done.
+    void liveResizeSettled() {
+      if (enable_redo_background_)
+        return;
+      live_layout_ = true;
+      resized();
+      live_layout_ = false;
+    }
+
     float getResizingScale() const { return width_ * 1.0f / resized_width_; }
     float getPixelScaling() const override { return display_scale_; }
     int getPixelMultiple() const override { return pixel_multiple_; }
@@ -215,6 +225,16 @@ class FullInterface : public SynthSection, public AuthenticationSection::Listene
     bool unsupported_;
     bool animate_;
     bool enable_redo_background_;
+    bool live_layout_ = false;
+    double last_live_layout_ms_ = 0.0;
+    class LiveResizeTimer : public Timer {
+      public:
+        explicit LiveResizeTimer(FullInterface* owner) : owner_(owner) { }
+        void timerCallback() override { stopTimer(); owner_->liveResizeSettled(); }
+      private:
+        FullInterface* owner_;
+    };
+    LiveResizeTimer live_resize_timer_{this};
     bool needs_download_;
     CriticalSection open_gl_critical_section_;
     OpenGLContext open_gl_context_;

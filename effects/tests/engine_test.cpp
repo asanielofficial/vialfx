@@ -570,6 +570,28 @@ namespace {
       check(hi - lo > 0.05f, std::string(source) + " moves by itself without notes", fmt("range %.3f..%.3f", lo, hi));
     }
 
+    // Random LFOs in sync mode follow the transport time handed to the engine (they used to stay stuck).
+    for (const char* source : { "random_1", "random_2" }) {
+      Rig rig;
+      rig.engine->enableModSource(source);
+      watched = connectMod(rig, source, "filter_1_cutoff");
+      if (watched == nullptr)
+        continue;
+      std::string name = source;
+      rig.set(name + "_sync", 1.0f);
+      double seconds = 0.0;
+      float lo = 9.0f, hi = -9.0f;
+      for (int b = 0; b < 800; ++b) {
+        rig.engine->correctToTime(seconds);
+        rig.engine->processWithInput(silence.data(), 64);
+        seconds += 64.0 / kSampleRate;
+        float v = modulationOutput(watched);
+        lo = std::min(lo, v);
+        hi = std::max(hi, v);
+      }
+      check(hi - lo > 0.05f, name + " moves in sync mode", fmt("range %.3f..%.3f", lo, hi));
+    }
+
     // "random" takes a new value per note.
     {
       Rig rig;

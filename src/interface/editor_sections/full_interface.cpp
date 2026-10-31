@@ -433,8 +433,14 @@ void FullInterface::resized() {
   checkShouldReposition(false);
 
   width_ = getWidth();
-  if (!enable_redo_background_)
-    return;
+  if (!enable_redo_background_ && !live_layout_) {
+    // Being resized by the user: lay out live (throttled) instead of waiting for the mouse release.
+    live_resize_timer_.startTimer(60);
+    double now = Time::getMillisecondCounterHiRes();
+    if (now - last_live_layout_ms_ < 40.0)
+      return;
+    last_live_layout_ms_ = now;
+  }
 
   resized_width_ = width_;
 
