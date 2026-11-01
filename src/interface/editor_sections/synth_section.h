@@ -274,6 +274,9 @@ class SynthSection : public Component, public Slider::Listener,
     }
 
     virtual void setActive(bool active);
+    // Keeps the sideways title clear of extra buttons at the top of the title strip (in pixels).
+    void setHeadingTopInset(int inset) { heading_top_inset_ = inset; }
+
     bool isActive() const { return active_; }
     virtual void animate(bool animate);
     virtual void setAllValues(vital::control_map& controls);
@@ -310,8 +313,6 @@ class SynthSection : public Component, public Slider::Listener,
   protected:
     void setSliderHasHzAlternateDisplay(SynthSlider* slider);
     void setSidewaysHeading(bool sideways) { sideways_heading_ = sideways; }
-    // Keeps the sideways title clear of extra buttons at the top of the title strip (in pixels).
-    void setHeadingTopInset(int inset) { heading_top_inset_ = inset; }
     void addToggleButton(ToggleButton* button, bool show);
     void addButton(OpenGlToggleButton* button, bool show = true);
     void addButton(OpenGlShapeButton* button, bool show = true);
