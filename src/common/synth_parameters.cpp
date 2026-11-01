@@ -834,6 +834,39 @@ namespace vital {
         kModulationIdPrefix, kModulationNamePrefix, kNewModulationVersion);
     }
 
+#if VITAL_FX
+    // More copies of every effect: the same parameters under the names "<effect>_<n>_<parameter>".
+    {
+      static const char* kEffectIds[] = { "chorus", "compressor", "delay", "distortion", "eq", "filter_fx",
+                                          "flanger", "phaser", "reverb" };
+      static const char* kEffectTitles[] = { "Chorus", "Compressor", "Delay", "Distortion", "EQ", "Filter fx",
+                                             "Flanger", "Phaser", "Reverb" };
+      for (int e = 0; e < 9; ++e) {
+        std::string id = kEffectIds[e];
+        std::string title = kEffectTitles[e];
+        std::string start = id + "_";
+        std::vector<ValueDetails> originals;
+        for (auto& entry : details_lookup_) {
+          if (entry.first.compare(0, start.size(), start) == 0)
+            originals.push_back(entry.second);
+        }
+
+        for (int copy = 2; copy <= kMaxEffectInstances; ++copy) {
+          for (ValueDetails details : originals) {
+            std::string rest = details.name.substr(start.size());
+            details.name = start + std::to_string(copy) + "_" + rest;
+            if (details.display_name.compare(0, title.size(), title) == 0)
+              details.display_name = title + " " + std::to_string(copy) + details.display_name.substr(title.size());
+            else
+              details.display_name += " " + std::to_string(copy);
+            details_lookup_[details.name] = details;
+            details_list_.push_back(&details_lookup_[details.name]);
+          }
+        }
+      }
+    }
+#endif
+
     details_lookup_["osc_1_on"].default_value = 1.0f;
     details_lookup_["osc_2_destination"].default_value = 1.0f;
     details_lookup_["osc_3_destination"].default_value = 3.0f;

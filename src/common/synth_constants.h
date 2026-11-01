@@ -43,6 +43,9 @@ namespace vital {
   constexpr int kMaxActivePolyphony = 32;
   constexpr int kLfoDataResolution = 2048;
   constexpr int kMaxModulationConnections = 64;
+  // The effect build can run several copies of each effect (kMaxEffectInstances per type, in any order). Copy 1 of an
+  // effect keeps the plain parameter names ("chorus_dry_wet"), copy n is named "chorus_n_dry_wet".
+  constexpr int kMaxEffectInstances = 8;
 
   constexpr int kOscilloscopeMemorySampleRate = 22000;
   constexpr int kOscilloscopeMemoryResolution = 512;

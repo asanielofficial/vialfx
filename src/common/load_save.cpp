@@ -22,6 +22,7 @@
 #include "synth_base.h"
 #include "synth_constants.h"
 #include "synth_oscillator.h"
+#include "synth_strings.h"
 
 #define QUOTE(x) #x
 #define STRINGIFY(x) QUOTE(x)
@@ -153,6 +154,14 @@ json LoadSave::stateToJson(SynthBase* synth, const CriticalSection& critical_sec
       lanes.push_back(lane_data);
     }
     settings_data["spectral_drawings"] = lanes;
+
+    // The effect chain: effect ids in order (+ a flag for minimized effects); see FxEffectChain.
+    int chain[vital::kMaxEffectInstances * vital::constants::kNumEffects];
+    int count = synth->getEffectChain(chain);
+    json effect_chain = json::array();
+    for (int i = 0; i < count; ++i)
+      effect_chain.push_back(chain[i]);
+    settings_data["effect_chain"] = effect_chain;
   }
 #endif
 
@@ -1086,6 +1095,30 @@ bool LoadSave::jsonToState(SynthBase* synth, std::map<std::string, String>& save
       if (lane_data.count("random_seed") && lane_data["random_seed"].is_number())
         synth->getEngine()->setRandomSeed(lane, lane_data["random_seed"].get<uint32_t>());
     }
+
+    // The chain. Presets from before the effects list had a fixed set of effects in a permuted order.
+    std::vector<int> chain;
+    if (settings.count("effect_chain") && settings["effect_chain"].is_array()) {
+      for (const json& value : settings["effect_chain"]) {
+        if (value.is_number_integer())
+          chain.push_back(value.get<int>());
+      }
+    }
+    else {
+      int order[vital::constants::kNumEffects];
+      for (int i = 0; i < vital::constants::kNumEffects; ++i)
+        order[i] = i;
+      if (settings.count("effect_chain_order") && settings["effect_chain_order"].is_number()) {
+        float float_order = settings["effect_chain_order"];
+        vital::utils::decodeFloatToOrder(order, float_order, vital::constants::kNumEffects);
+      }
+      for (int i = 0; i < vital::constants::kNumEffects; ++i) {
+        std::string on_name = strings::kEffectOrder[order[i]] + "_on";
+        if (settings.count(on_name) && settings[on_name].is_number() && settings[on_name].get<float>() > 0.5f)
+          chain.push_back(1 + order[i] * vital::kMaxEffectInstances);
+      }
+    }
+    synth->setEffectChain(chain.data(), static_cast<int>(chain.size()));
   }
 #endif
   loadSaveState(save_info, data);

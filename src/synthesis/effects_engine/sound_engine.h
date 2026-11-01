@@ -27,7 +27,7 @@ class LineGenerator;
 
 namespace vital {
   class PeakMeter;
-  class ReorderableEffectChain;
+  class FxEffectChain;
   class AudioFilterRouter;
   class AudioUpsampler;
   class EffectsModulationHandler;
@@ -96,7 +96,11 @@ namespace vital {
       void enableModSource(const std::string& source);
       void disableModSource(const std::string& source);
       bool isModSourceEnabled(const std::string& source);
-      const StereoMemory* getEqualizerMemory();
+      const StereoMemory* getEqualizerMemory(int instance = 0);
+
+      // The effect chain: slots hold 0 or 1 + effectId (see FxEffectChain). Safe to call while audio runs.
+      void setEffectChain(const int* slots, int num_slots);
+      int getEffectChain(int* slots) const;
 
       void setBpm(mono_float bpm);
       void setAftertouch(mono_float note, mono_float value, int sample, int channel);
@@ -139,7 +143,7 @@ namespace vital {
       AudioFilterRouter* filter_router_;
       FiltersModule* filters_module_;
       AudioUpsampler* upsampler_;
-      ReorderableEffectChain* effect_chain_;
+      FxEffectChain* effect_chain_;
 
       int last_oversampling_amount_;
       int last_sample_rate_;

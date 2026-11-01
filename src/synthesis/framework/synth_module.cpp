@@ -22,7 +22,27 @@
 
 namespace vital {
 
+  namespace {
+    std::string& remapFrom() { static thread_local std::string from; return from; }
+    std::string& remapTo() { static thread_local std::string to; return to; }
+  }
+
+  ControlRemapScope::ControlRemapScope(const std::string& from, const std::string& to) :
+      previous_from_(remapFrom()), previous_to_(remapTo()) {
+    remapFrom() = from;
+    remapTo() = to;
+  }
+
+  ControlRemapScope::~ControlRemapScope() {
+    remapFrom() = previous_from_;
+    remapTo() = previous_to_;
+  }
+
+  const std::string& ControlRemapScope::currentFrom() { return remapFrom(); }
+  const std::string& ControlRemapScope::currentTo() { return remapTo(); }
+
   Value* SynthModule::createBaseControl(std::string name, bool audio_rate, bool smooth_value) {
+    name = remapName(name);
     mono_float default_value = Parameters::getDetails(name).default_value;
 
     Value* val = nullptr;
@@ -53,6 +73,7 @@ namespace vital {
 
   Output* SynthModule::createBaseModControl(std::string name, bool audio_rate,
                                             bool smooth_value, Output* internal_modulation) {
+    name = remapName(name);
     Processor* base_val = createBaseControl(name, audio_rate, smooth_value);
 
     Processor* mono_total = nullptr;
@@ -87,6 +108,7 @@ namespace vital {
 
   Output* SynthModule::createMonoModControl(std::string name, bool audio_rate,
                                             bool smooth_value, Output* internal_modulation) {
+    name = remapName(name);
     ValueDetails details = Parameters::getDetails(name);
     Output* control_rate_total = createBaseModControl(name, audio_rate, smooth_value, internal_modulation);
     if (audio_rate)
@@ -145,6 +167,7 @@ namespace vital {
 
   Output* SynthModule::createPolyModControl(std::string name, bool audio_rate,
                                             bool smooth_value, Output* internal_modulation, Input* reset) {
+    name = remapName(name);
     ValueDetails details = Parameters::getDetails(name);
     Output* base_control = createBaseModControl(name, audio_rate, smooth_value);
 
@@ -251,7 +274,7 @@ namespace vital {
       tempo = createMonoModControl(name + "_tempo");
 
     cr::Value* sync = new cr::Value(1.0f);
-    data_->controls[name + "_sync"] = sync;
+    data_->controls[remapName(name + "_sync")] = sync;
     addIdleProcessor(sync);
 
     TempoChooser* tempo_chooser = new TempoChooser();
@@ -286,6 +309,7 @@ namespace vital {
   }
 
   void SynthModule::createStatusOutput(std::string name, Output* source) {
+    name = remapName(name);
     data_->status_outputs[name] = std::make_unique<StatusOutput>(source);
   }
 

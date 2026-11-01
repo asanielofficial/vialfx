@@ -33,7 +33,7 @@
 #include "effects_modulation_handler.h"
 #include "peak_meter.h"
 #include "operators.h"
-#include "reorderable_effect_chain.h"
+#include "fx_effect_chain.h"
 #include "value_switch.h"
 
 namespace vital {
@@ -295,30 +295,35 @@ namespace vital {
     upsampler_->plug(filter_sum, AudioUpsampler::kAudio);
     addProcessor(upsampler_);
 
-    Value* effect_chain_order = createBaseControl("effect_chain_order");
-    effect_chain_ = new ReorderableEffectChain(beats_per_second, modulation_handler_->midi_offset_output());
+    effect_chain_ = new FxEffectChain(beats_per_second, modulation_handler_->midi_offset_output());
     addSubmodule(effect_chain_);
     addProcessor(effect_chain_);
-    effect_chain_->plug(upsampler_, ReorderableEffectChain::kAudio);
-    effect_chain_->plug(effect_chain_order, ReorderableEffectChain::kOrder);
+    effect_chain_->plug(upsampler_, FxEffectChain::kAudio);
 
-    SynthModule* compressor = effect_chain_->getEffect(constants::kCompressor);
-    createStatusOutput("compressor_low_input", compressor->output(CompressorModule::kLowInputMeanSquared));
-    createStatusOutput("compressor_band_input", compressor->output(CompressorModule::kBandInputMeanSquared));
-    createStatusOutput("compressor_high_input", compressor->output(CompressorModule::kHighInputMeanSquared));
-    createStatusOutput("compressor_low_output", compressor->output(CompressorModule::kLowOutputMeanSquared));
-    createStatusOutput("compressor_band_output", compressor->output(CompressorModule::kBandOutputMeanSquared));
-    createStatusOutput("compressor_high_output", compressor->output(CompressorModule::kHighOutputMeanSquared));
+    // The effects' meters and displays read these; every copy of an effect has its own.
+    for (int copy = 0; copy < kMaxEffectInstances; ++copy) {
+      auto id = [copy](int type) { return FxEffectChain::instanceId(type, copy); };
 
-    SynthModule* chorus = effect_chain_->getEffect(constants::kChorus);
-    for (int i = 0; i < ChorusModule::kMaxDelayPairs; ++i)
-      createStatusOutput("chorus_delays" + std::to_string(i + 1), chorus->output(i + 1));
+      SynthModule* compressor = effect_chain_->getEffect(constants::kCompressor, copy);
+      std::string compressor_id = id(constants::kCompressor);
+      createStatusOutput(compressor_id + "_low_input", compressor->output(CompressorModule::kLowInputMeanSquared));
+      createStatusOutput(compressor_id + "_band_input", compressor->output(CompressorModule::kBandInputMeanSquared));
+      createStatusOutput(compressor_id + "_high_input", compressor->output(CompressorModule::kHighInputMeanSquared));
+      createStatusOutput(compressor_id + "_low_output", compressor->output(CompressorModule::kLowOutputMeanSquared));
+      createStatusOutput(compressor_id + "_band_output", compressor->output(CompressorModule::kBandOutputMeanSquared));
+      createStatusOutput(compressor_id + "_high_output", compressor->output(CompressorModule::kHighOutputMeanSquared));
 
-    SynthModule* phaser = effect_chain_->getEffect(constants::kPhaser);
-    createStatusOutput("phaser_cutoff", phaser->output(PhaserModule::kCutoffOutput));
+      SynthModule* chorus = effect_chain_->getEffect(constants::kChorus, copy);
+      for (int i = 0; i < ChorusModule::kMaxDelayPairs; ++i)
+        createStatusOutput(id(constants::kChorus) + "_delays" + std::to_string(i + 1), chorus->output(i + 1));
 
-    SynthModule* flanger = effect_chain_->getEffect(constants::kFlanger);
-    createStatusOutput("flanger_delay_frequency", flanger->output(FlangerModule::kFrequencyOutput));
+      SynthModule* phaser = effect_chain_->getEffect(constants::kPhaser, copy);
+      createStatusOutput(id(constants::kPhaser) + "_cutoff", phaser->output(PhaserModule::kCutoffOutput));
+
+      SynthModule* flanger = effect_chain_->getEffect(constants::kFlanger, copy);
+      createStatusOutput(id(constants::kFlanger) + "_delay_frequency",
+                         flanger->output(FlangerModule::kFrequencyOutput));
+    }
 
     Decimator* decimator = new Decimator(3);
     decimator->plug(effect_chain_);
@@ -598,8 +603,16 @@ namespace vital {
     return getModulationSource(source)->owner->enabled();
   }
 
-  const StereoMemory* SoundEngine::getEqualizerMemory() {
-    return effect_chain_->getEqualizerMemory();
+  void SoundEngine::setEffectChain(const int* slots, int num_slots) {
+    effect_chain_->setChain(slots, num_slots);
+  }
+
+  int SoundEngine::getEffectChain(int* slots) const {
+    return effect_chain_->getChain(slots);
+  }
+
+  const StereoMemory* SoundEngine::getEqualizerMemory(int instance) {
+    return effect_chain_->getEqualizerMemory(instance);
   }
 
   void SoundEngine::setAftertouch(mono_float note, mono_float value, int sample, int channel) {

@@ -16,7 +16,9 @@
 #include "memory.h"
 #include "line_generator.h"
 #include "spectral_morph_processor.h"
+#include "fx_effect_chain.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -110,7 +112,23 @@ namespace {
       controls["oversampling"]->set(0.0f);
     }
 
+    // Effects switched on by name join the end of the effect chain (the plugin's "add effect" does both).
+    std::vector<int> chain;
+    void addToChain(int effect_id) {
+      if (std::find(chain.begin(), chain.end(), 1 + effect_id) == chain.end())
+        chain.push_back(1 + effect_id);
+      engine->setEffectChain(chain.data(), static_cast<int>(chain.size()));
+    }
+
     void set(const std::string& name, float value) {
+      if (value > 0.5f && name.size() > 3 && name.compare(name.size() - 3, 3, "_on") == 0) {
+        for (int type = 0; type < vital::constants::kNumEffects; ++type) {
+          for (int copy = 0; copy < vital::kMaxEffectInstances; ++copy) {
+            if (vital::FxEffectChain::instanceId(type, copy) + "_on" == name)
+              addToChain(vital::FxEffectChain::effectId(type, copy));
+          }
+        }
+      }
       auto it = controls.find(name);
       if (it == controls.end()) {
         std::printf("[FAIL] unknown control '%s'\n", name.c_str());
@@ -1077,6 +1095,106 @@ namespace {
       hi = std::max(hi, v);
     }
     return { lo, hi };
+  }
+
+
+  // Several copies of every effect, in any order.
+  void testEffectChain() {
+    std::printf("\n== Effect chain: several copies of each effect, ordering, removal ==\n");
+    using vital::FxEffectChain;
+    namespace c = vital::constants;
+
+    // Every copy has its own on switch and parameters.
+    {
+      Rig rig;
+      int missing = 0;
+      for (int type = 0; type < c::kNumEffects; ++type) {
+        for (int copy = 0; copy < vital::kMaxEffectInstances; ++copy) {
+          if (rig.controls.count(FxEffectChain::instanceId(type, copy) + "_on") == 0)
+            ++missing;
+        }
+      }
+      check(missing == 0, "every copy of every effect has its on switch", fmt("%d missing", missing));
+      check(rig.controls.count("chorus_8_dry_wet") && rig.controls.count("delay_3_tempo") &&
+            rig.controls.count("delay_3_sync") && rig.controls.count("filter_fx_2_cutoff") &&
+            rig.controls.count("eq_4_band_gain") && rig.controls.count("reverb_2_decay_time"),
+            "copies have their own parameters (incl. tempo sync and the filter)");
+    }
+
+    auto lowpass_then_drive = [](bool reversed, int copies) {
+      Rig rig;
+      rig.set("filter_fx_cutoff", 60.0f);
+      rig.set("distortion_drive", 20.0f);
+      std::vector<int> chain;
+      int filter = 1 + FxEffectChain::effectId(c::kFilterFx, 0);
+      int drive = 1 + FxEffectChain::effectId(c::kDistortion, 0);
+      chain = reversed ? std::vector<int>{ drive, filter } : std::vector<int>{ filter, drive };
+      if (copies > 1)
+        chain.push_back(1 + FxEffectChain::effectId(c::kDistortion, 1));
+      rig.set("filter_fx_on", 1.0f);
+      rig.set("distortion_on", 1.0f);
+      rig.set("distortion_2_on", 1.0f);
+      rig.set("distortion_2_drive", 20.0f);
+      rig.engine->setEffectChain(chain.data(), static_cast<int>(chain.size()));
+      return rig.render(kSampleRate * 2, sine(440.0f));
+    };
+
+    auto difference = [](const Stereo& a, const Stereo& b) {
+      double diff = 0.0;
+      size_t n = 0;
+      for (size_t i = kSampleRate; i < a.left.size() && i < b.left.size(); ++i, ++n)
+        diff += std::pow(static_cast<double>(a.left[i]) - b.left[i], 2.0);
+      return std::sqrt(diff / std::max<size_t>(n, 1));
+    };
+
+    Stereo forward = lowpass_then_drive(false, 1);
+    Stereo backward = lowpass_then_drive(true, 1);
+    Stereo twice = lowpass_then_drive(false, 2);
+    check(forward.finite() && backward.finite() && twice.finite(), "chains of several effects stay finite");
+    check(difference(forward, backward) > 0.01, "the order of the chain matters",
+          fmt("difference rms %.4f", difference(forward, backward)));
+    check(difference(forward, twice) > 0.002, "a second copy of an effect processes on its own",
+          fmt("difference rms %.4f", difference(forward, twice)));
+
+    // Copy 2 of an effect is controlled by its own parameters, not copy 1's.
+    {
+      Rig a, b;
+      for (Rig* rig : { &a, &b }) {
+        rig->set("distortion_on", 1.0f);
+        rig->set("distortion_drive", 20.0f);
+      }
+      b.set("distortion_2_drive", 0.0f);
+      Stereo out_a = a.render(kSampleRate, sine(440.0f));
+      Stereo out_b = b.render(kSampleRate, sine(440.0f));
+      check(difference(out_a, out_b) < 1e-6, "an unused copy's parameters do not touch the others");
+    }
+
+    // Removed from the chain = bypassed; an empty chain passes the audio through.
+    {
+      Rig dry;
+      Stereo reference = dry.render(kSampleRate * 2, sine(440.0f));
+      Rig rig;
+      rig.set("distortion_on", 1.0f);
+      rig.set("distortion_drive", 20.0f);
+      Stereo with = rig.render(kSampleRate * 2, sine(440.0f));
+      rig.engine->setEffectChain(nullptr, 0);
+      Stereo without = rig.render(kSampleRate * 2, sine(440.0f));
+      check(difference(with, reference) > 0.01, "the effect is audible while in the chain");
+      check(difference(without, reference) < 1e-4, "an effect removed from the chain is gone",
+            fmt("difference rms %.5f", difference(without, reference)));
+    }
+
+    // The chain can be read back, with the minimized flag untouched.
+    {
+      Rig rig;
+      int chain[3] = { 1 + FxEffectChain::effectId(c::kReverb, 1), 1 + FxEffectChain::effectId(c::kDelay, 0) +
+                       FxEffectChain::kMinimizedFlag, 0 };
+      rig.engine->setEffectChain(chain, 3);
+      int back[FxEffectChain::kMaxChain];
+      int count = rig.engine->getEffectChain(back);
+      check(count == 2 && back[0] == chain[0] && back[1] == chain[1], "the chain reads back as it was set",
+            fmt("%d entries", count));
+    }
   }
 
   void testModulation() {
@@ -2271,6 +2389,7 @@ int main() {
     testEffects();
     testOversampling();
     testModulation();
+    testEffectChain();
     testInputRouting();
     testLanes();
     testModulationMatrix();

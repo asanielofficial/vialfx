@@ -71,10 +71,26 @@ namespace vital {
     JUCE_LEAK_DETECTOR(ModuleData)
   };
 
+  // While one of these is alive, every SynthModule that is constructed names its controls (and status outputs)
+  // with the prefix "from" replaced by "to". The effect chain uses it to create several copies of an effect whose
+  // code names its controls "chorus_dry_wet": the copy made with from = "chorus_", to = "chorus_2_" creates
+  // "chorus_2_dry_wet" instead.
+  class ControlRemapScope {
+    public:
+      ControlRemapScope(const std::string& from, const std::string& to);
+      ~ControlRemapScope();
+      static const std::string& currentFrom();
+      static const std::string& currentTo();
+
+    private:
+      std::string previous_from_, previous_to_;
+  };
+
   class SynthModule : public ProcessorRouter {
     public:
       SynthModule(int num_inputs, int num_outputs, bool control_rate = false) :
-          ProcessorRouter(num_inputs, num_outputs, control_rate) {
+          ProcessorRouter(num_inputs, num_outputs, control_rate),
+          remap_from_(ControlRemapScope::currentFrom()), remap_to_(ControlRemapScope::currentTo()) {
         data_ = std::make_shared<ModuleData>();
       }
       virtual ~SynthModule() { }
@@ -108,6 +124,15 @@ namespace vital {
       void addSubmodule(SynthModule* module) { data_->sub_modules.push_back(module); }
 
     protected:
+      // The name a control of this module really gets (see ControlRemapScope).
+      std::string remapName(const std::string& name) const {
+        if (remap_from_.empty() || name.compare(0, remap_to_.size(), remap_to_) == 0 ||
+            name.compare(0, remap_from_.size(), remap_from_) != 0) {
+          return name;
+        }
+        return remap_to_ + name.substr(remap_from_.size());
+      }
+
       // Creates a basic linear non-scaled control.
       Value* createBaseControl(std::string name, bool audio_rate = false, bool smooth_value = false);
 
@@ -130,6 +155,7 @@ namespace vital {
       void createStatusOutput(std::string name, Output* source);
 
       std::shared_ptr<ModuleData> data_;
+      std::string remap_from_, remap_to_;
 
       JUCE_LEAK_DETECTOR(SynthModule)
   };

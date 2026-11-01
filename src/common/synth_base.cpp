@@ -800,11 +800,27 @@ const vital::StereoMemory* SynthBase::getSidechainMemory() {
 #endif
 }
 
-const vital::StereoMemory* SynthBase::getEqualizerMemory() {
-  if (engine_)
+const vital::StereoMemory* SynthBase::getEqualizerMemory(int instance) {
+  if (engine_) {
+#if VITAL_FX
+    return engine_->getEqualizerMemory(instance);
+#else
     return engine_->getEqualizerMemory();
+#endif
+  }
   return nullptr;
 }
+
+#if VITAL_FX
+void SynthBase::setEffectChain(const int* slots, int num_slots) {
+  if (engine_)
+    engine_->setEffectChain(slots, num_slots);
+}
+
+int SynthBase::getEffectChain(int* slots) const {
+  return engine_ ? engine_->getEffectChain(slots) : 0;
+}
+#endif
 
 vital::ModulationConnectionBank& SynthBase::getModulationBank() {
   return engine_->getModulationBank();

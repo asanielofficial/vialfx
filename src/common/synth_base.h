@@ -122,7 +122,12 @@ class SynthBase : public MidiManager::Listener {
     const vital::StereoMemory* getSidechainMemory();
     // Constant latency of the spectral stage in samples (the FFT size); 0 outside the FX build.
     int getEngineLatencySamples();
-    const vital::StereoMemory* getEqualizerMemory();
+    const vital::StereoMemory* getEqualizerMemory(int instance = 0);
+#if VITAL_FX
+    // The effect build's effect chain: slots hold 0 or 1 + effectId (+ a "minimized" flag for the interface).
+    void setEffectChain(const int* slots, int num_slots);
+    int getEffectChain(int* slots) const;
+#endif
     vital::ModulationConnectionBank& getModulationBank();
     void notifyOversamplingChanged();
     void checkOversampling();
