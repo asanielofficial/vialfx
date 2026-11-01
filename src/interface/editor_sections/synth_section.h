@@ -310,6 +310,8 @@ class SynthSection : public Component, public Slider::Listener,
   protected:
     void setSliderHasHzAlternateDisplay(SynthSlider* slider);
     void setSidewaysHeading(bool sideways) { sideways_heading_ = sideways; }
+    // Keeps the sideways title clear of extra buttons at the top of the title strip (in pixels).
+    void setHeadingTopInset(int inset) { heading_top_inset_ = inset; }
     void addToggleButton(ToggleButton* button, bool show);
     void addButton(OpenGlToggleButton* button, bool show = true);
     void addButton(OpenGlShapeButton* button, bool show = true);
@@ -362,6 +364,7 @@ class SynthSection : public Component, public Slider::Listener,
     float size_ratio_;
     bool active_;
     bool sideways_heading_;
+    int heading_top_inset_ = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SynthSection)
 };

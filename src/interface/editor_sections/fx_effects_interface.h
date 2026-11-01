@@ -270,10 +270,12 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
       }
       else {
         section_->setBounds(getLocalBounds());
-        // Under the power button, side by side in the title strip.
-        int x = static_cast<int>(getPowerButtonOffset());
+        // Under the power button, one above the other in the title strip; the title is kept clear of them.
+        int x = static_cast<int>(getPowerButtonOffset()) + (title_width - small) / 2;
+        int gap = std::max(2, small / 3);
         minimize_button_->setBounds(x, title_width, small, small);
-        close_button_->setBounds(x + small, title_width, small, small);
+        close_button_->setBounds(x, title_width + small + gap, small, small);
+        section_->setHeadingTopInset(small * 2 + gap);
       }
       SynthSection::resized();
     }
@@ -1005,7 +1007,17 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
       parent->updateGuiControl(name, value);
     }
 
-    void setEffectOn(int id, bool on) { setControl(fx_ui::idOf(id) + "_on", on ? 1.0f : 0.0f); }
+    void setEffectOn(int id, bool on) {
+      setControl(fx_ui::idOf(id) + "_on", on ? 1.0f : 0.0f);
+      syncActive(id);
+    }
+
+    // Setting a control from here does not notify the effect's section, which greys itself when off.
+    void syncActive(int id) {
+      SynthSection* section = slots_[id]->section();
+      if (section && section->activator())
+        section->setActive(section->activator()->getToggleState());
+    }
 
     // Every parameter of the copy back to its default; its modulations removed.
     void resetEffect(int id) {
@@ -1026,6 +1038,7 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
           parent->disconnectModulation(connection);
         setControl(name, vital::Parameters::getDetails(name).default_value);
       }
+      syncActive(id);
     }
 
     // Copy the settings of one copy of an effect to another copy of the same type.
@@ -1046,6 +1059,7 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
         if (controls.count(target))
           setControl(target, control.second->value());
       }
+      syncActive(to);
     }
 
     void loadChainFromSynth() {

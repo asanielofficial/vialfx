@@ -74,6 +74,7 @@ void SynthSection::paintSidewaysHeadingText(Graphics& g) {
   int height = getHeight();
   if (activator_)
     height = getHeight() - title_width / 2;
+  height -= heading_top_inset_;
 
   g.drawText(getName(), Rectangle<int>(0, 0, height, title_width), Justification::centred, false);
   g.restoreState();

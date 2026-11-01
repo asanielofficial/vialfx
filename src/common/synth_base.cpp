@@ -348,6 +348,7 @@ void SynthBase::initEngine() {
 #if VITAL_FX
   engine_->resetSpectralDrawings(0);
   engine_->resetSpectralDrawings(1);
+  engine_->setEffectChain(nullptr, 0);  // no effects
 #endif
 
   vital::control_map controls = engine_->getControls();
