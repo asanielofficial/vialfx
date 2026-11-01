@@ -61,7 +61,7 @@ namespace {
   }
 } // namespace
 
-CompressorEditor::CompressorEditor() : hover_quad_(Shaders::kColorFragment),
+CompressorEditor::CompressorEditor(const std::string& id) : id_(id), hover_quad_(Shaders::kColorFragment),
                                        input_dbs_(kNumChannels, Shaders::kColorFragment),
                                        output_dbs_(kNumChannels, Shaders::kRoundedRectangleFragment),
                                        thresholds_(kNumChannels, Shaders::kColorFragment),
@@ -518,18 +518,18 @@ void CompressorEditor::destroy(OpenGlWrapper& open_gl) {
 }
 
 void CompressorEditor::setAllValues(vital::control_map& controls) {
-  low_upper_threshold_ = controls["compressor_low_upper_threshold"]->value();
-  band_upper_threshold_ = controls["compressor_band_upper_threshold"]->value();
-  high_upper_threshold_ = controls["compressor_high_upper_threshold"]->value();
-  low_lower_threshold_ = controls["compressor_low_lower_threshold"]->value();
-  band_lower_threshold_ = controls["compressor_band_lower_threshold"]->value();
-  high_lower_threshold_ = controls["compressor_high_lower_threshold"]->value();
-  low_upper_ratio_ = controls["compressor_low_upper_ratio"]->value();
-  band_upper_ratio_ = controls["compressor_band_upper_ratio"]->value();
-  high_upper_ratio_ = controls["compressor_high_upper_ratio"]->value();
-  low_lower_ratio_ = controls["compressor_low_lower_ratio"]->value();
-  band_lower_ratio_ = controls["compressor_band_lower_ratio"]->value();
-  high_lower_ratio_ = controls["compressor_high_lower_ratio"]->value();
+  low_upper_threshold_ = controls[id_ + "_low_upper_threshold"]->value();
+  band_upper_threshold_ = controls[id_ + "_band_upper_threshold"]->value();
+  high_upper_threshold_ = controls[id_ + "_high_upper_threshold"]->value();
+  low_lower_threshold_ = controls[id_ + "_low_lower_threshold"]->value();
+  band_lower_threshold_ = controls[id_ + "_band_lower_threshold"]->value();
+  high_lower_threshold_ = controls[id_ + "_high_lower_threshold"]->value();
+  low_upper_ratio_ = controls[id_ + "_low_upper_ratio"]->value();
+  band_upper_ratio_ = controls[id_ + "_band_upper_ratio"]->value();
+  high_upper_ratio_ = controls[id_ + "_high_upper_ratio"]->value();
+  low_lower_ratio_ = controls[id_ + "_low_lower_ratio"]->value();
+  band_lower_ratio_ = controls[id_ + "_band_lower_ratio"]->value();
+  high_lower_ratio_ = controls[id_ + "_high_lower_ratio"]->value();
 }
 
 void CompressorEditor::setLowUpperThreshold(float db, bool clamp) {
@@ -539,7 +539,7 @@ void CompressorEditor::setLowUpperThreshold(float db, bool clamp) {
 
   if (clamp)
     low_upper_threshold_ = db;
-  synth->valueChangedInternal("compressor_low_upper_threshold", db);
+  synth->valueChangedInternal(id_ + "_low_upper_threshold", db);
   if (low_upper_threshold_ < low_lower_threshold_ && clamp)
     setLowLowerThreshold(db, clamp);
 
@@ -553,7 +553,7 @@ void CompressorEditor::setBandUpperThreshold(float db, bool clamp) {
   
   if (clamp)
     band_upper_threshold_ = db;
-  synth->valueChangedInternal("compressor_band_upper_threshold", db);
+  synth->valueChangedInternal(id_ + "_band_upper_threshold", db);
   if (band_upper_threshold_ < band_lower_threshold_ && clamp)
     setBandLowerThreshold(db, clamp);
 
@@ -567,7 +567,7 @@ void CompressorEditor::setHighUpperThreshold(float db, bool clamp) {
   
   if (clamp)
     high_upper_threshold_ = db;
-  synth->valueChangedInternal("compressor_high_upper_threshold", db);
+  synth->valueChangedInternal(id_ + "_high_upper_threshold", db);
   if (high_upper_threshold_ < high_lower_threshold_ && clamp)
     setHighLowerThreshold(db, clamp);
 
@@ -581,7 +581,7 @@ void CompressorEditor::setLowLowerThreshold(float db, bool clamp) {
 
   if (clamp)
     low_lower_threshold_ = db;
-  synth->valueChangedInternal("compressor_low_lower_threshold", db);
+  synth->valueChangedInternal(id_ + "_low_lower_threshold", db);
   if (low_lower_threshold_ > low_upper_threshold_ && clamp)
     setLowUpperThreshold(db, clamp);
 
@@ -595,7 +595,7 @@ void CompressorEditor::setBandLowerThreshold(float db, bool clamp) {
 
   if (clamp)
     band_lower_threshold_ = db;
-  synth->valueChangedInternal("compressor_band_lower_threshold", db);
+  synth->valueChangedInternal(id_ + "_band_lower_threshold", db);
   if (band_lower_threshold_ > band_upper_threshold_ && clamp)
     setBandUpperThreshold(db, clamp);
 
@@ -609,7 +609,7 @@ void CompressorEditor::setHighLowerThreshold(float db, bool clamp ) {
 
   if (clamp)
     high_lower_threshold_ = db;
-  synth->valueChangedInternal("compressor_high_lower_threshold", db);
+  synth->valueChangedInternal(id_ + "_high_lower_threshold", db);
   if (high_lower_threshold_ > high_upper_threshold_ && clamp)
     setHighUpperThreshold(db, clamp);
 
@@ -620,42 +620,42 @@ void CompressorEditor::setLowUpperRatio(float ratio) {
   SynthBase* synth = parent_->getSynth();
 
   low_upper_ratio_ = vital::utils::clamp(ratio, kMinUpperRatio, kMaxUpperRatio);
-  synth->valueChangedInternal("compressor_low_upper_ratio", ratio);
+  synth->valueChangedInternal(id_ + "_low_upper_ratio", ratio);
 }
 
 void CompressorEditor::setBandUpperRatio(float ratio) {
   SynthBase* synth = parent_->getSynth();
 
   band_upper_ratio_ = vital::utils::clamp(ratio, kMinUpperRatio, kMaxUpperRatio);
-  synth->valueChangedInternal("compressor_band_upper_ratio", ratio);
+  synth->valueChangedInternal(id_ + "_band_upper_ratio", ratio);
 }
 
 void CompressorEditor::setHighUpperRatio(float ratio) {
   SynthBase* synth = parent_->getSynth();
 
   high_upper_ratio_ = vital::utils::clamp(ratio, kMinUpperRatio, kMaxUpperRatio);
-  synth->valueChangedInternal("compressor_high_upper_ratio", ratio);
+  synth->valueChangedInternal(id_ + "_high_upper_ratio", ratio);
 }
 
 void CompressorEditor::setLowLowerRatio(float ratio) {
   SynthBase* synth = parent_->getSynth();
 
   low_lower_ratio_ = vital::utils::clamp(ratio, kMinLowerRatio, kMaxLowerRatio);
-  synth->valueChangedInternal("compressor_low_lower_ratio", ratio);
+  synth->valueChangedInternal(id_ + "_low_lower_ratio", ratio);
 }
 
 void CompressorEditor::setBandLowerRatio(float ratio) {
   SynthBase* synth = parent_->getSynth();
 
   band_lower_ratio_ = vital::utils::clamp(ratio, kMinLowerRatio, kMaxLowerRatio);
-  synth->valueChangedInternal("compressor_band_lower_ratio", ratio);
+  synth->valueChangedInternal(id_ + "_band_lower_ratio", ratio);
 }
 
 void CompressorEditor::setHighLowerRatio(float ratio) {
   SynthBase* synth = parent_->getSynth();
 
   high_lower_ratio_ = vital::utils::clamp(ratio, kMinLowerRatio, kMaxLowerRatio);
-  synth->valueChangedInternal("compressor_high_lower_ratio", ratio);
+  synth->valueChangedInternal(id_ + "_high_lower_ratio", ratio);
 }
 
 String CompressorEditor::formatValue(float value) {
@@ -683,17 +683,17 @@ void CompressorEditor::parentHierarchyChanged() {
     return;
 
   if (low_input_ms_ == nullptr)
-    low_input_ms_ = parent_->getSynth()->getStatusOutput("compressor_low_input");
+    low_input_ms_ = parent_->getSynth()->getStatusOutput(id_ + "_low_input");
   if (band_input_ms_ == nullptr)
-    band_input_ms_ = parent_->getSynth()->getStatusOutput("compressor_band_input");
+    band_input_ms_ = parent_->getSynth()->getStatusOutput(id_ + "_band_input");
   if (high_input_ms_ == nullptr)
-    high_input_ms_ = parent_->getSynth()->getStatusOutput("compressor_high_input");
+    high_input_ms_ = parent_->getSynth()->getStatusOutput(id_ + "_high_input");
   if (low_output_ms_ == nullptr)
-    low_output_ms_ = parent_->getSynth()->getStatusOutput("compressor_low_output");
+    low_output_ms_ = parent_->getSynth()->getStatusOutput(id_ + "_low_output");
   if (band_output_ms_ == nullptr)
-    band_output_ms_ = parent_->getSynth()->getStatusOutput("compressor_band_output");
+    band_output_ms_ = parent_->getSynth()->getStatusOutput(id_ + "_band_output");
   if (high_output_ms_ == nullptr)
-    high_output_ms_ = parent_->getSynth()->getStatusOutput("compressor_high_output");
+    high_output_ms_ = parent_->getSynth()->getStatusOutput(id_ + "_high_output");
 
   OpenGlComponent::parentHierarchyChanged();
 }

@@ -32,7 +32,7 @@ class DistortionFilterResponse : public OpenGlLineRenderer {
     static constexpr int kResolution = 256;
     static constexpr int kDefaultVisualSampleRate = 200000;
 
-    DistortionFilterResponse(const vital::output_map& mono_modulations);
+    DistortionFilterResponse(const std::string& id, const vital::output_map& mono_modulations);
     virtual ~DistortionFilterResponse();
 
     void init(OpenGlWrapper& open_gl) override;
@@ -108,7 +108,7 @@ class DistortionSection : public SynthSection {
   public:
     static constexpr int kViewerResolution = 124;
 
-    DistortionSection(String name, const vital::output_map& mono_modulations);
+    DistortionSection(String name, const std::string& id, const vital::output_map& mono_modulations);
     virtual ~DistortionSection();
 
     void paintBackground(Graphics& g) override;
@@ -120,6 +120,7 @@ class DistortionSection : public SynthSection {
     void setFilterActive(bool active);
 
   private:
+    std::string id_;
     std::unique_ptr<SynthButton> on_;
     std::unique_ptr<TextSelector> type_;
     std::unique_ptr<TextSelector> filter_order_;

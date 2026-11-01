@@ -56,6 +56,9 @@ class EffectsViewport : public Viewport {
     std::vector<Listener*> listeners_;
 };
 
+#if VITAL_FX
+#include "fx_effects_interface.h"
+#else
 class EffectsInterface : public SynthSection, public DragDropEffectOrder::Listener,
                          public ScrollBar::Listener, EffectsViewport::Listener {
   public:
@@ -118,4 +121,4 @@ class EffectsInterface : public SynthSection, public DragDropEffectOrder::Listen
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EffectsInterface)
 };
-
+#endif

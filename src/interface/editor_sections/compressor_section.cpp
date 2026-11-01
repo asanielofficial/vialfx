@@ -24,45 +24,45 @@
 #include "synth_slider.h"
 #include "text_look_and_feel.h"
 
-CompressorSection::CompressorSection(const String& name) : SynthSection(name) {
-  release_ = std::make_unique<SynthSlider>("compressor_release");
+CompressorSection::CompressorSection(const String& name, const std::string& id) : SynthSection(name), id_(id) {
+  release_ = std::make_unique<SynthSlider>(id_ + "_release");
   addSlider(release_.get());
   release_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  mix_ = std::make_unique<SynthSlider>("compressor_mix");
+  mix_ = std::make_unique<SynthSlider>(id_ + "_mix");
   addSlider(mix_.get());
   mix_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  attack_ = std::make_unique<SynthSlider>("compressor_attack");
+  attack_ = std::make_unique<SynthSlider>(id_ + "_attack");
   addSlider(attack_.get());
   attack_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  low_gain_ = std::make_unique<SynthSlider>("compressor_low_gain");
+  low_gain_ = std::make_unique<SynthSlider>(id_ + "_low_gain");
   addSlider(low_gain_.get());
   low_gain_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   low_gain_->setBipolar(true);
 
-  band_gain_ = std::make_unique<SynthSlider>("compressor_band_gain");
+  band_gain_ = std::make_unique<SynthSlider>(id_ + "_band_gain");
   addSlider(band_gain_.get());
   band_gain_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   band_gain_->setBipolar(true);
 
-  high_gain_ = std::make_unique<SynthSlider>("compressor_high_gain");
+  high_gain_ = std::make_unique<SynthSlider>(id_ + "_high_gain");
   addSlider(high_gain_.get());
   high_gain_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   high_gain_->setBipolar(true);
 
-  enabled_bands_ = std::make_unique<TextSelector>("compressor_enabled_bands");
+  enabled_bands_ = std::make_unique<TextSelector>(id_ + "_enabled_bands");
   addSlider(enabled_bands_.get());
   enabled_bands_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   enabled_bands_->setLookAndFeel(TextLookAndFeel::instance());
   enabled_bands_->setLongStringLookup(strings::kCompressorBandNames);
 
-  compressor_editor_ = std::make_unique<CompressorEditor>();
+  compressor_editor_ = std::make_unique<CompressorEditor>(id_);
   addAndMakeVisible(compressor_editor_.get());
   addOpenGlComponent(compressor_editor_.get());
 
-  on_ = std::make_unique<SynthButton>("compressor_on");
+  on_ = std::make_unique<SynthButton>(id_ + "_on");
   addButton(on_.get());
   setActivator(on_.get());
 

@@ -26,7 +26,7 @@ class ReverbSection : public SynthSection, public EqualizerResponse::Listener {
   public:
     static constexpr float kFeedbackFilterBuffer = 0.4f;
 
-    ReverbSection(String name, const vital::output_map& mono_modulations);
+    ReverbSection(String name, const std::string& id, const vital::output_map& mono_modulations);
     ~ReverbSection();
 
     void paintBackground(Graphics& g) override;
@@ -40,6 +40,7 @@ class ReverbSection : public SynthSection, public EqualizerResponse::Listener {
     void highBandSelected() override;
   
   private:
+    std::string id_;
     std::unique_ptr<SynthButton> on_;
     std::unique_ptr<EqualizerResponse> feedback_eq_response_;
     std::unique_ptr<TabSelector> selected_eq_band_;

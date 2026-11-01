@@ -39,68 +39,68 @@ namespace {
   }
 }
 
-EqualizerSection::EqualizerSection(String name, const vital::output_map& mono_modulations) : SynthSection(name) {
+EqualizerSection::EqualizerSection(String name, const std::string& id, const vital::output_map& mono_modulations) : SynthSection(name), id_(id) {
   parent_ = nullptr;
 
-  low_mode_ = std::make_unique<OpenGlShapeButton>("eq_low_mode");
+  low_mode_ = std::make_unique<OpenGlShapeButton>(id_ + "_low_mode");
   low_mode_->useOnColors(true);
   low_mode_->setClickingTogglesState(true);
   addButton(low_mode_.get());
   low_mode_->addListener(this);
   low_mode_->setShape(bufferPath(Paths::highPass()));
 
-  band_mode_ = std::make_unique<OpenGlShapeButton>("eq_band_mode");
+  band_mode_ = std::make_unique<OpenGlShapeButton>(id_ + "_band_mode");
   band_mode_->useOnColors(true);
   band_mode_->setClickingTogglesState(true);
   addButton(band_mode_.get());
   band_mode_->addListener(this);
   band_mode_->setShape(bufferPath(Paths::notch()));
 
-  high_mode_ = std::make_unique<OpenGlShapeButton>("eq_high_mode");
+  high_mode_ = std::make_unique<OpenGlShapeButton>(id_ + "_high_mode");
   high_mode_->useOnColors(true);
   high_mode_->setClickingTogglesState(true);
   addButton(high_mode_.get());
   high_mode_->addListener(this);
   high_mode_->setShape(bufferPath(Paths::lowPass()));
 
-  low_cutoff_ = std::make_unique<SynthSlider>("eq_low_cutoff");
+  low_cutoff_ = std::make_unique<SynthSlider>(id_ + "_low_cutoff");
   addSlider(low_cutoff_.get());
   low_cutoff_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   setSliderHasHzAlternateDisplay(low_cutoff_.get());
 
-  low_resonance_ = std::make_unique<SynthSlider>("eq_low_resonance");
+  low_resonance_ = std::make_unique<SynthSlider>(id_ + "_low_resonance");
   addSlider(low_resonance_.get());
   low_resonance_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  low_gain_ = std::make_unique<SynthSlider>("eq_low_gain");
+  low_gain_ = std::make_unique<SynthSlider>(id_ + "_low_gain");
   addSlider(low_gain_.get());
   low_gain_->setBipolar();
   low_gain_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  band_cutoff_ = std::make_unique<SynthSlider>("eq_band_cutoff");
+  band_cutoff_ = std::make_unique<SynthSlider>(id_ + "_band_cutoff");
   addSlider(band_cutoff_.get());
   band_cutoff_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   setSliderHasHzAlternateDisplay(band_cutoff_.get());
 
-  band_resonance_ = std::make_unique<SynthSlider>("eq_band_resonance");
+  band_resonance_ = std::make_unique<SynthSlider>(id_ + "_band_resonance");
   addSlider(band_resonance_.get());
   band_resonance_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  band_gain_ = std::make_unique<SynthSlider>("eq_band_gain");
+  band_gain_ = std::make_unique<SynthSlider>(id_ + "_band_gain");
   addSlider(band_gain_.get());
   band_gain_->setBipolar();
   band_gain_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  high_cutoff_ = std::make_unique<SynthSlider>("eq_high_cutoff");
+  high_cutoff_ = std::make_unique<SynthSlider>(id_ + "_high_cutoff");
   addSlider(high_cutoff_.get());
   high_cutoff_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   setSliderHasHzAlternateDisplay(high_cutoff_.get());
 
-  high_resonance_ = std::make_unique<SynthSlider>("eq_high_resonance");
+  high_resonance_ = std::make_unique<SynthSlider>(id_ + "_high_resonance");
   addSlider(high_resonance_.get());
   high_resonance_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  high_gain_ = std::make_unique<SynthSlider>("eq_high_gain");
+  high_gain_ = std::make_unique<SynthSlider>(id_ + "_high_gain");
   addSlider(high_gain_.get());
   high_gain_->setBipolar();
   high_gain_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
@@ -115,14 +115,14 @@ EqualizerSection::EqualizerSection(String name, const vital::output_map& mono_mo
   spectrogram_->setFill(true);
 
   eq_response_ = std::make_unique<EqualizerResponse>();
-  eq_response_->initEq(mono_modulations);
+  eq_response_->initEq(id_, mono_modulations);
   addOpenGlComponent(eq_response_.get());
   eq_response_->setLowSliders(low_cutoff_.get(), low_resonance_.get(), low_gain_.get());
   eq_response_->setBandSliders(band_cutoff_.get(), band_resonance_.get(), band_gain_.get());
   eq_response_->setHighSliders(high_cutoff_.get(), high_resonance_.get(), high_gain_.get());
   eq_response_->addListener(this);
 
-  on_ = std::make_unique<SynthButton>("eq_on");
+  on_ = std::make_unique<SynthButton>(id_ + "_on");
   addButton(on_.get());
 
   selected_band_ = std::make_unique<TabSelector>("selected_band");
@@ -309,8 +309,14 @@ void EqualizerSection::parentHierarchyChanged() {
 
   parent_ = findParentComponentOfClass<SynthGuiInterface>();
 
-  if (parent_)
-    spectrogram_->setAudioMemory(parent_->getSynth()->getEqualizerMemory());
+  if (parent_) {
+    // "eq" is copy 1, "eq_3" copy 3.
+    int instance = 0;
+    size_t underscore = id_.rfind('_');
+    if (underscore != std::string::npos)
+      instance = std::max(0, std::atoi(id_.c_str() + underscore + 1) - 1);
+    spectrogram_->setAudioMemory(parent_->getSynth()->getEqualizerMemory(instance));
+  }
 }
 
 void EqualizerSection::renderOpenGlComponents(OpenGlWrapper& open_gl, bool animate) {

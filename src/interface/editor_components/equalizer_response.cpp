@@ -85,23 +85,23 @@ EqualizerResponse::EqualizerResponse() : OpenGlLineRenderer(kResolution),
 
 EqualizerResponse::~EqualizerResponse() = default;
 
-void EqualizerResponse::initEq(const vital::output_map& mono_modulations) {
-  low_cutoff_output_ = mono_modulations.at("eq_low_cutoff");
-  low_resonance_output_ = mono_modulations.at("eq_low_resonance");
-  low_gain_output_ = mono_modulations.at("eq_low_gain");
-  band_cutoff_output_ = mono_modulations.at("eq_band_cutoff");
-  band_resonance_output_ = mono_modulations.at("eq_band_resonance");
-  band_gain_output_ = mono_modulations.at("eq_band_gain");
-  high_cutoff_output_ = mono_modulations.at("eq_high_cutoff");
-  high_resonance_output_ = mono_modulations.at("eq_high_resonance");
-  high_gain_output_ = mono_modulations.at("eq_high_gain");
+void EqualizerResponse::initEq(const std::string& id, const vital::output_map& mono_modulations) {
+  low_cutoff_output_ = mono_modulations.at(id + "_low_cutoff");
+  low_resonance_output_ = mono_modulations.at(id + "_low_resonance");
+  low_gain_output_ = mono_modulations.at(id + "_low_gain");
+  band_cutoff_output_ = mono_modulations.at(id + "_band_cutoff");
+  band_resonance_output_ = mono_modulations.at(id + "_band_resonance");
+  band_gain_output_ = mono_modulations.at(id + "_band_gain");
+  high_cutoff_output_ = mono_modulations.at(id + "_high_cutoff");
+  high_resonance_output_ = mono_modulations.at(id + "_high_resonance");
+  high_gain_output_ = mono_modulations.at(id + "_high_gain");
 }
 
-void EqualizerResponse::initReverb(const vital::output_map& mono_modulations) {
-  low_cutoff_output_ = mono_modulations.at("reverb_low_shelf_cutoff");
-  low_gain_output_ = mono_modulations.at("reverb_low_shelf_gain");
-  high_cutoff_output_ = mono_modulations.at("reverb_high_shelf_cutoff");
-  high_gain_output_ = mono_modulations.at("reverb_high_shelf_gain");
+void EqualizerResponse::initReverb(const std::string& id, const vital::output_map& mono_modulations) {
+  low_cutoff_output_ = mono_modulations.at(id + "_low_shelf_cutoff");
+  low_gain_output_ = mono_modulations.at(id + "_low_shelf_gain");
+  high_cutoff_output_ = mono_modulations.at(id + "_high_shelf_cutoff");
+  high_gain_output_ = mono_modulations.at(id + "_high_shelf_gain");
 }
 
 void EqualizerResponse::init(OpenGlWrapper& open_gl) {

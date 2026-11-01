@@ -33,7 +33,7 @@ class FlangerResponse : public OpenGlLineRenderer {
     static constexpr int kDefaultVisualSampleRate = 200000;
     static constexpr int kCombAlternatePeriod = 2;
 
-    FlangerResponse(const vital::output_map& mono_modulations);
+    FlangerResponse(const std::string& id, const vital::output_map& mono_modulations);
     virtual ~FlangerResponse();
 
     void init(OpenGlWrapper& open_gl) override;
@@ -61,6 +61,7 @@ class FlangerResponse : public OpenGlLineRenderer {
     void setActive(bool active) { active_ = active; }
 
   private:
+    std::string id_;
     struct FilterResponseShader {
       static constexpr int kMaxStages = 4;
       OpenGLShaderProgram* shader;
@@ -109,7 +110,7 @@ class FlangerResponse : public OpenGlLineRenderer {
 
 class FlangerSection : public SynthSection {
   public:
-    FlangerSection(String name, const vital::output_map& mono_modulations);
+    FlangerSection(String name, const std::string& id, const vital::output_map& mono_modulations);
     virtual ~FlangerSection();
 
     void paintBackground(Graphics& g) override;
@@ -118,6 +119,7 @@ class FlangerSection : public SynthSection {
     void setActive(bool active) override;
 
   private:
+    std::string id_;
     std::unique_ptr<SynthButton> on_;
     std::unique_ptr<SynthSlider> frequency_;
     std::unique_ptr<SynthSlider> tempo_;

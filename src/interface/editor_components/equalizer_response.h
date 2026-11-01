@@ -41,8 +41,8 @@ class EqualizerResponse : public OpenGlLineRenderer, SynthSlider::SliderListener
     EqualizerResponse();
     ~EqualizerResponse();
   
-    void initEq(const vital::output_map& mono_modulations);
-    void initReverb(const vital::output_map& mono_modulations);
+    void initEq(const std::string& id, const vital::output_map& mono_modulations);
+    void initReverb(const std::string& id, const vital::output_map& mono_modulations);
 
     virtual void init(OpenGlWrapper& open_gl) override;
     virtual void render(OpenGlWrapper& open_gl, bool animate) override;

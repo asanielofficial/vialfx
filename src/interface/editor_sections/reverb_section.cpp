@@ -22,62 +22,62 @@
 #include "synth_slider.h"
 #include "tab_selector.h"
 
-ReverbSection::ReverbSection(String name, const vital::output_map& mono_modulations) : SynthSection(name) {
-  dry_wet_ = std::make_unique<SynthSlider>("reverb_dry_wet");
+ReverbSection::ReverbSection(String name, const std::string& id, const vital::output_map& mono_modulations) : SynthSection(name), id_(id) {
+  dry_wet_ = std::make_unique<SynthSlider>(id_ + "_dry_wet");
   addSlider(dry_wet_.get());
   dry_wet_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  high_pre_cutoff_ = std::make_unique<SynthSlider>("reverb_pre_high_cutoff");
+  high_pre_cutoff_ = std::make_unique<SynthSlider>(id_ + "_pre_high_cutoff");
   addSlider(high_pre_cutoff_.get());
   high_pre_cutoff_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   setSliderHasHzAlternateDisplay(high_pre_cutoff_.get());
 
-  chorus_frequency_ = std::make_unique<SynthSlider>("reverb_chorus_frequency");
+  chorus_frequency_ = std::make_unique<SynthSlider>(id_ + "_chorus_frequency");
   addSlider(chorus_frequency_.get());
   chorus_frequency_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  low_gain_ = std::make_unique<SynthSlider>("reverb_low_shelf_gain");
+  low_gain_ = std::make_unique<SynthSlider>(id_ + "_low_shelf_gain");
   addSlider(low_gain_.get());
   low_gain_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  high_gain_ = std::make_unique<SynthSlider>("reverb_high_shelf_gain");
+  high_gain_ = std::make_unique<SynthSlider>(id_ + "_high_shelf_gain");
   addSlider(high_gain_.get());
   high_gain_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  decay_time_ = std::make_unique<SynthSlider>("reverb_decay_time");
+  decay_time_ = std::make_unique<SynthSlider>(id_ + "_decay_time");
   addSlider(decay_time_.get());
   decay_time_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  low_pre_cutoff_ = std::make_unique<SynthSlider>("reverb_pre_low_cutoff");
+  low_pre_cutoff_ = std::make_unique<SynthSlider>(id_ + "_pre_low_cutoff");
   addSlider(low_pre_cutoff_.get());
   low_pre_cutoff_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   setSliderHasHzAlternateDisplay(low_pre_cutoff_.get());
 
-  low_cutoff_ = std::make_unique<SynthSlider>("reverb_low_shelf_cutoff");
+  low_cutoff_ = std::make_unique<SynthSlider>(id_ + "_low_shelf_cutoff");
   addSlider(low_cutoff_.get());
   low_cutoff_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   setSliderHasHzAlternateDisplay(low_cutoff_.get());
 
-  high_cutoff_ = std::make_unique<SynthSlider>("reverb_high_shelf_cutoff");
+  high_cutoff_ = std::make_unique<SynthSlider>(id_ + "_high_shelf_cutoff");
   addSlider(high_cutoff_.get());
   high_cutoff_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   setSliderHasHzAlternateDisplay(high_cutoff_.get());
 
-  chorus_amount_ = std::make_unique<SynthSlider>("reverb_chorus_amount");
+  chorus_amount_ = std::make_unique<SynthSlider>(id_ + "_chorus_amount");
   addSlider(chorus_amount_.get());
   chorus_amount_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  delay_ = std::make_unique<SynthSlider>("reverb_delay");
+  delay_ = std::make_unique<SynthSlider>(id_ + "_delay");
   addSlider(delay_.get());
   delay_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  size_ = std::make_unique<SynthSlider>("reverb_size");
+  size_ = std::make_unique<SynthSlider>(id_ + "_size");
   addSlider(size_.get());
   size_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   
   feedback_eq_response_ = std::make_unique<EqualizerResponse>();
   feedback_eq_response_->setDbBufferRatio(kFeedbackFilterBuffer);
-  feedback_eq_response_->initReverb(mono_modulations);
+  feedback_eq_response_->initReverb(id_, mono_modulations);
   feedback_eq_response_->setLowSliders(low_cutoff_.get(), nullptr, low_gain_.get());
   feedback_eq_response_->setHighSliders(high_cutoff_.get(), nullptr, high_gain_.get());
   feedback_eq_response_->setDrawFrequencyLines(false);
@@ -95,7 +95,7 @@ ReverbSection::ReverbSection(String name, const vital::output_map& mono_modulati
   selected_eq_band_->setFontHeightPercent(0.4f);
   selected_eq_band_->setScrollWheelEnabled(false);
 
-  on_ = std::make_unique<SynthButton>("reverb_on");
+  on_ = std::make_unique<SynthButton>(id_ + "_on");
   addButton(on_.get());
   setActivator(on_.get());
   setSkinOverride(Skin::kReverb);

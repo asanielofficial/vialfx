@@ -118,3 +118,8 @@ Additional conditions inherited with the source code are listed in [NOTICE.md](N
 - Spectral Table menu: gain, pitch (transposes the response), resonance (how far the response reaches), mix.
 - Distort Table menu: phase (shifts the transfer curve), bias, smooth, drive, DC filter (removes the offset bias and the curve create), mix. Drive, bias and smooth act even on the clean first frame.
 - Presets are now .vialfx and skins .vialskin (older .vital / .vitalskin still open); the default skin is the attached Default.vialskin.
+
+## Effects tab
+
+The effects tab starts blank. **ADD EFFECT** (top of the left panel) adds a Chorus, Compressor, Delay, Distortion, EQ, Filter, Flanger, Phaser or Reverb to the end of the chain; the same effect can be added several times (up to 8 copies of each type; every copy is a full set of automatable, modulatable parameters named e.g. `chorus_2_dry_wet`). Rows in the left panel can be dragged to reorder the chain, and clicking one scrolls to that effect; both panels scroll when the chain is long. Each effect has its on/off button, a `-` that minimizes it to a title bar (name and symbol in the effect's colour) and an `x` that removes it (its settings and modulations are reset). Right-click an effect for Duplicate (same settings), Minimize or Remove. The chain is saved with the preset; presets from before the chain existed load with their enabled effects in their old order.
+

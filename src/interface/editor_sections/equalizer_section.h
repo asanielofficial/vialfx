@@ -26,7 +26,7 @@ class TabSelector;
 
 class EqualizerSection : public SynthSection, public EqualizerResponse::Listener {
   public:
-    EqualizerSection(String name, const vital::output_map& mono_modulations);
+    EqualizerSection(String name, const std::string& id, const vital::output_map& mono_modulations);
     virtual ~EqualizerSection();
 
     void paintBackground(Graphics& g) override;
@@ -48,6 +48,7 @@ class EqualizerSection : public SynthSection, public EqualizerResponse::Listener
     virtual void renderOpenGlComponents(OpenGlWrapper& open_gl, bool animate) override;
 
   private:
+    std::string id_;
     SynthGuiInterface* parent_;
     std::unique_ptr<SynthButton> on_;
 

@@ -31,9 +31,9 @@ class DistortionViewer : public OpenGlLineRenderer {
   public:
     static constexpr float kDrawPercent = 0.9f;
 
-    DistortionViewer(int resolution, const vital::output_map& mono_modulations) :
+    DistortionViewer(const std::string& id, int resolution, const vital::output_map& mono_modulations) :
         OpenGlLineRenderer(resolution), type_slider_(nullptr), drive_slider_(nullptr) {
-      drive_ = mono_modulations.at("distortion_drive");
+      drive_ = mono_modulations.at(id + "_drive");
       active_ = true;
       setFill(true);
       setFillCenter(0.0f);
@@ -114,7 +114,7 @@ class DistortionViewer : public OpenGlLineRenderer {
     Slider* drive_slider_;
 };
 
-DistortionFilterResponse::DistortionFilterResponse(const vital::output_map& mono_modulations) :
+DistortionFilterResponse::DistortionFilterResponse(const std::string& id, const vital::output_map& mono_modulations) :
     OpenGlLineRenderer(kResolution) {
   active_ = true;
 
@@ -127,9 +127,9 @@ DistortionFilterResponse::DistortionFilterResponse(const vital::output_map& mono
   resonance_slider_ = nullptr;
   blend_slider_ = nullptr;
 
-  cutoff_output_ = mono_modulations.at("distortion_filter_cutoff");
-  resonance_output_ = mono_modulations.at("distortion_filter_resonance");
-  blend_output_ = mono_modulations.at("distortion_filter_blend");
+  cutoff_output_ = mono_modulations.at(id + "_filter_cutoff");
+  resonance_output_ = mono_modulations.at(id + "_filter_resonance");
+  blend_output_ = mono_modulations.at(id + "_filter_blend");
 
   line_data_ = std::make_unique<float[]>(2 * kResolution);
   line_buffer_ = 0;
@@ -324,54 +324,54 @@ void DistortionFilterResponse::drawFilterResponse(OpenGlWrapper& open_gl, bool a
   checkGlError();
 }
 
-DistortionSection::DistortionSection(String name, const vital::output_map& mono_modulations) : SynthSection(name) {
-  type_ = std::make_unique<TextSelector>("distortion_type");
+DistortionSection::DistortionSection(String name, const std::string& id, const vital::output_map& mono_modulations) : SynthSection(name), id_(id) {
+  type_ = std::make_unique<TextSelector>(id_ + "_type");
   addSlider(type_.get());
   type_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   type_->setLookAndFeel(TextLookAndFeel::instance());
   type_->setLongStringLookup(strings::kDistortionTypeNames);
 
-  filter_order_ = std::make_unique<TextSelector>("distortion_filter_order");
+  filter_order_ = std::make_unique<TextSelector>(id_ + "_filter_order");
   addSlider(filter_order_.get());
   filter_order_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   filter_order_->setLookAndFeel(TextLookAndFeel::instance());
   filter_order_->setLongStringLookup(strings::kDistortionFilterOrderNames);
 
-  filter_cutoff_ = std::make_unique<SynthSlider>("distortion_filter_cutoff");
+  filter_cutoff_ = std::make_unique<SynthSlider>(id_ + "_filter_cutoff");
   addSlider(filter_cutoff_.get());
   filter_cutoff_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   setSliderHasHzAlternateDisplay(filter_cutoff_.get());
 
-  filter_resonance_ = std::make_unique<SynthSlider>("distortion_filter_resonance");
+  filter_resonance_ = std::make_unique<SynthSlider>(id_ + "_filter_resonance");
   addSlider(filter_resonance_.get());
   filter_resonance_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  filter_blend_ = std::make_unique<SynthSlider>("distortion_filter_blend");
+  filter_blend_ = std::make_unique<SynthSlider>(id_ + "_filter_blend");
   addSlider(filter_blend_.get());
   filter_blend_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   filter_blend_->setBipolar();
 
   int resolution = kViewerResolution;
-  distortion_viewer_ = std::make_unique<DistortionViewer>(resolution, mono_modulations);
+  distortion_viewer_ = std::make_unique<DistortionViewer>(id_, resolution, mono_modulations);
   addOpenGlComponent(distortion_viewer_.get());
   distortion_viewer_->setTypeSlider(type_.get());
 
-  drive_ = std::make_unique<SynthSlider>("distortion_drive");
+  drive_ = std::make_unique<SynthSlider>(id_ + "_drive");
   addSlider(drive_.get());
   drive_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   distortion_viewer_->setDriveSlider(drive_.get());
 
-  mix_ = std::make_unique<SynthSlider>("distortion_mix");
+  mix_ = std::make_unique<SynthSlider>(id_ + "_mix");
   addSlider(mix_.get());
   mix_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  filter_response_ = std::make_unique<DistortionFilterResponse>(mono_modulations);
+  filter_response_ = std::make_unique<DistortionFilterResponse>(id_, mono_modulations);
   addOpenGlComponent(filter_response_.get());
   filter_response_->setCutoffSlider(filter_cutoff_.get());
   filter_response_->setResonanceSlider(filter_resonance_.get());
   filter_response_->setBlendSlider(filter_blend_.get());
 
-  on_ = std::make_unique<SynthButton>("distortion_on");
+  on_ = std::make_unique<SynthButton>(id_ + "_on");
   addButton(on_.get());
   setActivator(on_.get());
   setSkinOverride(Skin::kDistortion);

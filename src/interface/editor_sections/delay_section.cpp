@@ -37,7 +37,7 @@ namespace {
 
 class DelayViewer : public BarRenderer {
   public:
-    DelayViewer(int num_bars, const vital::output_map& mono_modulations) : BarRenderer(num_bars, true),
+    DelayViewer(const std::string& id, int num_bars, const vital::output_map& mono_modulations) : BarRenderer(num_bars, true),
         active_(true), feedback_slider_(nullptr), mix_slider_(nullptr),
         tempo_slider_(nullptr), frequency_slider_(nullptr), sync_slider_(nullptr),
       aux_tempo_slider_(nullptr), aux_frequency_slider_(nullptr), aux_sync_slider_(nullptr), style_slider_(nullptr) {
@@ -45,13 +45,13 @@ class DelayViewer : public BarRenderer {
       setScale(1.0f);
       setAdditiveBlending(false);
 
-      feedback_ = mono_modulations.at("delay_feedback");
-      mix_ = mono_modulations.at("delay_dry_wet");
-      tempo_ = mono_modulations.at("delay_tempo");
-      frequency_ = mono_modulations.at("delay_frequency");
+      feedback_ = mono_modulations.at(id + "_feedback");
+      mix_ = mono_modulations.at(id + "_dry_wet");
+      tempo_ = mono_modulations.at(id + "_tempo");
+      frequency_ = mono_modulations.at(id + "_frequency");
 
-      aux_tempo_ = mono_modulations.at("delay_aux_tempo");
-      aux_frequency_ = mono_modulations.at("delay_aux_frequency");
+      aux_tempo_ = mono_modulations.at(id + "_aux_tempo");
+      aux_frequency_ = mono_modulations.at(id + "_aux_frequency");
     }
 
     float getFeedback(int index) {
@@ -219,68 +219,68 @@ class DelayViewer : public BarRenderer {
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DelayViewer)
 };
 
-DelaySection::DelaySection(const String& name, const vital::output_map& mono_modulations) : SynthSection(name) {
+DelaySection::DelaySection(const String& name, const std::string& id, const vital::output_map& mono_modulations) : SynthSection(name), id_(id) {
   static const double TEMPO_DRAG_SENSITIVITY = 0.3;
   static constexpr int kViewerResolution = 64;
   
-  frequency_ = std::make_unique<SynthSlider>("delay_frequency");
+  frequency_ = std::make_unique<SynthSlider>(id_ + "_frequency");
   addSlider(frequency_.get());
   frequency_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   frequency_->setLookAndFeel(TextLookAndFeel::instance());
 
-  tempo_ = std::make_unique<SynthSlider>("delay_tempo");
+  tempo_ = std::make_unique<SynthSlider>(id_ + "_tempo");
   addSlider(tempo_.get());
   tempo_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   tempo_->setLookAndFeel(TextLookAndFeel::instance());
   tempo_->setSensitivity(TEMPO_DRAG_SENSITIVITY);
 
-  sync_ = std::make_unique<TempoSelector>("delay_sync");
+  sync_ = std::make_unique<TempoSelector>(id_ + "_sync");
   addSlider(sync_.get());
   sync_->setSliderStyle(Slider::LinearBar);
   sync_->setTempoSlider(tempo_.get());
   sync_->setFreeSlider(frequency_.get());
 
-  aux_frequency_ = std::make_unique<SynthSlider>("delay_aux_frequency");
+  aux_frequency_ = std::make_unique<SynthSlider>(id_ + "_aux_frequency");
   addSlider(aux_frequency_.get());
   aux_frequency_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   aux_frequency_->setLookAndFeel(TextLookAndFeel::instance());
 
-  aux_tempo_ = std::make_unique<SynthSlider>("delay_aux_tempo");
+  aux_tempo_ = std::make_unique<SynthSlider>(id_ + "_aux_tempo");
   addSlider(aux_tempo_.get());
   aux_tempo_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   aux_tempo_->setLookAndFeel(TextLookAndFeel::instance());
   aux_tempo_->setSensitivity(TEMPO_DRAG_SENSITIVITY);
 
-  aux_sync_ = std::make_unique<TempoSelector>("delay_aux_sync");
+  aux_sync_ = std::make_unique<TempoSelector>(id_ + "_aux_sync");
   addSlider(aux_sync_.get());
   aux_sync_->setSliderStyle(Slider::LinearBar);
   aux_sync_->setTempoSlider(aux_tempo_.get());
   aux_sync_->setFreeSlider(aux_frequency_.get());
 
-  filter_cutoff_ = std::make_unique<SynthSlider>("delay_filter_cutoff");
+  filter_cutoff_ = std::make_unique<SynthSlider>(id_ + "_filter_cutoff");
   addSlider(filter_cutoff_.get());
   filter_cutoff_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  filter_spread_ = std::make_unique<SynthSlider>("delay_filter_spread");
+  filter_spread_ = std::make_unique<SynthSlider>(id_ + "_filter_spread");
   addSlider(filter_spread_.get());
   filter_spread_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  feedback_ = std::make_unique<SynthSlider>("delay_feedback");
+  feedback_ = std::make_unique<SynthSlider>(id_ + "_feedback");
   addSlider(feedback_.get());
   feedback_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   feedback_->setBipolar();
 
-  dry_wet_ = std::make_unique<SynthSlider>("delay_dry_wet");
+  dry_wet_ = std::make_unique<SynthSlider>(id_ + "_dry_wet");
   addSlider(dry_wet_.get());
   dry_wet_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  style_ = std::make_unique<TextSelector>("delay_style");
+  style_ = std::make_unique<TextSelector>(id_ + "_style");
   addSlider(style_.get());
   style_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   style_->setLookAndFeel(TextLookAndFeel::instance());
   style_->setLongStringLookup(strings::kDelayStyleNames);
 
-  delay_viewer_ = std::make_unique<DelayViewer>(50, mono_modulations);
+  delay_viewer_ = std::make_unique<DelayViewer>(id_, 50, mono_modulations);
   delay_viewer_->setFeedbackSlider(feedback_.get());
   delay_viewer_->setMixSlider(dry_wet_.get());
   delay_viewer_->setTempoSlider(tempo_.get());
@@ -292,13 +292,13 @@ DelaySection::DelaySection(const String& name, const vital::output_map& mono_mod
   delay_viewer_->setStyleSlider(style_.get());
   addOpenGlComponent(delay_viewer_.get());
 
-  delay_filter_viewer_ = std::make_unique<DelayFilterViewer>("delay_filter", kViewerResolution, mono_modulations);
+  delay_filter_viewer_ = std::make_unique<DelayFilterViewer>(id_ + "_filter", kViewerResolution, mono_modulations);
   delay_filter_viewer_->setCutoffSlider(filter_cutoff_.get());
   delay_filter_viewer_->setSpreadSlider(filter_spread_.get());
   delay_filter_viewer_->addListener(this);
   addOpenGlComponent(delay_filter_viewer_.get());
 
-  on_ = std::make_unique<SynthButton>("delay_on");
+  on_ = std::make_unique<SynthButton>(id_ + "_on");
   addButton(on_.get());
   setActivator(on_.get());
   setSkinOverride(Skin::kDelay);

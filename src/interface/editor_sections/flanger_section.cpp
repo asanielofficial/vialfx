@@ -26,7 +26,7 @@
 #include "tempo_selector.h"
 #include "text_look_and_feel.h"
 
-FlangerResponse::FlangerResponse(const vital::output_map& mono_modulations) : OpenGlLineRenderer(kResolution) {
+FlangerResponse::FlangerResponse(const std::string& id, const vital::output_map& mono_modulations) : id_(id), OpenGlLineRenderer(kResolution) {
   parent_ = nullptr;
   active_ = true;
   mix_ = 1.0f;
@@ -38,8 +38,8 @@ FlangerResponse::FlangerResponse(const vital::output_map& mono_modulations) : Op
   feedback_slider_ = nullptr;
   mix_slider_ = nullptr;
 
-  mix_output_ = mono_modulations.at("flanger_dry_wet");
-  feedback_output_ = mono_modulations.at("flanger_feedback");
+  mix_output_ = mono_modulations.at(id_ + "_dry_wet");
+  feedback_output_ = mono_modulations.at(id_ + "_feedback");
 
   line_data_ = std::make_unique<float[]>(2 * kResolution);
   line_buffer_ = 0;
@@ -60,7 +60,7 @@ void FlangerResponse::init(OpenGlWrapper& open_gl) {
     parent_ = findParentComponentOfClass<SynthGuiInterface>();
 
   if (parent_)
-    flanger_frequency_ = parent_->getSynth()->getStatusOutput("flanger_delay_frequency");
+    flanger_frequency_ = parent_->getSynth()->getStatusOutput(id_ + "_delay_frequency");
 
   OpenGlLineRenderer::init(open_gl);
 
@@ -237,56 +237,56 @@ void FlangerResponse::drawFilterResponse(OpenGlWrapper& open_gl, bool animate) {
   checkGlError();
 }
 
-FlangerSection::FlangerSection(String name, const vital::output_map& mono_modulations) : SynthSection(name) {
+FlangerSection::FlangerSection(String name, const std::string& id, const vital::output_map& mono_modulations) : SynthSection(name), id_(id) {
   static const double TEMPO_DRAG_SENSITIVITY = 0.3;
 
-  phase_offset_ = std::make_unique<SynthSlider>("flanger_phase_offset");
+  phase_offset_ = std::make_unique<SynthSlider>(id_ + "_phase_offset");
   addSlider(phase_offset_.get());
   phase_offset_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  mod_depth_ = std::make_unique<SynthSlider>("flanger_mod_depth");
+  mod_depth_ = std::make_unique<SynthSlider>(id_ + "_mod_depth");
   addSlider(mod_depth_.get());
   mod_depth_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  center_ = std::make_unique<SynthSlider>("flanger_center");
+  center_ = std::make_unique<SynthSlider>(id_ + "_center");
   addSlider(center_.get());
   center_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   setSliderHasHzAlternateDisplay(center_.get());
 
-  frequency_ = std::make_unique<SynthSlider>("flanger_frequency");
+  frequency_ = std::make_unique<SynthSlider>(id_ + "_frequency");
   addSlider(frequency_.get());
   frequency_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   frequency_->setLookAndFeel(TextLookAndFeel::instance());
 
-  tempo_ = std::make_unique<SynthSlider>("flanger_tempo");
+  tempo_ = std::make_unique<SynthSlider>(id_ + "_tempo");
   addSlider(tempo_.get());
   tempo_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   tempo_->setLookAndFeel(TextLookAndFeel::instance());
   tempo_->setSensitivity(TEMPO_DRAG_SENSITIVITY);
 
-  sync_ = std::make_unique<TempoSelector>("flanger_sync");
+  sync_ = std::make_unique<TempoSelector>(id_ + "_sync");
   addSlider(sync_.get());
   sync_->setSliderStyle(Slider::LinearBar);
   sync_->setTempoSlider(tempo_.get());
   sync_->setFreeSlider(frequency_.get());
 
-  feedback_ = std::make_unique<SynthSlider>("flanger_feedback");
+  feedback_ = std::make_unique<SynthSlider>(id_ + "_feedback");
   addSlider(feedback_.get());
   feedback_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   feedback_->setBipolar();
   feedback_->snapToValue(true);
 
-  dry_wet_ = std::make_unique<SynthSlider>("flanger_dry_wet");
+  dry_wet_ = std::make_unique<SynthSlider>(id_ + "_dry_wet");
   addSlider(dry_wet_.get());
   dry_wet_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 
-  flanger_response_ = std::make_unique<FlangerResponse>(mono_modulations);
+  flanger_response_ = std::make_unique<FlangerResponse>(id_, mono_modulations);
   flanger_response_->setCenterSlider(center_.get());
   flanger_response_->setFeedbackSlider(feedback_.get());
   flanger_response_->setMixSlider(dry_wet_.get());
   addOpenGlComponent(flanger_response_.get());
 
-  on_ = std::make_unique<SynthButton>("flanger_on");
+  on_ = std::make_unique<SynthButton>(id_ + "_on");
   addButton(on_.get());
   setActivator(on_.get());
   setSkinOverride(Skin::kFlanger);

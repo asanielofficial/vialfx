@@ -32,7 +32,7 @@ class PhaserResponse : public OpenGlLineRenderer {
     static constexpr int kResolution = 256;
     static constexpr int kDefaultVisualSampleRate = 200000;
 
-    PhaserResponse(const vital::output_map& mono_modulations);
+    PhaserResponse(const std::string& id, const vital::output_map& mono_modulations);
     virtual ~PhaserResponse();
 
     void init(OpenGlWrapper& open_gl) override;
@@ -64,6 +64,7 @@ class PhaserResponse : public OpenGlLineRenderer {
     void setDefaultBlend(vital::poly_float blend) { blend_setting_ = blend; }
 
   private:
+    std::string id_;
     struct FilterResponseShader {
       static constexpr int kMaxStages = 3;
       OpenGLShaderProgram* shader;
@@ -117,7 +118,7 @@ class PhaserResponse : public OpenGlLineRenderer {
 
 class PhaserSection : public SynthSection {
   public:
-    PhaserSection(String name, const vital::output_map& mono_modulations);
+    PhaserSection(String name, const std::string& id, const vital::output_map& mono_modulations);
     virtual ~PhaserSection();
 
     void paintBackground(Graphics& g) override;
@@ -126,6 +127,7 @@ class PhaserSection : public SynthSection {
     void setActive(bool active) override;
 
   private:
+    std::string id_;
     std::unique_ptr<SynthButton> on_;
     std::unique_ptr<SynthSlider> frequency_;
     std::unique_ptr<SynthSlider> tempo_;
