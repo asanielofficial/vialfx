@@ -31,7 +31,7 @@ class ChorusViewer : public BarRenderer {
     static constexpr int kDelays = vital::ChorusModule::kMaxDelayPairs;
     static constexpr int kNumBars = kDelays * vital::poly_float::kSize;
   
-    ChorusViewer() : BarRenderer(kNumBars, true), delays_() {
+    ChorusViewer(const std::string& id) : BarRenderer(kNumBars, true), id_(id), delays_() {
       active_ = true;
       parent_ = nullptr;
       num_voices_ = nullptr;
@@ -92,6 +92,7 @@ class ChorusViewer : public BarRenderer {
     void setNumVoicesSlider(SynthSlider* num_voices) { num_voices_ = num_voices; }
 
   private:
+    std::string id_;
     bool active_;
     const vital::StatusOutput* delays_[4];
     SynthSlider* num_voices_;
@@ -156,7 +157,7 @@ ChorusSection::ChorusSection(const String& name, const std::string& id, const vi
   addSlider(filter_spread_.get());
   filter_spread_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   
-  chorus_viewer_ = std::make_unique<ChorusViewer>();
+  chorus_viewer_ = std::make_unique<ChorusViewer>(id_);
   addOpenGlComponent(chorus_viewer_.get());
   chorus_viewer_->setNumVoicesSlider(voices_.get());
   
