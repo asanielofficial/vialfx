@@ -248,7 +248,7 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
 
       g.setColour(findColour(Skin::kHeadingText, true));
       int text_x = static_cast<int>(icon_bounds.getRight()) + getWidgetMargin();
-      int text_width = std::max(0, minimize_button_->getX() - getWidgetMargin() - text_x);
+      int text_width = std::max(0, static_cast<int>(minimize_button_->getX() - getWidgetMargin() - text_x));
 
       // Long names get a smaller font so they stay clear of the minimize and remove buttons.
       Font font = Fonts::instance()->proportional_light().withPointHeight(size_ratio_ * 14.0f);
