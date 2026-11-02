@@ -247,10 +247,16 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
       g.fillPath(icon_, icon_.getTransformToScaleToFit(icon_bounds, true));
 
       g.setColour(findColour(Skin::kHeadingText, true));
-      g.setFont(Fonts::instance()->proportional_light().withPointHeight(size_ratio_ * 14.0f));
       int text_x = static_cast<int>(icon_bounds.getRight()) + getWidgetMargin();
-      g.drawText(section_->getName(), text_x, 0, getWidth() - text_x - 3 * title_width, getHeight(),
-                 Justification::centredLeft, true);
+      int text_width = std::max(0, minimize_button_->getX() - getWidgetMargin() - text_x);
+
+      // Long names get a smaller font so they stay clear of the minimize and remove buttons.
+      Font font = Fonts::instance()->proportional_light().withPointHeight(size_ratio_ * 14.0f);
+      float full_width = font.getStringWidthFloat(section_->getName());
+      if (text_width > 0 && full_width > text_width)
+        font = font.withPointHeight(std::max(size_ratio_ * 6.0f, size_ratio_ * 14.0f * text_width / full_width));
+      g.setFont(font);
+      g.drawText(section_->getName(), text_x, 0, text_width, getHeight(), Justification::centredLeft, true);
       paintChildrenBackgrounds(g);
     }
 

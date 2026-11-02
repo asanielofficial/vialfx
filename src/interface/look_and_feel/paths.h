@@ -21,7 +21,7 @@
 
 class Paths {
   public:
-    static constexpr int kLogoWidth = 1701;
+    static constexpr int kLogoWidth = 387;
 
     Paths() = delete;
 
@@ -30,27 +30,42 @@ class Paths {
       return drawable->getOutlineAsPath();
     }
 
-    static Path vitalRing() {
-      Path path = fromSvgData((const void*)BinaryData::vital_ring_svg, BinaryData::vital_ring_svgSize);
+    // The VialFX logo (icons/VialFX.svg) is drawn as two shapes so they can be coloured separately: the "V" mark
+    // and the "FX" lettering. Both are padded to the full artwork bounds so they scale and line up identically.
+    static void collectShapes(Component* component, std::vector<Path>& shapes) {
+      if (auto* drawable = dynamic_cast<Drawable*>(component)) {
+        if (component->getNumChildComponents() == 0) {
+          Path shape = drawable->getOutlineAsPath();
+          if (!shape.isEmpty())
+            shapes.push_back(shape);
+          return;
+        }
+      }
+
+      for (int i = 0; i < component->getNumChildComponents(); ++i)
+        collectShapes(component->getChildComponent(i), shapes);
+    }
+
+    static Path logoShape(int index) {
+      std::unique_ptr<Drawable> drawable(Drawable::createFromImageData(
+          (const void*)BinaryData::VialFX_svg, BinaryData::VialFX_svgSize));
+      std::vector<Path> shapes;
+      if (drawable)
+        collectShapes(drawable.get(), shapes);
+
+      Path path;
+      if (index < (int)shapes.size())
+        path = shapes[index];
+      else if (index == 0 && drawable)
+        path = drawable->getOutlineAsPath();
+
       path.addLineSegment(Line<float>(0.0f, 0.0f, 0.0f, 0.0f), 0.2f);
       path.addLineSegment(Line<float>(kLogoWidth, kLogoWidth, kLogoWidth, kLogoWidth), 0.2f);
       return path;
     }
 
-    static Path vitalV() {
-      Path path = fromSvgData((const void*)BinaryData::vital_v_svg, BinaryData::vital_ring_svgSize);
-      path.addLineSegment(Line<float>(0.0f, 0.0f, 0.0f, 0.0f), 0.2f);
-      path.addLineSegment(Line<float>(kLogoWidth, kLogoWidth, kLogoWidth, kLogoWidth), 0.2f);
-      return path;
-    }
-
-    static Path vitalWord() {
-      return fromSvgData((const void*)BinaryData::vital_word_svg, BinaryData::vital_word_svgSize);
-    }
-
-    static Path vitalWordRing() {
-      return fromSvgData((const void*)BinaryData::vital_word_ring_svg, BinaryData::vital_word_ring_svgSize);
-    }
+    static Path logoMark() { return logoShape(0); }
+    static Path logoLetters() { return logoShape(1); }
 
     static Path chorus() {
       return fromSvgData((const void*)BinaryData::chorus_svg, BinaryData::chorus_svgSize);

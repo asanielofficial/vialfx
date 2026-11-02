@@ -6521,16 +6521,7 @@
     <None Include="..\..\..\icons\shuffle.svg">
       <Filter>Vial\icons</Filter>
     </None>
-    <None Include="..\..\..\icons\vital_ring.svg">
-      <Filter>Vial\icons</Filter>
-    </None>
-    <None Include="..\..\..\icons\vital_v.svg">
-      <Filter>Vial\icons</Filter>
-    </None>
-    <None Include="..\..\..\icons\vital_word.svg">
-      <Filter>Vial\icons</Filter>
-    </None>
-    <None Include="..\..\..\icons\vital_word_ring.svg">
+    <None Include="..\..\..\icons\VialFX.svg">
       <Filter>Vial\icons</Filter>
     </None>
     <None Include="..\..\..\third_party\JUCE\modules\juce_audio_devices\native\oboe\CMakeLists.txt">

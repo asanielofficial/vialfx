@@ -67,7 +67,6 @@ void SynthSection::paint(Graphics& g) { }
 void SynthSection::paintSidewaysHeadingText(Graphics& g) {
   int title_width = findValue(Skin::kTitleWidth);
   g.setColour(findColour(Skin::kHeadingText, true));
-  g.setFont(Fonts::instance()->proportional_light().withPointHeight(size_ratio_ * 14.0f));
   g.saveState();
   g.setOrigin(Point<int>(0, getHeight()));
   g.addTransform(AffineTransform::rotation(-vital::kPi / 2.0f));
@@ -75,6 +74,16 @@ void SynthSection::paintSidewaysHeadingText(Graphics& g) {
   if (activator_)
     height = getHeight() - title_width / 2;
   height -= heading_top_inset_;
+
+  // Long names get a smaller font so they stay clear of the buttons at the top of the strip.
+  Font font = Fonts::instance()->proportional_light().withPointHeight(size_ratio_ * 14.0f);
+  float available = height - 6.0f * size_ratio_;
+  float text_width = font.getStringWidthFloat(getName());
+  if (available > 0.0f && text_width > available) {
+    float scale = available / text_width;
+    font = font.withPointHeight(std::max(size_ratio_ * 6.0f, size_ratio_ * 14.0f * scale));
+  }
+  g.setFont(font);
 
   g.drawText(getName(), Rectangle<int>(0, 0, height, title_width), Justification::centred, false);
   g.restoreState();

@@ -245,13 +245,6 @@
 			path = "../../../src/interface/editor_components/open_gl_component.cpp";
 			sourceTree = "SOURCE_ROOT";
 		};
-		0415F8A340F037D3DB0F6565 = {
-			isa = PBXFileReference;
-			lastKnownFileType = file.svg;
-			name = "vital_word_ring.svg";
-			path = "../../../icons/vital_word_ring.svg";
-			sourceTree = "SOURCE_ROOT";
-		};
 		04A37A8E94DE1903DFFE8C6F = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.c.h;
@@ -481,13 +474,6 @@
 			lastKnownFileType = sourcecode.cpp.cpp;
 			name = "random_lfo_module.cpp";
 			path = "../../../src/synthesis/modules/random_lfo_module.cpp";
-			sourceTree = "SOURCE_ROOT";
-		};
-		1161FD45953A5979D058B13E = {
-			isa = PBXFileReference;
-			lastKnownFileType = file.svg;
-			name = "vital_word.svg";
-			path = "../../../icons/vital_word.svg";
 			sourceTree = "SOURCE_ROOT";
 		};
 		120C447B8F810F76325CCD43 = {
@@ -1862,13 +1848,6 @@
 			path = "../../../src/interface/editor_sections/modulation_interface.cpp";
 			sourceTree = "SOURCE_ROOT";
 		};
-		782AD5BCE9850F53FAA0DCB3 = {
-			isa = PBXFileReference;
-			lastKnownFileType = file.svg;
-			name = "vital_v.svg";
-			path = "../../../icons/vital_v.svg";
-			sourceTree = "SOURCE_ROOT";
-		};
 		787E9FBB0A73546D1649C9AD = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.c.h;
@@ -2789,8 +2768,8 @@
 		B7845497A6D21EDF01BE8F5D = {
 			isa = PBXFileReference;
 			lastKnownFileType = file.svg;
-			name = "vital_ring.svg";
-			path = "../../../icons/vital_ring.svg";
+			name = "VialFX.svg";
+			path = "../../../icons/VialFX.svg";
 			sourceTree = "SOURCE_ROOT";
 		};
 		B79F1E013F9D467BBCF739A2 = {
@@ -3751,9 +3730,6 @@
 				5947BFBB14C6C933B614835D,
 				B46A85516F3928D70AACF2AE,
 				B7845497A6D21EDF01BE8F5D,
-				782AD5BCE9850F53FAA0DCB3,
-				1161FD45953A5979D058B13E,
-				0415F8A340F037D3DB0F6565,
 			);
 			name = icons;
 			sourceTree = "<group>";

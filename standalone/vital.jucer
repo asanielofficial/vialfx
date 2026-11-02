@@ -44,11 +44,7 @@
       <FILE id="QqS7z3" name="phaser.svg" compile="0" resource="1" file="../icons/phaser.svg"/>
       <FILE id="Rq21nY" name="reverb.svg" compile="0" resource="1" file="../icons/reverb.svg"/>
       <FILE id="e7nm1m" name="shuffle.svg" compile="0" resource="1" file="../icons/shuffle.svg"/>
-      <FILE id="FG9w1L" name="vital_ring.svg" compile="0" resource="1" file="../icons/vital_ring.svg"/>
-      <FILE id="lNll87" name="vital_v.svg" compile="0" resource="1" file="../icons/vital_v.svg"/>
-      <FILE id="rJ2SPM" name="vital_word.svg" compile="0" resource="1" file="../icons/vital_word.svg"/>
-      <FILE id="lGBaAE" name="vital_word_ring.svg" compile="0" resource="1"
-            file="../icons/vital_word_ring.svg"/>
+      <FILE id="FG9w1L" name="VialFX.svg" compile="0" resource="1" file="../icons/VialFX.svg"/>
     </GROUP>
     <GROUP id="{6EB9491D-275F-935A-E819-B8E979A73E01}" name="images">
       <FILE id="FH25oH" name="vital.xpm" compile="0" resource="0" file="../images/vital.xpm"/>

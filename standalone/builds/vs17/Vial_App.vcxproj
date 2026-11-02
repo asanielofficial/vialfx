@@ -3868,10 +3868,7 @@
     <None Include="..\..\..\icons\phaser.svg"/>
     <None Include="..\..\..\icons\reverb.svg"/>
     <None Include="..\..\..\icons\shuffle.svg"/>
-    <None Include="..\..\..\icons\vital_ring.svg"/>
-    <None Include="..\..\..\icons\vital_v.svg"/>
-    <None Include="..\..\..\icons\vital_word.svg"/>
-    <None Include="..\..\..\icons\vital_word_ring.svg"/>
+    <None Include="..\..\..\icons\VialFX.svg"/>
     <None Include="..\..\..\images\vital.xpm"/>
     <None Include="..\..\..\images\vital_icon_16.png"/>
     <None Include="..\..\..\images\vital_icon_22.png"/>
