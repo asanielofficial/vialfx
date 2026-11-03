@@ -245,6 +245,22 @@ inline vital::poly_float Wavetable3d::getOutputsTotal(
   return outputs.first->trigger_value + outputs.second->trigger_value;
 }
 
+vital::poly_float Wavetable3d::frameValue() {
+#if VITAL_FX
+  if (frame_slider_ == nullptr || wavetable_ == nullptr)
+    return 0.0f;
+
+  float range = frame_slider_->getMaximum() - frame_slider_->getMinimum();
+  float t = range > 0.0f ? (frame_slider_->getValue() - frame_slider_->getMinimum()) / range : 0.0f;
+  // The modulated amount is in the knob's own units (0..1).
+  vital::poly_float amount = getOutputsTotal(frame_amount_outputs_, t);
+  amount = vital::utils::clamp(amount, 0.0f, 1.0f);
+  return amount * static_cast<float>(std::max(0, wavetable_->numFrames() - 1));
+#else
+  return getOutputsTotal(wave_frame_outputs_, frameSliderValue());
+#endif
+}
+
 // The frame the slider selects. Oscillator sliders are frame numbers; the effect build's table sliders are the
 // lane's 0..1 amount knob, which scrubs all the frames of the table.
 float Wavetable3d::frameSliderValue() const {
@@ -335,7 +351,7 @@ bool Wavetable3d::updateRenderValues() {
   last_render_type_ = render_type_;
   last_loading_wavetable_ = loading_wavetable_;
 
-  vital::poly_float wave_frame = getOutputsTotal(wave_frame_outputs_, frameSliderValue());
+  vital::poly_float wave_frame = frameValue();
   vital::poly_float spectral_morph_value = getSpectralMorphValue();
   vital::poly_float distortion_value = getDistortionValue();
   vital::poly_int distortion_phase = getDistortionPhaseValue();
@@ -368,7 +384,7 @@ void Wavetable3d::loadWaveData(int index) {
   float start_y = height / 2.0f;
 
   if (last_render_type_ == kWave3d) {
-    float wave_frame = getOutputsTotal(wave_frame_outputs_, frameSliderValue())[index];
+    float wave_frame = frameValue()[index];
     float frame_t = vital::utils::clamp(wave_frame / (vital::kNumOscillatorWaveFrames - 1.0f), 0.0f, 1.0f);
     start_x = (0.5f * (1.0f - wave_range_x_ - frame_range_x_) + frame_range_x_ * frame_t) * width;
     start_y = (0.5f * (1.0f - wave_range_y_ - frame_range_y_) + y_offset_ + frame_range_y_ * frame_t) * height;
@@ -791,7 +807,7 @@ void Wavetable3d::loadIntoTimeDomain(int index) {
 }
 
 void Wavetable3d::loadFrequencyData(int index) {
-  wavetable_index_ = std::round(getOutputsTotal(wave_frame_outputs_, frameSliderValue())[index]);
+  wavetable_index_ = std::round(frameValue()[index]);
   current_wavetable_data_ = wavetable_->getAllData();
   wavetable_index_ = std::max(0, std::min(wavetable_index_, current_wavetable_data_->num_frames - 1));
 }

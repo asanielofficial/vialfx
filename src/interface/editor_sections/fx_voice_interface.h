@@ -203,6 +203,9 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
       // Whatever the panels covered or uncovered has to be redrawn (the backgrounds are cached).
       if (filter_section_1_->isShowing())
         filter_section_1_->repaintBackground();
+
+      // The modulation rings and meters of the knobs in the panels (and of the filters, which moved) follow them.
+      modulationLayoutChanged();
     }
 
     // Dragging a panel by its top: when the pointer crosses to the other half, the two panels trade places.

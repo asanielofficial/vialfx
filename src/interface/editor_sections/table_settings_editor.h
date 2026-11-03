@@ -88,6 +88,9 @@ class TableSettingsEditor : public SynthSection, public Wavetable3d::Listener {
       addOpenGlComponent(wavetable_.get());
       wavetable_->setRenderType(Wavetable3d::kWave3d);
       wavetable_->addListener(this);
+      // The display follows the lane's amount knob, modulation included.
+      wavetable_->setFrameModulation(mono_modulations, prefix + (kind == kSpectral ? "_spectral_morph_amount"
+                                                                                  : "_distortion_amount"));
 
       dimension_button_ = std::make_unique<OpenGlToggleButton>("dimension");
       addAndMakeVisible(dimension_button_.get());

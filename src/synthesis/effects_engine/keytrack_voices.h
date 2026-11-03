@@ -124,7 +124,7 @@ namespace vital {
       KeytrackBank(SynthModule* primary, bool primary_has_input, int num_voices, const KeytrackNotes* notes,
                    const Output* midi_offset, const AliasFactory& make_alias, bool run_primary = true) :
           SynthModule(1, 1), primary_(primary), primary_has_input_(primary_has_input), run_primary_(run_primary),
-          num_voices_(std::min(num_voices, kMaxVoices)), notes_(notes),
+          num_voices_(std::min(num_voices, static_cast<int>(kMaxVoices))), notes_(notes),
           midi_offset_(midi_offset), bent_midi_(nullptr), current_note_(nullptr) {
         for (int i = 0; i < kMaxVoices; ++i) {
           keytrack_outputs_[i].buffer[0] = 0.0f;
