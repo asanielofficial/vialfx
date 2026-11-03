@@ -84,6 +84,9 @@ namespace vital {
         kVocodeLevel,
         kVocodeWhiten,
         kTableMix,   // Spectral Table: dry / wet (0..1)
+        kTablePosition,   // Spectral Table: transposes the response (0..1, 0.5 = none)
+        kTableGain,       // Spectral Table: output level, 0..2x
+        kTableResonance,  // Spectral Table: how far the response reaches, 0..2x its dB
         kEngaged,   // 1 while either lane uses a spectral mode: then every lane delays by one FFT size; 0: no delay at all
         kNumInputs
       };
@@ -231,6 +234,12 @@ namespace vital {
         spread_ = std::max(0.0f, std::min(input(kSpread)->source->buffer[0][0], 1.0f));
         depth_ = std::max(0.0f, std::min(input(kDepth)->source->buffer[0][0], 1.0f));
         comb_phase_ = std::max(0.0f, std::min(input(kPhase)->source->buffer[0][0], 1.0f));
+        if (mode == kSpectralTable) {
+          // The table mode has settings of its own.
+          position_target_ = std::max(0.0f, std::min(input(kTablePosition)->source->buffer[0][0], 1.0f));
+          gain_ = std::max(0.0f, std::min(input(kTableGain)->source->buffer[0][0], 1.0f));
+          resonance_ = std::max(0.0f, std::min(input(kTableResonance)->source->buffer[0][0], 1.0f));
+        }
         if (uses_modulator_) {
           vocode_bands_ = std::max(4, std::min(static_cast<int>(input(kVocodeBands)->source->buffer[0][0] + 0.5f),
                                                int(kMaxVocodeBands)));

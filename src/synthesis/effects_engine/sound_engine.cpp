@@ -170,6 +170,9 @@ namespace vital {
     sidechain_spectral->plug(fft_size, SpectralMorphProcessor::kFftSize);
     sidechain_spectral->plug(spectral_engaged_, SpectralMorphProcessor::kEngaged);
     sidechain_spectral->plug(createMonoModControl("sidechain_spectral_table_mix"), SpectralMorphProcessor::kTableMix);
+    sidechain_spectral->plug(createMonoModControl("sidechain_table_position"), SpectralMorphProcessor::kTablePosition);
+    sidechain_spectral->plug(createMonoModControl("sidechain_table_gain"), SpectralMorphProcessor::kTableGain);
+    sidechain_spectral->plug(createMonoModControl("sidechain_table_resonance"), SpectralMorphProcessor::kTableResonance);
     sidechain_spectral->plug(sidechain_spectral_position, SpectralMorphProcessor::kPosition);
     sidechain_spectral->plug(sidechain_random_shuffle, SpectralMorphProcessor::kShuffle);
     sidechain_spectral->plug(sidechain_random_dice, SpectralMorphProcessor::kDice);
@@ -189,6 +192,9 @@ namespace vital {
     main_spectral->plug(fft_size, SpectralMorphProcessor::kFftSize);
     main_spectral->plug(spectral_engaged_, SpectralMorphProcessor::kEngaged);
     main_spectral->plug(createMonoModControl("input_spectral_table_mix"), SpectralMorphProcessor::kTableMix);
+    main_spectral->plug(createMonoModControl("input_table_position"), SpectralMorphProcessor::kTablePosition);
+    main_spectral->plug(createMonoModControl("input_table_gain"), SpectralMorphProcessor::kTableGain);
+    main_spectral->plug(createMonoModControl("input_table_resonance"), SpectralMorphProcessor::kTableResonance);
     main_spectral->plug(input_spectral_position, SpectralMorphProcessor::kPosition);
     main_spectral->plug(input_random_shuffle, SpectralMorphProcessor::kShuffle);
     main_spectral->plug(input_random_dice, SpectralMorphProcessor::kDice);

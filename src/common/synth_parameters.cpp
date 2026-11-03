@@ -416,6 +416,20 @@ namespace vital {
     // (depth of the response) are the spectral gain and resonance; mix blends the filtered sound with the dry one.
     // Distort Table: phase shifts the transfer curve, bias adds an offset before it, smooth blurs it, drive pushes
     // the signal into it, the DC filter removes the offset it creates, mix blends with the dry signal.
+    // Spectral Table settings. They have parameters of their own (not the drawable modes' position / gain /
+    // resonance) so the table menu's knobs and the spectral editor's sliders are separate modulation targets.
+    { "input_table_position", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Input Table Pitch", nullptr },
+    { "input_table_gain", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Input Table Gain", nullptr },
+    { "input_table_resonance", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Input Table Resonance", nullptr },
+    { "sidechain_table_position", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Sidechain Table Pitch", nullptr },
+    { "sidechain_table_gain", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Sidechain Table Gain", nullptr },
+    { "sidechain_table_resonance", 0x000000, 0.0, 1.0, 0.5, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Sidechain Table Resonance", nullptr },
     { "input_spectral_table_mix", 0x000000, 0.0, 1.0, 1.0, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Input Spectral Table Mix", nullptr },
     { "input_distortion_phase", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,

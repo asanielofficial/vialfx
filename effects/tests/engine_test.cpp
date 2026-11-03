@@ -1906,11 +1906,11 @@ namespace {
     check(spectral(1000.0f, 8.0f / 15.0f, { { "input_spectral_table_mix", 0.0f } }) < 0.3 * full &&
           std::fabs(spectral(1000.0f, 8.0f / 15.0f, { { "input_spectral_table_mix", 0.0f } }) - 0.25) < 0.03,
           "Spectral Table mix 0 is the dry signal");
-    check(std::fabs(spectral(1000.0f, 8.0f / 15.0f, { { "input_spectral_resonance", 0.0f } }) - 0.25) < 0.03,
+    check(std::fabs(spectral(1000.0f, 8.0f / 15.0f, { { "input_table_resonance", 0.0f } }) - 0.25) < 0.03,
           "Spectral Table resonance 0 flattens the response");
-    { double base_level = spectral(100.0f, 1.0f / 15.0f, {}), loud = spectral(100.0f, 1.0f / 15.0f, { { "input_spectral_gain", 1.0f } });
+    { double base_level = spectral(100.0f, 1.0f / 15.0f, {}), loud = spectral(100.0f, 1.0f / 15.0f, { { "input_table_gain", 1.0f } });
       check(loud > 1.7 * base_level, "Spectral Table gain raises the level", fmt("%.3f -> %.3f", base_level, loud)); }
-    check(spectral(1000.0f, 8.0f / 15.0f, { { "input_spectral_position", 0.75f } }) < 0.3 * full, "Spectral Table pitch moves the response");
+    check(spectral(1000.0f, 8.0f / 15.0f, { { "input_table_position", 0.75f } }) < 0.3 * full, "Spectral Table pitch moves the response");
   }
 
   void testOversampledLatency() {
@@ -2016,7 +2016,7 @@ namespace {
         Rig rig;
         rig.set("input_spectral_morph_type", 15.0f);
         rig.set("input_spectral_morph_amount", knob);
-        rig.set("input_spectral_position", position);
+        rig.set("input_table_position", position);
         Stereo out = rig.render(40000, sine(frequency));
         return toneAmplitude(out.left, frequency);
       };

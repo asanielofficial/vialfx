@@ -51,9 +51,9 @@ class TableSettingsEditor : public SynthSection, public Wavetable3d::Listener {
       };
       std::vector<KnobInfo> knobs;
       if (kind == kSpectral) {
-        knobs = { { prefix + "_spectral_gain", "GAIN", "Gain: ", false },
-                  { prefix + "_spectral_position", "PITCH", "Pitch: ", false },
-                  { prefix + "_spectral_resonance", "RESONANCE", "Resonance: ", false },
+        knobs = { { prefix + "_table_gain", "GAIN", "Gain: ", false },
+                  { prefix + "_table_position", "PITCH", "Pitch: ", false },
+                  { prefix + "_table_resonance", "RESONANCE", "Resonance: ", false },
                   { prefix + "_spectral_table_mix", "MIX", "Mix: ", false } };
         title_ = "SPECTRAL TABLE";
       }
