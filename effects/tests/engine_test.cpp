@@ -970,6 +970,162 @@ namespace {
           fmt("low vs high note: %.1f dB", db(low_negative / high_negative)));
   }
 
+  // Polyphonic key tracking: every held note gets its own copy of the key tracked filters.
+  void testPolyKeytracking() {
+    std::printf("\n== Polyphonic key tracking ==\n");
+    auto bright = [](const std::vector<int>& notes, float keytrack, bool release = false) {
+      Rig rig;
+      setFilter(rig, 1, true, 60.0f);
+      rig.set("filter_1_keytrack", keytrack);
+      for (int note : notes)
+        rig.noteOn(note);
+      if (release) {
+        for (int note : notes)
+          rig.engine->noteOff(note, 0.5f, 0, 0);
+      }
+      Stereo out = rig.render(kSampleRate, noise());
+      return std::make_pair(highBandEnergy(out, kSampleRate / 2), rms(out.left, kSampleRate / 2));
+    };
+
+    auto low = bright({ 36 }, 1.0f);
+    auto high = bright({ 96 }, 1.0f);
+    auto chord = bright({ 36, 96 }, 1.0f);
+    std::printf("   low %.6f/%.4f  high %.6f/%.4f  chord %.6f/%.4f\n",
+                low.first, low.second, high.first, high.second, chord.first, chord.second);
+    check(high.second > 0.001, "a tracked note produces sound", fmt("rms %.5f", high.second));
+    check(high.first > low.first * 5.0, "a tracked high note is brighter than a low one");
+    check(chord.first > low.first * 2.0 && chord.first < high.first * 1.01,
+          "a chord is brighter than its low note (both notes are heard)");
+    check(chord.second > 0.5 * std::min(low.second, high.second), "a chord is not much quieter than its notes",
+          fmt("%.5f", chord.second));
+
+    auto untracked_one = bright({ 60 }, 0.0f);
+    auto untracked_chord = bright({ 48, 60, 72 }, 0.0f);
+    check(std::fabs(untracked_one.second - untracked_chord.second) < 1e-6,
+          "without key tracking holding a chord changes nothing",
+          fmt("%.6f vs %.6f", untracked_one.second, untracked_chord.second));
+  }
+
+  // Key tracked effects: a delay in Keytrack mode echoes at the period of the played note; copies follow each note.
+  void testPolyKeytrackEffects() {
+    std::printf("\n== Polyphonic key tracking: effects ==\n");
+    auto click = [](int index, float& l, float& r) { l = r = index == 0 ? 0.5f : 0.0f; };
+    auto delayRig = [](Rig& rig) {
+      rig.set("delay_on", 1.0f);
+      rig.set("delay_sync", 4.0f);
+      rig.set("delay_keytrack_transpose", 0.0f);
+      rig.set("delay_keytrack_tune", 0.0f);
+      rig.set("delay_dry_wet", 1.0f);
+      rig.set("delay_feedback", 0.0f);
+      rig.set("delay_filter_cutoff", 136.0f);
+      rig.set("delay_filter_spread", 1.0f);
+    };
+    // The sample of the first echo after the click, for the given held notes (strongest peak after sample 20).
+    auto echo = [&](const std::vector<int>& notes, std::vector<int>* peaks = nullptr) {
+      Rig rig;
+      delayRig(rig);
+      for (int note : notes)
+        rig.noteOn(note);
+      // Let the copies fade in before the click.
+      rig.render(kSampleRate / 4, [](int, float& l, float& r) { l = r = 0.0f; });
+      Stereo out = rig.render(2000, click);
+      int best = 0;
+      float best_value = 0.0f;
+      for (int i = 20; i < 1000; ++i) {
+        if (std::fabs(out.left[i]) > best_value) {
+          best_value = std::fabs(out.left[i]);
+          best = i;
+        }
+      }
+      if (peaks) {
+        for (int i = 20; i < 1000; ++i) {
+          if (std::fabs(out.left[i]) > 0.3f * best_value)
+            peaks->push_back(i);
+        }
+      }
+      return best;
+    };
+
+    int high = echo({ 69 });
+    int low = echo({ 57 });
+    std::printf("   echo at %d samples for note 69, %d for note 57 (expected about 100 and 200)\n", high, low);
+    check(std::abs(high - 100) <= 6, "a delay in Keytrack mode echoes at the period of the note", fmt("%.0f", (double)high));
+    check(std::abs(low - 200) <= 10, "an octave lower echoes twice as late", fmt("%.0f", (double)low));
+
+    std::vector<int> peaks;
+    echo({ 57, 69 }, &peaks);
+    bool has_high = false, has_low = false;
+    for (int p : peaks) {
+      has_high = has_high || std::abs(p - 100) <= 6;
+      has_low = has_low || std::abs(p - 200) <= 10;
+    }
+    check(has_high && has_low, "holding two notes gives both echoes (one delay per note)");
+
+    // Without Keytrack mode the held notes change nothing.
+    auto plain = [&](const std::vector<int>& notes) {
+      Rig rig;
+      delayRig(rig);
+      rig.set("delay_sync", 1.0f);
+      for (int note : notes)
+        rig.noteOn(note);
+      return rig.render(kSampleRate / 2, noise());
+    };
+    Stereo a = plain({});
+    Stereo b = plain({ 48, 60, 72 });
+    double diff = 0.0;
+    for (size_t i = 0; i < a.left.size(); ++i)
+      diff = std::max(diff, static_cast<double>(std::fabs(a.left[i] - b.left[i])));
+    check(diff < 1e-6, "outside Keytrack mode notes don't change the delay", fmt("%.8f", diff));
+
+    // After the notes are released, the delay settles on the last note.
+    {
+      Rig rig;
+      delayRig(rig);
+      rig.noteOn(57);
+      rig.noteOn(69);
+      rig.render(kSampleRate / 4, noise());
+      rig.engine->noteOff(57, 0.5f, 0, 0);
+      rig.engine->noteOff(69, 0.5f, 0, 0);
+      rig.render(kSampleRate, [](int, float& l, float& r) { l = r = 0.0f; });
+      Stereo out = rig.render(2000, click);
+      int best = 0;
+      float best_value = 0.0f;
+      for (int i = 20; i < 1000; ++i) {
+        if (std::fabs(out.left[i]) > best_value) {
+          best_value = std::fabs(out.left[i]);
+          best = i;
+        }
+      }
+      check(std::abs(best - 100) <= 6, "after release the delay follows the last played note", fmt("%.0f", (double)best));
+    }
+
+    // Every key tracked effect copes with a busy keyboard (no NaN, bounded).
+    {
+      Rig rig;
+      delayRig(rig);
+      for (const char* fx : { "chorus", "flanger", "phaser", "filter_fx" }) {
+        rig.set(std::string(fx) + "_on", 1.0f);
+        if (std::string(fx) != "filter_fx")
+          rig.set(std::string(fx) + "_sync", 4.0f);
+        else
+          rig.set("filter_fx_keytrack", 1.0f);
+      }
+      bool finite = true;
+      float peak = 0.0f;
+      for (int step = 0; step < 24; ++step) {
+        rig.noteOn(40 + step * 2);
+        if (step > 5)
+          rig.engine->noteOff(40 + (step - 6) * 2, 0.5f, 0, 0);
+        Stereo out = rig.render(2048, noise());
+        for (float v : out.left) {
+          finite = finite && std::isfinite(v);
+          peak = std::max(peak, std::fabs(v));
+        }
+      }
+      check(finite && peak < 20.0f, "all key tracked effects stay finite with many notes", fmt("peak %.3f", peak));
+    }
+  }
+
   void testAllFilterModels() {
     std::printf("\n== Every filter model and style ==\n");
     const int styles_per_model[] = { 5, 5, 5, 5, 2, 3, 6, 2 };
@@ -2385,6 +2541,8 @@ int main() {
     testFilters();
     testRouting();
     testKeyTracking();
+    testPolyKeytracking();
+    testPolyKeytrackEffects();
     testAllFilterModels();
     testEffects();
     testOversampling();

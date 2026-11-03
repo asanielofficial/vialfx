@@ -27,7 +27,13 @@ namespace vital {
     public:
       static constexpr mono_float kMaxDelayTime = 4.0f;
     
-      DelayModule(const Output* beats_per_second);
+      enum {
+        kMidi,
+        kNumInputs
+      };
+
+      // max_delay_time: the longest delay time (the key tracking copies of the effect only need short ones).
+      DelayModule(const Output* beats_per_second, mono_float max_delay_time = kMaxDelayTime);
       virtual ~DelayModule();
 
       virtual void init() override;
@@ -46,6 +52,7 @@ namespace vital {
     protected:
       const Output* beats_per_second_;
       StereoDelay* delay_;
+      mono_float max_delay_time_;
 
       JUCE_LEAK_DETECTOR(DelayModule)
   };

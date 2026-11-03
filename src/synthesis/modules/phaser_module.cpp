@@ -21,7 +21,7 @@
 namespace vital {
 
   PhaserModule::PhaserModule(const Output* beats_per_second) :
-      SynthModule(0, kNumOutputs), beats_per_second_(beats_per_second), phaser_(nullptr) { }
+      SynthModule(kNumInputs, kNumOutputs), beats_per_second_(beats_per_second), phaser_(nullptr) { }
 
   PhaserModule::~PhaserModule() {
   }
@@ -34,7 +34,7 @@ namespace vital {
 
     Output* phaser_free_frequency = createMonoModControl("phaser_frequency");
     Output* phaser_frequency = createTempoSyncSwitch("phaser", phaser_free_frequency->owner,
-                                                     beats_per_second_, false);
+                                                     beats_per_second_, false, input(kMidi));
     Output* phaser_feedback = createMonoModControl("phaser_feedback");
     Output* phaser_wet = createMonoModControl("phaser_dry_wet");
     Output* phaser_center = createMonoModControl("phaser_center", true, true);

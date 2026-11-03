@@ -40,6 +40,7 @@ class ChorusSection : public SynthSection, DelayFilterViewer::Listener {
     std::unique_ptr<SynthButton> on_;
     std::unique_ptr<SynthSlider> frequency_;
     std::unique_ptr<SynthSlider> tempo_;
+    std::unique_ptr<SynthSlider> keytrack_transpose_;
     std::unique_ptr<TempoSelector> sync_;
     std::unique_ptr<SynthSlider> voices_;
     std::unique_ptr<ChorusViewer> chorus_viewer_;

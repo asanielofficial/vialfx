@@ -26,6 +26,11 @@ namespace vital {
       static constexpr mono_float kMaxChorusDelay = 0.08f;
       static constexpr int kMaxDelayPairs = 4;
 
+      enum {
+        kMidi,
+        kNumInputs
+      };
+
       ChorusModule(const Output* beats_per_second);
       virtual ~ChorusModule() { }
 

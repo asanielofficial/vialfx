@@ -32,7 +32,7 @@ namespace vital {
 
   EffectsModulationHandler::EffectsModulationHandler(Output* beats_per_second) :
       VoiceHandler(0, 1, true), beats_per_second_(beats_per_second),
-      note_from_reference_(nullptr), midi_offset_output_(nullptr), bent_midi_output_(nullptr),
+      note_from_reference_(nullptr), midi_offset_output_(nullptr), bent_midi_output_(nullptr), current_midi_output_(nullptr),
       bent_midi_(nullptr), current_midi_note_(nullptr),
       lfos_(), envelopes_(), lfo_sources_(), random_(nullptr), random_lfos_(),
       note_mapping_(nullptr), velocity_mapping_(nullptr), aftertouch_mapping_(nullptr),
@@ -217,6 +217,7 @@ namespace vital {
 
     // The engine-level filters read the played note through these readouts (last played note, bend included).
     bent_midi_output_ = registerOutput(bent_midi_->output());
+    current_midi_output_ = registerOutput(current_midi_note_->output());
 
     static const cr::Value max_midi_invert(1.0f / (kMidiSize - 1));
     note_percentage_ = new cr::Multiply();
@@ -236,6 +237,7 @@ namespace vital {
     // readouts stay at zero and filter/effect key tracking does nothing.
     setActiveNonaccumulatedOutput(note_from_reference_->output());
     setActiveNonaccumulatedOutput(bent_midi_->output());
+    setActiveNonaccumulatedOutput(current_midi_note_->output());
   }
 
   void EffectsModulationHandler::process(int num_samples) {

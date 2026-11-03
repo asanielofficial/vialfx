@@ -237,7 +237,16 @@ DelaySection::DelaySection(const String& name, const std::string& id, const vita
   sync_ = std::make_unique<TempoSelector>(id_ + "_sync");
   addSlider(sync_.get());
   sync_->setSliderStyle(Slider::LinearBar);
+  keytrack_transpose_ = std::make_unique<SynthSlider>(id_ + "_keytrack_transpose");
+  addSlider(keytrack_transpose_.get());
+  keytrack_transpose_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
+  keytrack_transpose_->setLookAndFeel(TextLookAndFeel::instance());
+  keytrack_transpose_->setSensitivity(kTransposeMouseSensitivity);
+  keytrack_transpose_->setBipolar();
+  keytrack_transpose_->setShiftIndexAmount(vital::kNotesPerOctave);
+
   sync_->setTempoSlider(tempo_.get());
+  sync_->setKeytrackTransposeSlider(keytrack_transpose_.get());
   sync_->setFreeSlider(frequency_.get());
 
   aux_frequency_ = std::make_unique<SynthSlider>(id_ + "_aux_frequency");
@@ -254,7 +263,16 @@ DelaySection::DelaySection(const String& name, const std::string& id, const vita
   aux_sync_ = std::make_unique<TempoSelector>(id_ + "_aux_sync");
   addSlider(aux_sync_.get());
   aux_sync_->setSliderStyle(Slider::LinearBar);
+  aux_keytrack_transpose_ = std::make_unique<SynthSlider>(id_ + "_aux_keytrack_transpose");
+  addSlider(aux_keytrack_transpose_.get());
+  aux_keytrack_transpose_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
+  aux_keytrack_transpose_->setLookAndFeel(TextLookAndFeel::instance());
+  aux_keytrack_transpose_->setSensitivity(kTransposeMouseSensitivity);
+  aux_keytrack_transpose_->setBipolar();
+  aux_keytrack_transpose_->setShiftIndexAmount(vital::kNotesPerOctave);
+
   aux_sync_->setTempoSlider(aux_tempo_.get());
+  aux_sync_->setKeytrackTransposeSlider(aux_keytrack_transpose_.get());
   aux_sync_->setFreeSlider(aux_frequency_.get());
 
   filter_cutoff_ = std::make_unique<SynthSlider>(id_ + "_filter_cutoff");
@@ -377,8 +395,11 @@ void DelaySection::resizeTempoControls() {
                        text_component_height, frequency_.get(), sync_.get());
     tempo_->setBounds(frequency_->getBounds());
     tempo_->setModulationArea(frequency_->getModulationArea());
+    keytrack_transpose_->setBounds(frequency_->getBounds());
+    keytrack_transpose_->setModulationArea(frequency_->getModulationArea());
 
     aux_frequency_->setBounds(0, 0, 0, 0);
+    aux_keytrack_transpose_->setBounds(0, 0, 0, 0);
     aux_sync_->setBounds(0, 0, 0, 0);
     aux_tempo_->setBounds(0, 0, 0, 0);
   }
@@ -388,12 +409,16 @@ void DelaySection::resizeTempoControls() {
                        text_component_height, frequency_.get(), sync_.get());
     tempo_->setBounds(frequency_->getBounds());
     tempo_->setModulationArea(frequency_->getModulationArea());
+    keytrack_transpose_->setBounds(frequency_->getBounds());
+    keytrack_transpose_->setModulationArea(frequency_->getModulationArea());
 
     int width2 = text_component_width - width;
     placeTempoControls(text_control_x + width, widget_margin, width2,
                        knob_section_height - 2 * widget_margin, aux_frequency_.get(), aux_sync_.get());
     aux_tempo_->setBounds(aux_frequency_->getBounds());
     aux_tempo_->setModulationArea(aux_frequency_->getModulationArea());
+    aux_keytrack_transpose_->setBounds(aux_frequency_->getBounds());
+    aux_keytrack_transpose_->setModulationArea(aux_frequency_->getModulationArea());
   }
 }
 

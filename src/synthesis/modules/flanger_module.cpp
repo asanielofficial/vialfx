@@ -23,7 +23,7 @@
 namespace vital {
 
   FlangerModule::FlangerModule(const Output* beats_per_second) :
-      SynthModule(0, kNumOutputs), beats_per_second_(beats_per_second),
+      SynthModule(kNumInputs, kNumOutputs), beats_per_second_(beats_per_second),
       frequency_(nullptr), phase_offset_(nullptr), mod_depth_(nullptr),
       phase_(0.0f), delay_(nullptr) { }
 
@@ -39,7 +39,7 @@ namespace vital {
     delay_->useOutput(output(kAudioOutput));
 
     Output* free_frequency = createMonoModControl("flanger_frequency");
-    frequency_ = createTempoSyncSwitch("flanger", free_frequency->owner, beats_per_second_, false);
+    frequency_ = createTempoSyncSwitch("flanger", free_frequency->owner, beats_per_second_, false, input(kMidi));
     center_ = createMonoModControl("flanger_center");
     Output* feedback = createMonoModControl("flanger_feedback");
     Output* wet = createMonoModControl("flanger_dry_wet");

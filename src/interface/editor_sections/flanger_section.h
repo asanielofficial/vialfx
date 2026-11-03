@@ -123,6 +123,7 @@ class FlangerSection : public SynthSection {
     std::unique_ptr<SynthButton> on_;
     std::unique_ptr<SynthSlider> frequency_;
     std::unique_ptr<SynthSlider> tempo_;
+    std::unique_ptr<SynthSlider> keytrack_transpose_;
     std::unique_ptr<TempoSelector> sync_;
     std::unique_ptr<SynthSlider> feedback_;
     std::unique_ptr<SynthSlider> mod_depth_;

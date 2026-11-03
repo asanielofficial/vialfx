@@ -54,6 +54,13 @@ namespace vital {
       JUCE_LEAK_DETECTOR(StatusOutput)
   };
 
+  // What an alias needs to know about a control it does not create itself.
+  struct ModControlRecord {
+    Output* output = nullptr;
+    Output* internal_modulation = nullptr;
+    bool audio_rate = false;
+  };
+
   struct ModuleData {
     std::vector<Processor*> owned_mono_processors;
     std::vector<SynthModule*> sub_modules;
@@ -67,6 +74,7 @@ namespace vital {
     output_map poly_modulation_readout;
     std::map<std::string, ValueSwitch*> mono_modulation_switches;
     std::map<std::string, ValueSwitch*> poly_modulation_switches;
+    std::map<std::string, ModControlRecord> mod_control_records;
 
     JUCE_LEAK_DETECTOR(ModuleData)
   };
@@ -86,17 +94,40 @@ namespace vital {
       std::string previous_from_, previous_to_;
   };
 
+  class SynthModule;
+
+  // While one of these is alive, every SynthModule that is constructed becomes an "alias" of the module (tree) given:
+  // it creates no controls, modulation destinations or status outputs of its own, and the controls it asks for are
+  // the original's (same names). The result is an independent copy of the processing (own filter memory, delay
+  // buffers...) that follows the original's parameters and modulation. Controls that are created with an internal
+  // modulation (like a filter's key tracking) get that modulation swapped for the alias's own.
+  class ControlAliasScope {
+    public:
+      explicit ControlAliasScope(SynthModule* source);
+      ~ControlAliasScope();
+      static SynthModule* current();
+
+    private:
+      SynthModule* previous_;
+  };
+
   class SynthModule : public ProcessorRouter {
     public:
       SynthModule(int num_inputs, int num_outputs, bool control_rate = false) :
           ProcessorRouter(num_inputs, num_outputs, control_rate),
-          remap_from_(ControlRemapScope::currentFrom()), remap_to_(ControlRemapScope::currentTo()) {
+          remap_from_(ControlRemapScope::currentFrom()), remap_to_(ControlRemapScope::currentTo()),
+          alias_source_(ControlAliasScope::current()) {
         data_ = std::make_shared<ModuleData>();
       }
       virtual ~SynthModule() { }
 
       // Returns a map of all controls of this module and all submodules.
       control_map getControls();
+
+      // Searches this module and its submodules.
+      Value* findControl(const std::string& name);
+      const ModControlRecord* findModControlRecord(const std::string& name);
+      bool isAlias() const { return alias_source_ != nullptr; }
 
       Output* getModulationSource(std::string name);
       const StatusOutput* getStatusOutput(std::string name) const;
@@ -156,6 +187,10 @@ namespace vital {
 
       std::shared_ptr<ModuleData> data_;
       std::string remap_from_, remap_to_;
+      SynthModule* alias_source_;
+
+    private:
+      Output* aliasModControl(const std::string& name, Output* internal_modulation);
 
       JUCE_LEAK_DETECTOR(SynthModule)
   };

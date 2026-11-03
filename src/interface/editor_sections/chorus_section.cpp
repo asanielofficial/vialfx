@@ -136,7 +136,16 @@ ChorusSection::ChorusSection(const String& name, const std::string& id, const vi
   sync_ = std::make_unique<TempoSelector>(id_ + "_sync");
   addSlider(sync_.get());
   sync_->setSliderStyle(Slider::LinearBar);
+  keytrack_transpose_ = std::make_unique<SynthSlider>(id_ + "_keytrack_transpose");
+  addSlider(keytrack_transpose_.get());
+  keytrack_transpose_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
+  keytrack_transpose_->setLookAndFeel(TextLookAndFeel::instance());
+  keytrack_transpose_->setSensitivity(kTransposeMouseSensitivity);
+  keytrack_transpose_->setBipolar();
+  keytrack_transpose_->setShiftIndexAmount(vital::kNotesPerOctave);
+
   sync_->setTempoSlider(tempo_.get());
+  sync_->setKeytrackTransposeSlider(keytrack_transpose_.get());
   sync_->setFreeSlider(frequency_.get());
 
   feedback_ = std::make_unique<SynthSlider>(id_ + "_feedback");
@@ -213,6 +222,8 @@ void ChorusSection::resized() {
                      section_height - 2 * widget_margin, frequency_.get(), sync_.get());
   tempo_->setBounds(frequency_->getBounds());
   tempo_->setModulationArea(frequency_->getModulationArea());
+  keytrack_transpose_->setBounds(frequency_->getBounds());
+  keytrack_transpose_->setModulationArea(frequency_->getModulationArea());
 
   int delay_y = section_height - widget_margin;
   placeKnobsInArea(Rectangle<int>(delay_area.getX(), delay_y, delay_area.getWidth(), section_height),

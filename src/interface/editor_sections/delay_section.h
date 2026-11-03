@@ -184,9 +184,11 @@ class DelaySection : public SynthSection, DelayFilterViewer::Listener {
     std::unique_ptr<SynthButton> on_;
     std::unique_ptr<SynthSlider> frequency_;
     std::unique_ptr<SynthSlider> tempo_;
+    std::unique_ptr<SynthSlider> keytrack_transpose_;
     std::unique_ptr<TempoSelector> sync_;
     std::unique_ptr<SynthSlider> aux_frequency_;
     std::unique_ptr<SynthSlider> aux_tempo_;
+    std::unique_ptr<SynthSlider> aux_keytrack_transpose_;
     std::unique_ptr<TempoSelector> aux_sync_;
     std::unique_ptr<SynthSlider> feedback_;
     std::unique_ptr<SynthSlider> dry_wet_;

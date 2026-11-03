@@ -29,6 +29,11 @@ namespace vital {
       static constexpr mono_float kModulationDelayBuffer = 0.0005f;
 
       enum {
+        kMidi,
+        kNumInputs
+      };
+
+      enum {
         kAudioOutput,
         kFrequencyOutput,
         kNumOutputs

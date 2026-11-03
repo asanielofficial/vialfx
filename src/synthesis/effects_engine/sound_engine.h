@@ -18,6 +18,7 @@
 
 #include "circular_queue.h"
 #include "synth_module.h"
+#include "keytrack_voices.h"
 #include "note_handler.h"
 #include "tuning.h"
 #include "synth_constants.h"
@@ -144,6 +145,9 @@ namespace vital {
       FiltersModule* filters_module_;
       AudioUpsampler* upsampler_;
       FxEffectChain* effect_chain_;
+      static constexpr int kEngineKeytrackVoices = 8;
+      KeytrackNotes keytrack_notes_;
+      KeytrackBank* filters_bank_;
 
       int last_oversampling_amount_;
       int last_sample_rate_;

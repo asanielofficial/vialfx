@@ -61,6 +61,7 @@ namespace vital {
 
       Output* midi_offset_output() { return midi_offset_output_; }
       Output* bent_midi_output() { return bent_midi_output_; }
+      Output* current_midi_output() { return current_midi_output_; }
 
     private:
       void createArticulation();
@@ -74,6 +75,7 @@ namespace vital {
       Processor* note_from_reference_;
       Output* midi_offset_output_;
       Output* bent_midi_output_;
+      Output* current_midi_output_;
       Processor* bent_midi_;
       Processor* current_midi_note_;
 

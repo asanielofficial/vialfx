@@ -24,6 +24,7 @@
 #include "distortion_module.h"
 #include "equalizer_module.h"
 #include "filter_module.h"
+#include "keytrack_voices.h"
 #include "flanger_module.h"
 #include "phaser_module.h"
 #include "reverb_module.h"
@@ -34,6 +35,9 @@
 #include <atomic>
 
 namespace vital {
+
+  // The effects that follow the played note (key tracking) run one copy per held note, up to this many (see KeytrackBank).
+  static constexpr int kChainKeytrackVoices = 4;
 
   // The effect build's effect chain: any number of effects (up to kMaxEffectInstances of each type) in any order.
   //
@@ -63,8 +67,9 @@ namespace vital {
       static int typeOf(int effect_id) { return effect_id / kMaxEffectInstances; }
       static int instanceOf(int effect_id) { return effect_id % kMaxEffectInstances; }
 
-      FxEffectChain(const Output* beats_per_second, const Output* keytrack) :
-          SynthModule(kNumInputs, 1), beats_per_second_(beats_per_second), keytrack_(keytrack) {
+      // keytrack: the played note relative to the center note; notes: the held notes (for the per-note copies).
+      FxEffectChain(const Output* beats_per_second, const Output* keytrack, const KeytrackNotes* notes) :
+          SynthModule(kNumInputs, 1), beats_per_second_(beats_per_second), keytrack_(keytrack), notes_(notes) {
         for (auto& slot : slots_)
           slot.store(0);
 
@@ -81,9 +86,30 @@ namespace vital {
             addSubmodule(module);
             addProcessor(module);
             effects_[id] = module;
+            banks_[id] = createKeytrackBank(type, name, module);
             effects_on_[id] = createBaseControl(name + "_on");
             active_[id] = false;
           }
+        }
+      }
+
+      // Connects the played note (pitch bend included) and the note the last played one glides to. Both only exist
+      // once the modulation handler is initialized, so this is called after the engine's init.
+      void connectNote(const Output* midi, const Output* current_note) {
+        for (int id = 0; id < kPoolSize; ++id) {
+          if (banks_[id] == nullptr)
+            continue;
+
+          SynthModule* module = effects_[id];
+          switch (typeOf(id)) {
+            case constants::kChorus: module->plug(midi, ChorusModule::kMidi); break;
+            case constants::kDelay: module->plug(midi, DelayModule::kMidi); break;
+            case constants::kFlanger: module->plug(midi, FlangerModule::kMidi); break;
+            case constants::kPhaser: module->plug(midi, PhaserModule::kMidi); break;
+            case constants::kFilterFx: module->plug(midi, FilterFxModule::kMidi); break;
+            default: break;
+          }
+          banks_[id]->setNoteOutputs(midi, current_note);
         }
       }
 
@@ -123,8 +149,9 @@ namespace vital {
             effects_[id]->enable(on);
 
           if (on) {
-            effects_[id]->processWithInput(audio_in, num_samples);
-            audio_in = effects_[id]->output(0)->buffer;
+            SynthModule* runner = banks_[id] ? static_cast<SynthModule*>(banks_[id]) : effects_[id];
+            runner->processWithInput(audio_in, num_samples);
+            audio_in = runner->output(0)->buffer;
           }
         }
 
@@ -134,12 +161,15 @@ namespace vital {
 
       void hardReset() override {
         for (int id = 0; id < kPoolSize; ++id)
-          effects_[id]->hardReset();
+          banks_[id] ? banks_[id]->hardReset() : effects_[id]->hardReset();
       }
 
       void correctToTime(double seconds) override {
-        for (int id = 0; id < kPoolSize; ++id)
+        for (int id = 0; id < kPoolSize; ++id) {
           effects_[id]->correctToTime(seconds);
+          if (banks_[id])
+            banks_[id]->correctToTime(seconds);
+        }
       }
 
       virtual Processor* clone() const override { return new FxEffectChain(*this); }
@@ -164,6 +194,74 @@ namespace vital {
       const StereoMemory* getEqualizerMemory(int instance = 0) { return equalizer_memory_[instance]; }
 
     protected:
+      // The effects that can follow the played note get copies for the held notes. The copies share the original's
+      // controls and modulation (ControlAliasScope) and only differ in the note they track.
+      KeytrackBank* createKeytrackBank(int type, const std::string& name, SynthModule* module) {
+        std::function<SynthModule*(Output*, Output*)> make;
+        std::vector<std::pair<std::string, bool>> gates;  // control, true when "not zero" (else equals Keytrack mode)
+        const Output* beats = beats_per_second_;
+        bool has_input = true;
+
+        switch (type) {
+          case constants::kChorus:
+            make = [beats](Output*, Output* midi) {
+              ChorusModule* copy = new ChorusModule(beats);
+              copy->plug(midi, ChorusModule::kMidi);
+              return copy;
+            };
+            gates.push_back({ name + "_sync", false });
+            break;
+          case constants::kDelay:
+            make = [beats](Output*, Output* midi) {
+              // Followed notes make short delays, so the copies get a short buffer.
+              DelayModule* copy = new DelayModule(beats, kKeytrackDelayTime);
+              copy->plug(midi, DelayModule::kMidi);
+              return copy;
+            };
+            gates.push_back({ name + "_sync", false });
+            gates.push_back({ name + "_aux_sync", false });
+            break;
+          case constants::kFlanger:
+            make = [beats](Output*, Output* midi) {
+              FlangerModule* copy = new FlangerModule(beats);
+              copy->plug(midi, FlangerModule::kMidi);
+              return copy;
+            };
+            gates.push_back({ name + "_sync", false });
+            break;
+          case constants::kPhaser:
+            make = [beats](Output*, Output* midi) {
+              PhaserModule* copy = new PhaserModule(beats);
+              copy->plug(midi, PhaserModule::kMidi);
+              return copy;
+            };
+            gates.push_back({ name + "_sync", false });
+            break;
+          case constants::kFilterFx: {
+            std::string prefix = "filter_fx" + name.substr(std::string("filter_fx").size());
+            make = [prefix](Output* keytrack, Output* midi) {
+              FilterFxModule* copy = new FilterFxModule(prefix, keytrack);
+              copy->plug(midi, FilterFxModule::kMidi);
+              return copy;
+            };
+            gates.push_back({ name + "_keytrack", true });
+            break;
+          }
+          default:
+            return nullptr;
+        }
+
+        KeytrackBank* bank = new KeytrackBank(module, has_input, kChainKeytrackVoices, notes_, keytrack_, make);
+        for (auto& gate : gates) {
+          if (gate.second)
+            bank->addGate(gate.first, true);
+          else
+            bank->addGate(gate.first, false, static_cast<mono_float>(TempoChooser::kKeytrack));
+        }
+        addProcessor(bank);
+        return bank;
+      }
+
       SynthModule* createEffectModule(int type, const std::string& name, int id) {
         switch (type) {
           case constants::kChorus:
@@ -198,6 +296,7 @@ namespace vital {
           enum {
             kAudio,
             kKeytrack,
+            kMidi,
             kNumInputs
           };
 
@@ -210,6 +309,7 @@ namespace vital {
             filter_->useOutput(output());
             filter_->plug(&input_, FilterModule::kAudio);
             filter_->plug(keytrack, FilterModule::kKeytrack);
+            filter_->useInput(input(kMidi), FilterModule::kMidi);
           }
 
           void processWithInput(const poly_float* audio_in, int num_samples) override {
@@ -228,7 +328,11 @@ namespace vital {
       };
 
       const Output* beats_per_second_;
+      static constexpr mono_float kKeytrackDelayTime = 1.0f;
+
       const Output* keytrack_;
+      const KeytrackNotes* notes_;
+      KeytrackBank* banks_[kPoolSize] = {};
       const StereoMemory* equalizer_memory_[kMaxEffectInstances] = {};
       SynthModule* effects_[kPoolSize];
       Value* effects_on_[kPoolSize];

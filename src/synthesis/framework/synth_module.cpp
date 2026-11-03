@@ -38,11 +38,90 @@ namespace vital {
     remapTo() = previous_to_;
   }
 
+  namespace {
+    SynthModule*& aliasSource() { static thread_local SynthModule* source = nullptr; return source; }
+  }
+
+  ControlAliasScope::ControlAliasScope(SynthModule* source) : previous_(aliasSource()) { aliasSource() = source; }
+  ControlAliasScope::~ControlAliasScope() { aliasSource() = previous_; }
+  SynthModule* ControlAliasScope::current() { return aliasSource(); }
+
+  Value* SynthModule::findControl(const std::string& name) {
+    auto it = data_->controls.find(name);
+    if (it != data_->controls.end())
+      return it->second;
+
+    for (SynthModule* sub_module : data_->sub_modules) {
+      Value* control = sub_module->findControl(name);
+      if (control)
+        return control;
+    }
+    return nullptr;
+  }
+
+  const ModControlRecord* SynthModule::findModControlRecord(const std::string& name) {
+    auto it = data_->mod_control_records.find(name);
+    if (it != data_->mod_control_records.end())
+      return &it->second;
+
+    for (SynthModule* sub_module : data_->sub_modules) {
+      const ModControlRecord* record = sub_module->findModControlRecord(name);
+      if (record)
+        return record;
+    }
+    return nullptr;
+  }
+
+  // The alias's version of a modulated control: the original's total, with the original's internal modulation
+  // replaced by the alias's own.
+  Output* SynthModule::aliasModControl(const std::string& name, Output* internal_modulation) {
+    const ModControlRecord* record = alias_source_->findModControlRecord(name);
+    VITAL_ASSERT(record);
+    if (record == nullptr)
+      return const_cast<cr::Value*>(&constants::kValueZero)->output();
+    if (internal_modulation == nullptr || record->internal_modulation == nullptr ||
+        internal_modulation == record->internal_modulation) {
+      return record->output;
+    }
+
+    static const cr::Value kNegate(-1.0f);
+    cr::Multiply* negative_original = new cr::Multiply();
+    negative_original->plug(record->internal_modulation, 0);
+    negative_original->plug(&kNegate, 1);
+    addProcessor(negative_original);
+
+    if (!record->audio_rate) {
+      cr::VariableAdd* total = new cr::VariableAdd();
+      total->plugNext(record->output);
+      total->plugNext(negative_original);
+      total->plugNext(internal_modulation);
+      addProcessor(total);
+      return total->output();
+    }
+
+    // Audio rate: the (control rate) difference between the two internal modulations, smoothed, added to the total.
+    ModulationSum* difference = new ModulationSum();
+    difference->plugNext(negative_original);
+    difference->plugNext(internal_modulation);
+    addProcessor(difference);
+
+    Add* total = new Add();
+    total->plug(record->output, 0);
+    total->plug(difference, 1);
+    addProcessor(total);
+    return total->output();
+  }
+
   const std::string& ControlRemapScope::currentFrom() { return remapFrom(); }
   const std::string& ControlRemapScope::currentTo() { return remapTo(); }
 
   Value* SynthModule::createBaseControl(std::string name, bool audio_rate, bool smooth_value) {
     name = remapName(name);
+    if (alias_source_) {
+      Value* original = alias_source_->findControl(name);
+      VITAL_ASSERT(original);
+      return original;
+    }
     mono_float default_value = Parameters::getDetails(name).default_value;
 
     Value* val = nullptr;
@@ -74,6 +153,8 @@ namespace vital {
   Output* SynthModule::createBaseModControl(std::string name, bool audio_rate,
                                             bool smooth_value, Output* internal_modulation) {
     name = remapName(name);
+    if (alias_source_)
+      return aliasModControl(name, internal_modulation);
     Processor* base_val = createBaseControl(name, audio_rate, smooth_value);
 
     Processor* mono_total = nullptr;
@@ -103,12 +184,15 @@ namespace vital {
       control_switch->set(0);
     data_->mono_modulation_switches[name] = control_switch;
 
+    data_->mod_control_records[name] = { control_switch->output(ValueSwitch::kSwitch), internal_modulation, audio_rate };
     return control_switch->output(ValueSwitch::kSwitch);
   }
 
   Output* SynthModule::createMonoModControl(std::string name, bool audio_rate,
                                             bool smooth_value, Output* internal_modulation) {
     name = remapName(name);
+    if (alias_source_)
+      return aliasModControl(name, internal_modulation);
     ValueDetails details = Parameters::getDetails(name);
     Output* control_rate_total = createBaseModControl(name, audio_rate, smooth_value, internal_modulation);
     if (audio_rate)
@@ -162,12 +246,15 @@ namespace vital {
       control_rate_total = root->output();
     }
 
+    data_->mod_control_records[name] = { control_rate_total, internal_modulation, audio_rate };
     return control_rate_total;
   }
 
   Output* SynthModule::createPolyModControl(std::string name, bool audio_rate,
                                             bool smooth_value, Output* internal_modulation, Input* reset) {
     name = remapName(name);
+    if (alias_source_)
+      return aliasModControl(name, internal_modulation);
     ValueDetails details = Parameters::getDetails(name);
     Output* base_control = createBaseModControl(name, audio_rate, smooth_value);
 
@@ -211,8 +298,10 @@ namespace vital {
     data_->poly_modulation_switches[name] = control_switch;
 
     Output* control_rate_total = control_switch->output(ValueSwitch::kSwitch);
-    if (audio_rate)
+    if (audio_rate) {
+      data_->mod_control_records[name] = { control_rate_total, internal_modulation, audio_rate };
       return control_rate_total;
+    }
 
     if (details.value_scale == ValueDetails::kQuadratic) {
       Processor* scale = nullptr;
@@ -262,6 +351,7 @@ namespace vital {
       control_rate_total = root->output();
     }
 
+    data_->mod_control_records[name] = { control_rate_total, internal_modulation, audio_rate };
     return control_rate_total;
   }
 
@@ -273,9 +363,15 @@ namespace vital {
     else
       tempo = createMonoModControl(name + "_tempo");
 
-    cr::Value* sync = new cr::Value(1.0f);
-    data_->controls[remapName(name + "_sync")] = sync;
-    addIdleProcessor(sync);
+    Value* sync = nullptr;
+    if (alias_source_)
+      sync = alias_source_->findControl(remapName(name + "_sync"));
+    else {
+      sync = new cr::Value(1.0f);
+      data_->controls[remapName(name + "_sync")] = sync;
+      addIdleProcessor(sync);
+    }
+    VITAL_ASSERT(sync);
 
     TempoChooser* tempo_chooser = new TempoChooser();
     tempo_chooser->plug(sync, TempoChooser::kSync);
@@ -309,6 +405,8 @@ namespace vital {
   }
 
   void SynthModule::createStatusOutput(std::string name, Output* source) {
+    if (alias_source_)
+      return;
     name = remapName(name);
     data_->status_outputs[name] = std::make_unique<StatusOutput>(source);
   }

@@ -21,8 +21,9 @@
 
 namespace vital {
 
-  DelayModule::DelayModule(const Output* beats_per_second) : SynthModule(0, 1), beats_per_second_(beats_per_second) {
-    int size = kMaxDelayTime * getSampleRate();
+  DelayModule::DelayModule(const Output* beats_per_second, mono_float max_delay_time) :
+      SynthModule(kNumInputs, 1), beats_per_second_(beats_per_second), max_delay_time_(max_delay_time) {
+    int size = max_delay_time_ * getSampleRate();
     delay_ = new StereoDelay(size);
     addIdleProcessor(delay_);
   }
@@ -33,9 +34,9 @@ namespace vital {
     delay_->useOutput(output());
 
     Output* free_frequency = createMonoModControl("delay_frequency");
-    Output* frequency = createTempoSyncSwitch("delay", free_frequency->owner, beats_per_second_, false);
+    Output* frequency = createTempoSyncSwitch("delay", free_frequency->owner, beats_per_second_, false, input(kMidi));
     Output* free_frequency_aux = createMonoModControl("delay_aux_frequency");
-    Output* frequency_aux = createTempoSyncSwitch("delay_aux", free_frequency_aux->owner, beats_per_second_, false);
+    Output* frequency_aux = createTempoSyncSwitch("delay_aux", free_frequency_aux->owner, beats_per_second_, false, input(kMidi));
     Output* feedback = createMonoModControl("delay_feedback");
     Output* wet = createMonoModControl("delay_dry_wet");
 
@@ -58,12 +59,12 @@ namespace vital {
   void DelayModule::setSampleRate(int sample_rate) {
     SynthModule::setSampleRate(sample_rate);
     delay_->setSampleRate(sample_rate);
-    delay_->setMaxSamples(kMaxDelayTime * getSampleRate());
+    delay_->setMaxSamples(max_delay_time_ * getSampleRate());
   }
   
   void DelayModule::setOversampleAmount(int oversample) {
     SynthModule::setOversampleAmount(oversample);
-    delay_->setMaxSamples(kMaxDelayTime * getSampleRate());
+    delay_->setMaxSamples(max_delay_time_ * getSampleRate());
   }
   
   void DelayModule::processWithInput(const poly_float* audio_in, int num_samples) {

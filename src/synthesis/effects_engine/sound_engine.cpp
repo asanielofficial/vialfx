@@ -40,7 +40,7 @@ namespace vital {
 
   SoundEngine::SoundEngine() : SynthModule(0, 1), modulation_handler_(nullptr), audio_input_(nullptr),
                                sidechain_input_(nullptr), sidechain_in_(nullptr), silence_(),
-                               filter_router_(nullptr), filters_module_(nullptr), upsampler_(nullptr),
+                               filter_router_(nullptr), filters_module_(nullptr), filters_bank_(nullptr), upsampler_(nullptr),
                                last_oversampling_amount_(-1), last_sample_rate_(-1), peak_meter_(nullptr) {
     // The four wavetables (input/sidechain warp table, input/sidechain spectral table) start as the built-in ones;
     // the editor can replace their contents. They exist before the graph, whose processors read them.
@@ -284,8 +284,26 @@ namespace vital {
     // The key tracking / MIDI inputs are connected after SynthModule::init() below: the modulation handler
     // only creates its played-note outputs in its own init().
 
+    // Filters 1 and 2 follow every held note: copies of the filters (own state, same settings) run for each note,
+    // and the result is their average (see KeytrackBank).
+    filters_bank_ = new KeytrackBank(filters_module_, false, kEngineKeytrackVoices, &keytrack_notes_,
+                                     modulation_handler_->midi_offset_output(),
+                                     [this](Output* keytrack, Output* midi) {
+      FiltersModule* copy = new FiltersModule();
+      copy->setMono(true);
+      copy->plug(filter_router_->output(AudioFilterRouter::kToFilter1), FiltersModule::kFilter1Input);
+      copy->plug(filter_router_->output(AudioFilterRouter::kToFilter2), FiltersModule::kFilter2Input);
+      copy->plug(keytrack, FiltersModule::kKeytrack);
+      copy->plug(midi, FiltersModule::kMidi);
+      return copy;
+    }, false);
+    filters_bank_->plug(filters_module_, 0);
+    filters_bank_->addGate("filter_1_keytrack", true);
+    filters_bank_->addGate("filter_2_keytrack", true);
+    addProcessor(filters_bank_);
+
     Add* filter_sum = new Add();
-    filter_sum->plug(filters_module_, 0);
+    filter_sum->plug(filters_bank_, 0);
     filter_sum->plug(filter_router_->output(AudioFilterRouter::kRawOut), 1);
     // The upsampler reads this at the oversampled block size, so make the buffer big enough for that.
     filter_sum->output()->ensureBufferSize(kMaxBufferSize * kMaxOversample);
@@ -295,7 +313,7 @@ namespace vital {
     upsampler_->plug(filter_sum, AudioUpsampler::kAudio);
     addProcessor(upsampler_);
 
-    effect_chain_ = new FxEffectChain(beats_per_second, modulation_handler_->midi_offset_output());
+    effect_chain_ = new FxEffectChain(beats_per_second, modulation_handler_->midi_offset_output(), &keytrack_notes_);
     addSubmodule(effect_chain_);
     addProcessor(effect_chain_);
     effect_chain_->plug(upsampler_, FxEffectChain::kAudio);
@@ -365,6 +383,8 @@ namespace vital {
     VITAL_ASSERT(modulation_handler_->bent_midi_output() != nullptr);
     filters_module_->plug(modulation_handler_->midi_offset_output(), FiltersModule::kKeytrack);
     filters_module_->plug(modulation_handler_->bent_midi_output(), FiltersModule::kMidi);
+    filters_bank_->setNoteOutputs(modulation_handler_->bent_midi_output(), modulation_handler_->current_midi_output());
+    effect_chain_->connectNote(modulation_handler_->bent_midi_output(), modulation_handler_->current_midi_output());
 
     filter_router_->setControls(filters_module_->getFilter1OnValue(), filters_module_->getFilter2OnValue(),
                                 filters_module_->getFilter1FilterInputValue(),
@@ -548,26 +568,32 @@ namespace vital {
   }
 
   void SoundEngine::allSoundsOff() {
+    keytrack_notes_.allNotesOff();
     effect_chain_->hardReset();
   }
 
   void SoundEngine::allNotesOff(int sample) {
+    keytrack_notes_.allNotesOff();
     modulation_handler_->allNotesOff(sample);
   }
 
   void SoundEngine::allNotesOff(int sample, int channel) {
+    keytrack_notes_.allNotesOff();
     modulation_handler_->allNotesOff(channel);
   }
 
   void SoundEngine::allNotesOffRange(int sample, int from_channel, int to_channel) {
+    keytrack_notes_.allNotesOff();
     modulation_handler_->allNotesOffRange(sample, from_channel, to_channel);
   }
 
   void SoundEngine::noteOn(int note, mono_float velocity, int sample, int channel) {
+    keytrack_notes_.noteOn(note);
     modulation_handler_->noteOn(note, velocity, sample, channel);
   }
 
   void SoundEngine::noteOff(int note, mono_float lift, int sample, int channel) {
+    keytrack_notes_.noteOff(note);
     modulation_handler_->noteOff(note, lift, sample, channel);
   }
 
@@ -656,10 +682,12 @@ namespace vital {
   }
 
   void SoundEngine::sustainOn(int channel) {
+    keytrack_notes_.sustainOn();
     modulation_handler_->sustainOn(channel);
   }
 
   void SoundEngine::sustainOff(int sample, int channel) {
+    keytrack_notes_.sustainOff();
     modulation_handler_->sustainOff(sample, channel);
   }
 
@@ -672,10 +700,12 @@ namespace vital {
   }
 
   void SoundEngine::sustainOnRange(int from_channel, int to_channel) {
+    keytrack_notes_.sustainOn();
     modulation_handler_->sustainOnRange(from_channel, to_channel);
   }
 
   void SoundEngine::sustainOffRange(int sample, int from_channel, int to_channel) {
+    keytrack_notes_.sustainOff();
     modulation_handler_->sustainOffRange(sample, from_channel, to_channel);
   }
 
