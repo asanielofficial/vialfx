@@ -110,6 +110,12 @@ class Wavetable3d : public OpenGlComponent, public AudioFileDropSource {
     void mouseExit(const MouseEvent& e) override;
     void mouseWheelMove(const MouseEvent& e, const MouseWheelDetails& wheel) override;
     void setFrameSlider(SynthSlider* slider) { frame_slider_ = slider; }
+    // The effect build's table displays follow the lane's amount knob (0..1 across all frames); this lets them show
+    // that knob's modulation too.
+    void setFrameModulation(const vital::output_map& mono_modulations, const std::string& name) {
+      auto mono = mono_modulations.find(name);
+      frame_amount_outputs_ = { mono == mono_modulations.end() ? nullptr : mono->second, nullptr };
+    }
     void setSpectralMorphSlider(Slider* slider) { spectral_morph_slider_ = slider; }
     void setDistortionSlider(Slider* slider) { distortion_slider_ = slider; }
     void setDistortionPhaseSlider(Slider* slider) { distortion_phase_slider_ = slider; }
@@ -150,12 +156,6 @@ class Wavetable3d : public OpenGlComponent, public AudioFileDropSource {
     float frameSliderValue() const;
     // The frame being shown for each voice: the slider's, plus the modulation of the control it stands for.
     vital::poly_float frameValue();
-    // The effect build's table displays follow the lane's amount knob (0..1 across all frames); this lets them show
-    // that knob's modulation too.
-    void setFrameModulation(const vital::output_map& mono_modulations, const std::string& name) {
-      auto mono = mono_modulations.find(name);
-      frame_amount_outputs_ = { mono == mono_modulations.end() ? nullptr : mono->second, nullptr };
-    }
     bool updateRenderValues();
     void loadIntoTimeDomain(int index);
     void loadWaveData(int index);
