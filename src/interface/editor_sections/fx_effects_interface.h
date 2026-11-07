@@ -20,9 +20,9 @@
 //
 //  - The left panel is the chain: an "ADD EFFECT" button at the top and one row per effect, which can be dragged to
 //    reorder. It is blank until effects are added, and scrolls when there are more rows than fit.
-//  - The effects themselves are on the right (also scrolling). Each has its on/off button, a "-" to minimize it to a
-//    title bar (name and symbol) and an "x" to remove it. Right-click offers Duplicate (the copy has the same
-//    settings).
+//  - The effects themselves are on the right (also scrolling). Each has its on/off button and an "x" to remove it;
+//    double-click the title or background to minimize it to a title bar (name and symbol) and again to expand.
+//    Right-click offers Duplicate (the copy has the same settings).
 //
 // Every copy of every effect exists in the engine and in this interface from the start (a pool of
 // vital::kMaxEffectInstances per type), so all of their parameters are real controls that can be automated and
@@ -176,17 +176,11 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
       section_->setName(title);
       addSubSection(section_.get());
 
-      minimize_button_ = std::make_unique<OpenGlShapeButton>("minimize");
-      addAndMakeVisible(minimize_button_.get());
-      addOpenGlComponent(minimize_button_->getGlComponent());
-      minimize_button_->addListener(this);
-      minimize_button_->setShape(minusShape());
-
       close_button_ = std::make_unique<OpenGlShapeButton>("remove");
       addAndMakeVisible(close_button_.get());
       addOpenGlComponent(close_button_->getGlComponent());
       close_button_->addListener(this);
-      close_button_->setShape(Paths::exitX());
+      close_button_->setShape(boldExitX());
 
       power_button_ = std::make_unique<OpenGlToggleButton>("minimized_power");
       addAndMakeVisible(power_button_.get());
@@ -222,7 +216,6 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
         return;
 
       minimized_ = minimized;
-      minimize_button_->setShape(minimized ? plusShape() : minusShape());
       section_->setVisible(!minimized);
       power_button_->setVisible(minimized);
       power_button_->setToggleState(isOn(), dontSendNotification);
@@ -248,9 +241,9 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
 
       g.setColour(findColour(Skin::kHeadingText, true));
       int text_x = static_cast<int>(icon_bounds.getRight()) + getWidgetMargin();
-      int text_width = std::max(0, static_cast<int>(minimize_button_->getX() - getWidgetMargin() - text_x));
+      int text_width = std::max(0, static_cast<int>(close_button_->getX() - getWidgetMargin() - text_x));
 
-      // Long names get a smaller font so they stay clear of the minimize and remove buttons.
+      // Long names get a smaller font so they stay clear of the remove button.
       Font font = Fonts::instance()->proportional_light().withPointHeight(size_ratio_ * 14.0f);
       float full_width = font.getStringWidthFloat(section_->getName());
       if (text_width > 0 && full_width > text_width)
@@ -271,17 +264,14 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
         int button_size = std::max(8, static_cast<int>(title_width * 0.6f));
         int y = (getHeight() - button_size) / 2;
         close_button_->setBounds(getWidth() - button_size - getWidgetMargin(), y, button_size, button_size);
-        minimize_button_->setBounds(close_button_->getX() - button_size - getWidgetMargin(), y,
-                                    button_size, button_size);
       }
       else {
         section_->setBounds(getLocalBounds());
-        // Under the power button, one above the other in the title strip; the title is kept clear of them.
+        // Under the power button in the title strip; the title is kept clear of it.
         int x = static_cast<int>(getPowerButtonOffset()) + (title_width - small) / 2;
         int gap = std::max(2, small / 3);
-        minimize_button_->setBounds(x, title_width, small, small);
-        close_button_->setBounds(x, title_width + small + gap, small, small);
-        section_->setHeadingTopInset(small * 2 + gap);
+        close_button_->setBounds(x, title_width, small, small);
+        section_->setHeadingTopInset(small + gap);
       }
       SynthSection::resized();
     }
@@ -290,10 +280,6 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
       if (clicked_button == close_button_.get()) {
         for (Listener* listener : listeners_)
           listener->effectRemoveRequested(effect_id_);
-      }
-      else if (clicked_button == minimize_button_.get()) {
-        for (Listener* listener : listeners_)
-          listener->effectMinimizeToggled(effect_id_);
       }
       else if (clicked_button == power_button_.get()) {
         if (section_->activator())
@@ -313,16 +299,25 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
     }
 
     // Right-click on the effect's background or title: duplicate, minimize, remove.
-    void mouseDown(const MouseEvent& e) override {
-      if (!e.mods.isPopupMenu())
+    // Double-click on the effect's background or title: minimize / expand.
+    void mouseDoubleClick(const MouseEvent& e) override {
+      if (e.mods.isPopupMenu() || !hitsBackground(e))
         return;
 
+      for (Listener* listener : listeners_)
+        listener->effectMinimizeToggled(effect_id_);
+    }
+
+    bool hitsBackground(const MouseEvent& e) const {
       Component* hit = e.originalComponent;
-      if (dynamic_cast<Slider*>(hit) || dynamic_cast<Button*>(hit) || dynamic_cast<TextEditor*>(hit) ||
-          (hit != this && hit != section_.get() && dynamic_cast<SynthSection*>(hit) == nullptr &&
-           dynamic_cast<OpenGlComponent*>(hit) != nullptr)) {
+      return !(dynamic_cast<Slider*>(hit) || dynamic_cast<Button*>(hit) || dynamic_cast<TextEditor*>(hit) ||
+               (hit != this && hit != section_.get() && dynamic_cast<SynthSection*>(hit) == nullptr &&
+                dynamic_cast<OpenGlComponent*>(hit) != nullptr));
+    }
+
+    void mouseDown(const MouseEvent& e) override {
+      if (!e.mods.isPopupMenu() || !hitsBackground(e))
         return;
-      }
 
       PopupItems options;
       options.addItem(kDuplicate, "Duplicate");
@@ -348,16 +343,19 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
       kRemove
     };
 
-    static Path minusShape() {
-      Path path;
-      path.addRoundedRectangle(0.0f, 0.4f, 1.0f, 0.2f, 0.1f);
-      return path;
-    }
+    // A bolder remove cross than the stock exit shape.
+    static Path boldExitX() {
+      Path outline;
+      outline.startNewSubPath(0.2f, 0.2f);
+      outline.lineTo(0.8f, 0.8f);
+      outline.startNewSubPath(0.2f, 0.8f);
+      outline.lineTo(0.8f, 0.2f);
 
-    static Path plusShape() {
       Path path;
-      path.addRoundedRectangle(0.0f, 0.4f, 1.0f, 0.2f, 0.1f);
-      path.addRoundedRectangle(0.4f, 0.0f, 0.2f, 1.0f, 0.1f);
+      PathStrokeType stroke(0.14f, PathStrokeType::curved, PathStrokeType::rounded);
+      stroke.createStrokedPath(path, outline);
+      path.addLineSegment(Line<float>(0.0f, 0.0f, 0.0f, 0.0f), 0.2f);
+      path.addLineSegment(Line<float>(1.0f, 1.0f, 1.0f, 1.0f), 0.2f);
       return path;
     }
 
@@ -365,7 +363,6 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
     bool minimized_;
     Path icon_;
     std::unique_ptr<SynthSection> section_;
-    std::unique_ptr<OpenGlShapeButton> minimize_button_;
     std::unique_ptr<OpenGlShapeButton> close_button_;
     std::unique_ptr<OpenGlToggleButton> power_button_;
     std::vector<Listener*> listeners_;

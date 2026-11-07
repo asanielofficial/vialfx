@@ -95,8 +95,9 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
     static constexpr int kDefaultGridSizeX = 8;
     static constexpr int kDefaultGridSizeY = 4;
 
-    SpectralWarpEditor(vital::SoundEngine* engine) :
-        SynthSection("spectral_warp_editor"), engine_(engine) {
+    // Each editor is bound to one lane (0 = input, 1 = sidechain), so both lanes can have a curve editor open at once.
+    SpectralWarpEditor(vital::SoundEngine* engine, int owned_lane) :
+        SynthSection("spectral_warp_editor_" + String(owned_lane)), engine_(engine), owned_lane_(owned_lane) {
 
       for (int lane = 0; lane < 2; ++lane) {
         for (int curve = 0; curve < kNumCurves; ++curve) {
@@ -135,8 +136,8 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
       paint_pattern_->overrideValue(Skin::kTextComponentOffset, 0.0f);
       paint_pattern_->setValue(LfoSection::kDown);
 
-      grid_size_x_ = makeGridSlider("spectral_grid_size_x", LineEditor::kMaxGridSizeX, kDefaultGridSizeX, "X Grid");
-      grid_size_y_ = makeGridSlider("spectral_grid_size_y", LineEditor::kMaxGridSizeY, kDefaultGridSizeY, "Y Grid");
+      grid_size_x_ = makeGridSlider("spectral_grid_size_x_" + std::to_string(owned_lane), LineEditor::kMaxGridSizeX, kDefaultGridSizeX, "X Grid");
+      grid_size_y_ = makeGridSlider("spectral_grid_size_y_" + std::to_string(owned_lane), LineEditor::kMaxGridSizeY, kDefaultGridSizeY, "Y Grid");
 
       smooth_ = std::make_unique<OpenGlShapeButton>("smooth");
       smooth_->useOnColors(true);
@@ -172,8 +173,9 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
       // The position slider along the bottom. One per lane (each is a modulation target of its own).
       position_[0] = std::make_unique<SynthSlider>("input_spectral_position");
       position_[1] = std::make_unique<SynthSlider>("sidechain_spectral_position");
-      for (auto& slider : position_) {
-        addSlider(slider.get());
+      for (int lane = 0; lane < 2; ++lane) {
+        SynthSlider* slider = position_[lane].get();
+        addLaneSlider(slider, lane);
         slider->setSliderStyle(Slider::LinearBar);
         slider->setPopupPlacement(BubbleComponent::above);
         slider->setModulationPlacement(BubbleComponent::above);
@@ -190,7 +192,7 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
           std::string name = std::string(lane == 0 ? "input" : "sidechain") + "_spectral_" + kDetailParameters[i];
           detail_[lane][i] = std::make_unique<SynthSlider>(name);
           SynthSlider* slider = detail_[lane][i].get();
-          addSlider(slider);
+          addLaneSlider(slider, lane);
           slider->setSliderStyle(Slider::LinearBar);
           slider->setPopupPlacement(BubbleComponent::above);
           slider->setModulationPlacement(BubbleComponent::above);
@@ -622,6 +624,16 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
       smooth_->setToggleState(editors_[lane_][curve_]->getSmooth(), dontSendNotification);
     }
 
+    // Only the editor's own lane registers its sliders (so the parameter names stay unique across the two editors);
+    // the other lane's sliders exist only because the editor code indexes both lanes and are never shown.
+    void addLaneSlider(SynthSlider* slider, int lane) {
+      addSlider(slider);
+      if (lane != owned_lane_) {
+        slider_lookup_.erase(slider->getName().toStdString());
+        all_sliders_.erase(slider->getName().toStdString());
+      }
+    }
+
     std::unique_ptr<SynthSlider> makeGridSlider(const std::string& name, int max_value, int default_value,
                                                 const std::string& prefix) {
       auto slider = std::make_unique<SynthSlider>(name);
@@ -641,6 +653,7 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
 
     vital::SoundEngine* engine_;
     int lane_ = 0;
+    int owned_lane_ = 0;
     int curve_ = 0;
     Rectangle<int> pattern_group_;
     Rectangle<int> grid_group_;

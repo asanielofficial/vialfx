@@ -63,10 +63,13 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
 
       // The curve editor for Spectral Filter / Phaser / Flanger docks over the filters (below the input panels, so
       // the lane panels and the modulation sources stay usable while it is open).
-      spectral_editor_ = std::make_unique<SpectralWarpEditor>(engine);
-      addSubSection(spectral_editor_.get());
-      spectral_editor_->setVisible(false);
-      spectral_editor_->setVisibilityCallback([this](bool shown) { panelVisibilityChanged(spectral_editor_.get(), shown); });
+      for (int lane = 0; lane < 2; ++lane) {
+        spectral_editors_[lane] = std::make_unique<SpectralWarpEditor>(engine, lane);
+        SpectralWarpEditor* editor = spectral_editors_[lane].get();
+        addSubSection(editor);
+        editor->setVisible(false);
+        editor->setVisibilityCallback([this, editor](bool shown) { panelVisibilityChanged(editor, shown); });
+      }
       vocoder_editor_ = std::make_unique<VocoderEditor>();
       addSubSection(vocoder_editor_.get());
       vocoder_editor_->setVisible(false);
@@ -93,8 +96,8 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
       }
       for (FxInputSection* input : { main_input_.get(), sidechain_input_.get() })
         input->setTableSettingsCallback([this](int slot) { showTableMenu(slot); });
-      main_input_->setSpectralEditor(spectral_editor_.get());
-      sidechain_input_->setSpectralEditor(spectral_editor_.get());
+      main_input_->setSpectralEditor(spectral_editors_[0].get());
+      sidechain_input_->setSpectralEditor(spectral_editors_[1].get());
 
       panel_dragger_ = std::make_unique<PanelDragger>(this);
       for (SynthSection* panel : allPanels())
@@ -145,8 +148,17 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
     static constexpr float kPanelHeightRatio = 0.62f;
 
     std::vector<SynthSection*> allPanels() {
-      return { spectral_editor_.get(), vocoder_editor_.get(), table_menus_[0].get(), table_menus_[1].get(),
+      return { spectral_editors_[0].get(), spectral_editors_[1].get(), vocoder_editor_.get(), table_menus_[0].get(), table_menus_[1].get(),
                table_menus_[2].get(), table_menus_[3].get() };
+    }
+
+    // Loading a preset (or Initialize) changes the modes under the panels, so they all close.
+    void setAllValues(vital::control_map& controls) override {
+      SynthSection::setAllValues(controls);
+      for (SynthSection* panel : allPanels()) {
+        if (panel && panel->isVisible())
+          panel->setVisible(false);
+      }
     }
 
     void panelVisibilityChanged(SynthSection* panel, bool shown) {
@@ -305,7 +317,7 @@ class FxVoiceInterface : public SynthSection, public FilterSection::Listener, pu
     std::unique_ptr<FxInputSection> sidechain_input_;
     std::unique_ptr<FilterSection> filter_section_1_;
     std::unique_ptr<FilterSection> filter_section_2_;
-    std::unique_ptr<SpectralWarpEditor> spectral_editor_;
+    std::unique_ptr<SpectralWarpEditor> spectral_editors_[2];
     std::function<void(int)> table_editor_callback_;
     std::function<bool(int, String, InputStream*, WavetableCreator::AudioFileLoadStyle)> table_import_callback_;
     int filter_y_ = 0, filter_height_ = 0, width_left_ = 0, width_right_ = 0;
