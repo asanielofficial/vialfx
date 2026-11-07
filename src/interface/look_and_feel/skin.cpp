@@ -996,8 +996,8 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       Component::SafePointer<SkinEditor> safe(this);
       row->on_remove = [safe](SkinEditorRow* r) {
         MessageManager::callAsync([safe, r]() {
-          if (safe != nullptr)
-            safe->removeRow(r);
+          if (SkinEditor* editor = safe.getComponent())
+            editor->removeRow(r);
         });
       };
       row->on_value = [this](SkinEditorRow* r, float value) { selectRow(r); applyValue(r, value); };
