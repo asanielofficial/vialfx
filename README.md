@@ -1,70 +1,173 @@
 # VialFX
 
-VialFX is an audio effect plugin: two modelled filters, a nine-effect rack, LFOs and envelopes, and two audio
-inputs (main and sidechain) that can each be routed to the filters, the effects or straight to the output.
-It is built from GPLv3 synthesizer source code (see [NOTICE.md](NOTICE.md) for the origin of the code).
+VialFX is an audio effect plugin: two modelled filters, a rack of nine effects, LFOs and envelopes, and two
+audio inputs (main and sidechain) that can each be warped, spectrally morphed and routed to the filters, the
+effects or straight to the output. It is built from GPLv3 synthesizer source code (see
+[NOTICE.md](NOTICE.md) for the origin of the code).
 
-> **Status:** version 0.1.0, early development. It builds as a VST3 on Linux and Windows in CI and passes
-> pluginval. The spectral suite (v0.3) is in: morph engine, dice button and drawable spectral warps.
+> **Status:** version 0.1.0, early development. VST3 builds for Linux, macOS and Windows are produced by CI,
+> and the plugin passes pluginval. The roadmap through v0.3 (base FX, distortion warp, spectral processing)
+> is done.
 
-## What it does today
+## Download
 
-- **Inputs:** a main input and a sidechain input, each with a live spectrum display. A dropdown under each
-  display sends it to Filter 1, Filter 2, Filter 1+2, the effects rack, or direct out (skipping filters and
-  effects). The INPUT and SIDECHAIN buttons on each filter mirror these dropdowns. Each input also has an
-  on/off switch, level and pan (all three can be modulated; the sidechain lane is off by default).
-- **Distortion warp (v0.2):** each input has a warp mode and amount (the right-hand knob on its panel, and
-  the amount is a modulation target). Modes: None (off, the default), Sync and Formant (wavefolders), Quantize (bit and sample-rate
-  reduction), Bend and Squeeze (waveshapers), Pulse (asymmetric clipper), and on the main input only FM and RM,
-  where the sidechain lane modulates the main lane. The sidechain lane is warped first; FM and RM on the main
-  input are silent while the sidechain lane is switched off. The sidechain lane modulates at full strength
-  whatever its level and pan are (like an oscillator B turned down): only its on switch gates it, and the
-  level and pan apply to the signal that goes on to the filters and effects. Sync, Formant, Bend and Squeeze are bipolar like the
-  original distortions (knob centre is neutral); the other modes are neutral at zero. The waveshapers work
-  relative to the signal's own level, so they bite at quiet levels too. The input spectrum displays show each
-  lane after its level, pan and warp.
-- **Spectral morph (v0.3):** each input has a spectral mode and amount (the left-hand knob on its panel; the
-  amount is a modulation target). The stage is a Hann-windowed overlap-add FFT (75% overlap) that sits
-  between the lane and its warp. Modes: Formant Scale, Harmonic Stretch, Inharmonic Stretch, Smear, Random
-  Amplitudes, Low Pass, High Pass, Phase Disperse (a strong two-way disperser: up delays the highs, down
-  delays the lows, turning clicks into sweeps), Shepard Tone, Spectral Time Skew (a frequency-dependent group delay of up to 16 frames:
-  the highs lag behind the lows), three drawable modes (below), and on the main input only Vocode, which imposes the sidechain lane's spectral envelope on
-  the main lane (a time-domain filterbank vocoder: up to 64 log-spaced 4th-order band-passes, so transients stay sharp, band attack/release, formant shift, carrier flatten, modulator emphasis, gate, level, and a consonant hiss that follows the modulator's highs; whitening of the modulator's spectral tilt for clarity; settings in the grouped Vocoder menu). Formant Scale, Harmonic/Inharmonic Stretch, Phase Disperse are bipolar (knob
-  centre is neutral). The FFT size is set on the ADVANCED tab (256, 512, 1024 default, 2048, then 4096, 8192, 16384, 32768 for very fine resolution at the cost of up to ~0.74 s latency) with a live
-  latency readout. The stage always delays the audio by one FFT size, whatever the mode, so the latency is
-  constant; it is reported to the host for delay compensation and both lanes stay aligned.
-- **Dice and drawable modes (v0.3):** Random Amplitudes has a small dice button beside the spectral knob that
-  picks a new seed (it is a switch parameter, `Random Dice`, that the host can automate: every flip between
-  0% and 100% scrambles the pattern as if the button had been pressed), and a thin shuffle bar under it that
-  is a modulation target: drag an LFO or any source onto
-  it to walk smoothly through a chain of patterns derived from the seed. The pattern is the same in Hz at every
-  FFT size. Spectral Filter (a resonant gain curve), Spectral Phaser (a resonant phaser whose notches follow the curve) and
-  Spectral Flanger (a bank of regenerating combs whose delay time per frequency is the curve, so a drawn ramp or bump bends the comb; Position sweeps the delay) have a pencil button that docks a curve editor over the filters, drawn like
-  The morph panels (curve editors, Vocoder, and the table menus) dock over the filters; any two can be open side by side (a third replaces the one opened first), and dragging a panel's top across to the other side swaps them. Audio files dropped on a table menu's wavetable display are imported as the table (splice / vocode / pitch splice by drop zone). The window resizes live.
-  the LFO editor (paint brush and patterns, grid sizes, smoothing, shape selector, frequency on a log axis from
-  20 Hz to 20 kHz; the shape menu also saves and opens your own shapes). A bar of detail controls under the position slider (gain, plus width/peak for the filter, notches/resonance for the phaser, taps/resonance/spread/depth/phase for the flanger) is made of modulation targets too, and the curve's right-click menu has Import Shape / Export Shape. A position slider along its bottom is a modulation target as well (for Spectral Filter it transposes the drawn curve up and down in frequency by up to four octaves). The spectral knob of
-  these three modes is bipolar: the centre is the automatic behaviour, up morphs to your drawn curve and down
-  to the curve flipped upside down. The curves and the dice seed are saved with each lane in the preset, not as
-  parameters, so they cannot be automated (the dice switch and the shuffle bar are the automatable controls).
-- **Filters:** two filters with the full set of filter models, in parallel or serial (FIL1/FIL2 buttons).
-  Key tracking follows the last played MIDI note.
-- **Effects rack:** chorus, compressor, delay, distortion, EQ, filter, flanger, phaser and reverb, in a
-  reorderable chain.
-- **Modulation:** LFOs and envelopes run without any MIDI note held; sync and the other LFO modes work.
-  Notes act as a trigger and key-tracking source. The full matrix is wired: LFOs, envelopes, randoms,
-  macros and MIDI sources (note, velocity, aftertouch, slide, lift, mod wheel, pitch wheel) can drive lane
-  level and pan, filter parameters and effect parameters.
-- **Presets:** save, load and browse presets from the built-in preset browser.
-- **Oversampling:** 1x by default. Higher settings work but roll off the top end slightly (a better
-  interpolator is planned).
+Every night at 07:00 UTC, the newest `main` commit that built on all three platforms is published as the
+[**nightly** pre-release](../../releases/tag/nightly) (Linux, macOS and Windows VST3). These builds are
+unsigned and meant for testing. Every CI run also attaches its builds as artifacts.
 
-## Roadmap
+## Features
 
-| Version | Content |
-| --- | --- |
-| v0.1 | Base FX: plugin shell, filters and effects rack, two-lane layout, GUI cleanup and modulation matrix (done) |
-| v0.2 | Distortion warp (done) |
-| v0.3 | Spectral processing: morph engine, dice button and drawable spectral warps (done) |
+### Inputs and routing
+
+- A **main** and a **sidechain** input, each with a live spectrum display. A dropdown under each display sends
+  it to Filter 1, Filter 2, Filter 1+2, the effects rack, or direct out (skipping filters and effects). The
+  INPUT and SIDECHAIN buttons on each filter mirror these dropdowns.
+- Each input has an on/off switch, level and pan, all of which can be modulated. The sidechain lane is off by
+  default.
+- The input spectrum displays show each lane after its level, pan, spectral mode and warp.
+
+### Distortion warp
+
+Each input has a warp mode and amount (the right-hand knob on its panel; the amount is a modulation target).
+
+- **Modes:** None (default), Sync and Formant (wavefolders), Quantize (bit and sample-rate reduction), Bend and
+  Squeeze (waveshapers), Pulse (asymmetric clipper), Distort Table (below), and, on the main input only, FM
+  and RM, where the sidechain lane modulates the main lane.
+- Sync, Formant, Bend and Squeeze are bipolar (knob centre is neutral); the other modes are neutral at zero.
+  The waveshapers work relative to the signal's own level, so they also bite at quiet levels.
+- The sidechain lane is warped first. It modulates FM and RM at full strength whatever its level and pan are,
+  like an oscillator B turned down: only its on switch gates it, and level and pan apply to the signal that
+  goes on to the filters and effects.
+
+### Spectral morph
+
+Each input has a spectral mode and amount (the left-hand knob on its panel; the amount is a modulation
+target). The stage is a Hann-windowed overlap-add FFT (75% overlap) between the lane and its warp.
+
+- **Modes:** Formant Scale, Harmonic Stretch, Inharmonic Stretch, Smear, Random Amplitudes, Low Pass,
+  High Pass, Phase Disperse (up delays the highs, down delays the lows, turning clicks into sweeps), Shepard
+  Tone, Spectral Time Skew (frequency-dependent group delay of up to 16 frames), the drawable modes and
+  Spectral Table (below), and, on the main input only, Vocode.
+- Formant Scale, Harmonic and Inharmonic Stretch, and Phase Disperse are bipolar (knob centre is neutral).
+- **Vocode** imposes the sidechain lane's spectral envelope on the main lane. It is a time-domain filterbank
+  vocoder (up to 64 log-spaced 4th-order band-passes, so transients stay sharp) with band attack/release,
+  formant shift, carrier flatten, modulator emphasis, gate, level, a consonant hiss that follows the
+  modulator's highs, and whitening of the modulator's spectral tilt. Its settings are in the grouped Vocoder
+  menu.
+- **FFT size** is set on the ADVANCED tab: 256, 512, 1024 (default), 2048, 4096, 8192, 16384 or 32768 (very
+  fine resolution, up to about 0.74 s of latency), with a live latency readout.
+- **Latency:** with no spectral mode chosen on either lane there is no latency (the plugin reports 0).
+  Choosing one engages the stage: both lanes then delay by one FFT size so they stay aligned, and the
+  reported latency changes accordingly. It is reported to the host for delay compensation.
+- The FFT only runs while a spectral mode is active and the inputs are not digital silence. Switching a mode
+  on runs a few frames silently first so the wet signal fades in without a dip.
+
+### Dice and drawable modes
+
+- **Random Amplitudes** has a small dice button beside the spectral knob that picks a new seed. It is a
+  switch parameter (`Random Dice`) the host can automate: every flip between 0% and 100% scrambles the
+  pattern as if the button had been pressed. A thin shuffle bar under it is a modulation target: drag an LFO
+  or any source onto it to walk smoothly through a chain of patterns derived from the seed. The pattern is the
+  same in Hz at every FFT size.
+- **Spectral Filter** (a resonant gain curve), **Spectral Phaser** (a resonant phaser whose notches follow the
+  curve) and **Spectral Flanger** (a bank of regenerating combs whose delay time per frequency is the curve)
+  have a pencil button that docks a curve editor over the filters. It works like the LFO editor: paint brush
+  and patterns, grid sizes, smoothing, a shape selector (the menu also saves and opens your own shapes), and
+  a frequency axis that is logarithmic from 20 Hz to 20 kHz. The curve's right-click menu has Import Shape
+  and Export Shape.
+- A bar of detail controls under the position slider (gain, plus width/peak for the filter,
+  notches/resonance for the phaser, taps/resonance/spread/depth/phase for the flanger) is made of modulation
+  targets, as is the position slider itself. For Spectral Filter the position transposes the drawn curve up
+  and down in frequency by up to four octaves.
+- The spectral knob of these three modes is bipolar: the centre is the automatic behaviour, up morphs to your
+  drawn curve and down to the curve flipped upside down.
+- The curves and the dice seed are saved with each lane in the preset, not as parameters, so they cannot be
+  automated (the dice switch and the shuffle bar are the automatable controls).
+- **Panels:** the curve editors, the Vocoder and the table menus dock over the filters. Any two can be open
+  side by side (a third replaces the one opened first), and dragging a panel's top across to the other side
+  swaps them.
+
+### Table modes
+
+- **Distort Table** (warp mode 9, both lanes): waveshaping by a built-in wavetable of 16 transfer curves
+  (clean, soft, hard, folds, Chebyshev, stairs, diode, rectify, crush, ripple, chaos). The amount scrubs
+  through the frames; 0 is clean.
+- **Spectral Table** (spectral mode 15, both lanes): a filter driven by a built-in wavetable of 16 frequency
+  responses (flat, sub, tilt, vowels Oo/Oh/Ah/Eh/Ee, band, combs, notch, high pass, telephone, scoop,
+  ripples). The amount scrubs through the frames; 0 is flat.
+- The sidechain menus hide FM, RM and Vocode. Mode indices of the existing modes did not change.
+- **Controls:** the pencil (top left of the knob) opens the table's wavetable editor (save, import, edit). The
+  cogwheel (top right) opens the settings menu, which shows the wavetable (3D / 2D / SP button) following the
+  knob, with the fine controls underneath. Audio files dropped on a table menu's wavetable display are
+  imported as the table (splice, vocode or pitch splice, by drop zone).
+- **Spectral Table menu:** gain, pitch (transposes the response by up to four octaves), resonance (how far the
+  response reaches) and mix. These have their own parameters (`input_table_gain`, `input_table_position`,
+  `input_table_resonance`, `input_spectral_table_mix`, and the `sidechain_` ones), separate from the drawable
+  modes' position, gain and resonance, so each can be modulated from the matrix on its own.
+- **Distort Table menu:** phase (shifts the transfer curve), bias, smooth, drive, DC filter (removes the
+  offset that bias and the curve create) and mix. Drive, bias and smooth act even on the clean first frame.
+
+### Filters
+
+- Two filters with the full set of filter models, in parallel or serial (FIL1/FIL2 buttons).
+- **Key tracking** is polyphonic: Filter FX, Delay, Chorus, Flanger and Phaser run a parallel copy per held
+  note and crossfade their average. It is gated on the keytrack sync mode or a non-zero keytrack amount, and
+  falls back to the last played note otherwise. The effects have transpose sliders for it.
+
+### Effects rack
+
+- The effects tab starts blank. **ADD EFFECT** (top of the left panel) adds a Chorus, Compressor, Delay,
+  Distortion, EQ, Filter, Flanger, Phaser or Reverb to the end of the chain. The same effect can be added
+  several times (up to 8 copies of each type); every copy is a full set of automatable, modulatable
+  parameters named e.g. `chorus_2_dry_wet`.
+- Rows in the left panel can be dragged to reorder the chain, and clicking one scrolls to that effect. Both
+  panels scroll when the chain is long.
+- Each effect has an on/off button, a `-` that minimizes it to a title bar (name and symbol in the effect's
+  colour) and an `x` that removes it (its settings and modulations are reset). Right-click an effect for
+  Duplicate (same settings), Minimize or Remove.
+- The chain is saved with the preset. Presets from before the chain existed load with their enabled effects in
+  their old order.
+
+### Modulation
+
+- LFOs and envelopes run without any MIDI note held; sync and the other LFO modes work. Notes act as a
+  trigger and key-tracking source.
+- The full matrix is wired: LFOs, envelopes, randoms, macros and MIDI sources (note, velocity, aftertouch,
+  slide, lift, mod wheel, pitch wheel) can drive lane level and pan, filter parameters and effect parameters.
+  The table and morph controls show modulation rings and meters, including when docked.
+
+### Presets and oversampling
+
+- Presets are `.vialfx` files (older `.vital` presets still open). Save, load and browse them from the
+  built-in preset browser.
+- Oversampling defaults to 2x. Higher settings work but roll off the top end slightly (a better interpolator
+  is planned).
+
+## Window and skins
+
+- **Resizing:** the window can be resized to any shape. Sizes scale with the smaller dimension and the
+  sections stretch to fill the rest. The shape is remembered.
+- **Skins** are `.vialskin` files (older `.vitalskin` files still open); the default skin is the attached
+  `Default.vialskin`. Pick one from the skin selector in the ADVANCED tab or use Load Skin from the preset
+  menu.
+
+### Skin Editor
+
+Open it from the preset menu with **Open Skin Editor**. It stays on top of the plugin window and can be
+resized.
+
+- **Bins:** the interface is grouped into bins (Header, Input, Filters, Envelopes, LFO, Voice/MIDI, Effects,
+  Matrix, Browser, Overlays), plus a Global bin for the base skin. Each bin lists its colour and value
+  overrides; **+ Add override** adds more.
+- **Colour picker:** hex (AARRGGBB), RGB and alpha. Undo/redo, Save and Import work on `.vialskin` files.
+- **Hover outline:** while the editor is open, hovering the plugin (or a bin in the editor) draws a dashed
+  outline around the matching sections. Alt-click a section to jump to its bin.
+- **Glow:** every colour has Glow Strength and Glow Size knobs (0 to 1), saved in the skin. A full-screen
+  glow pass makes anything drawn in a glowing colour bloom softly: text, lines, knobs, waveforms and meters,
+  including section overrides of that colour. Up to 24 glowing colours are used at once. Glow can be set per
+  bin as well, and knobs also get a halo for the Rotary Arc colour.
+- **Smooth editing:** colour and value edits are applied at a limited rate so the plugin window stays smooth
+  while you drag; glow changes apply instantly.
 
 ## Building
 
@@ -81,15 +184,26 @@ The result is `effects/builds/linux_vst/build/VialFX.vst3`.
 ### Windows (VST3)
 
 Open `effects/builds/vs17` with Visual Studio 2022, or use the MSBuild steps in
-`.github/workflows/build-windows.yml`. Prebuilt VST3 files for both platforms are attached to each CI run
-as build artifacts.
+`.github/workflows/build-windows.yml`.
+
+### macOS (VST3)
+
+See `.github/workflows/build-macos.yml` for the Xcode build steps.
 
 ## Tests
 
 `make -C effects/tests` builds and runs a headless engine test (no GUI, OpenGL or audio device needed). It
 checks passthrough level, both filters and their routing, key tracking, every filter model, all nine effects,
 oversampling, LFO and envelope behaviour without MIDI, input destinations, and CPU use. CI runs it before
-every build, then validates the plugin with pluginval and checks the binary for forbidden branding.
+every Linux build, then validates the plugin with pluginval and checks the binary for forbidden branding.
+
+## Roadmap
+
+| Version | Content |
+| --- | --- |
+| v0.1 | Base FX: plugin shell, filters and effects rack, two-lane layout, GUI cleanup and modulation matrix (done) |
+| v0.2 | Distortion warp (done) |
+| v0.3 | Spectral processing: morph engine, dice button, drawable spectral warps and table modes (done) |
 
 ## Online features
 
@@ -102,26 +216,3 @@ GPLv3, see [LICENSE](LICENSE). If you distribute builds you must comply with tha
 the corresponding source available.
 
 Additional conditions inherited with the source code are listed in [NOTICE.md](NOTICE.md).
-
-
-## Table modes and idle FFT
-
-- **Distort Table** (warp mode, both lanes): waveshaping by a built-in wavetable of 16 transfer curves (clean, soft, hard, folds, Chebyshev, stairs, diode, rectify, crush, ripple, chaos). The amount scrubs through the frames, 0 is clean.
-- **Spectral Table** (spectral mode, both lanes): a filter driven by a built-in wavetable of 16 frequency responses (flat, sub, tilt, vowels Oo/Oh/Ah/Eh/Ee, band, combs, notch, high pass, telephone, scoop, ripples). The amount scrubs through the frames, 0 is flat; the position slider transposes the response by up to four octaves.
-- Mode indices of the existing modes did not change (Distort Table is warp mode 9, Spectral Table is spectral mode 15). The sidechain menus hide FM, RM and Vocode.
-- The FFT only runs while a spectral mode is active and the inputs are not digital silence. A neutral stage is just the delay line; switching a mode on runs a few frames silently first so the wet signal fades in without a dip.
-- With no spectral mode chosen on either lane there is no latency at all (the plugin reports 0). Choosing a spectral mode on either lane engages the stage: both lanes then delay by one FFT size so they stay aligned, and the reported latency changes accordingly. The default oversampling is 2x.
-
-## Table mode controls
-
-- Pencil (top left of the knob): the wavetable editor of the table (save, import, edit). Cogwheel (top right): the settings menu, which shows the wavetable (3D / 2D / SP button) following the knob, with the fine controls underneath.
-- Spectral Table menu: gain, pitch (transposes the response), resonance (how far the response reaches), mix. These four have their own parameters (`input_table_gain`, `input_table_position`, `input_table_resonance`, `input_spectral_table_mix`, and the `sidechain_` ones), separate from the drawable modes' position, gain and resonance, so each can be modulated from the matrix on its own.
-- Distort Table menu: phase (shifts the transfer curve), bias, smooth, drive, DC filter (removes the offset bias and the curve create), mix. Drive, bias and smooth act even on the clean first frame.
-- Presets are now .vialfx and skins .vialskin (older .vital / .vitalskin still open); the default skin is the attached Default.vialskin.
-- New Skin Editor (preset menu > Open Skin Editor): sections are grouped into bins (Header, Input, Filters, Envelopes, LFO, Voice/MIDI, Effects, Matrix, Browser, Overlays); each bin lists its colour/value overrides, with a colour picker (hex, RGB, alpha), undo/redo and Save/Import to .vialskin. Hovering the plugin (or a bin in the editor) draws a dashed outline around the matching sections; Alt-click a section to jump to its bin.
-- Skin Editor glow: each global colour has Glow Strength and Glow Size knobs (0-1), saved in the .vialskin. A full-screen glow pass makes anything drawn in a glowing colour (text, lines, knobs, waveforms, meters, including section overrides of that colour) bloom softly; up to 12 glowing colours are used at once. Knobs also get a halo for the Rotary Arc colour. Glow can be set per bin as well (each bin's colour overrides carry their own strength and size). Edits in the Skin Editor are applied at a limited rate so the plugin window stays smooth while you drag; glow changes apply instantly. The editor window stays on top.
-
-## Effects tab
-
-The effects tab starts blank. **ADD EFFECT** (top of the left panel) adds a Chorus, Compressor, Delay, Distortion, EQ, Filter, Flanger, Phaser or Reverb to the end of the chain; the same effect can be added several times (up to 8 copies of each type; every copy is a full set of automatable, modulatable parameters named e.g. `chorus_2_dry_wet`). Rows in the left panel can be dragged to reorder the chain, and clicking one scrolls to that effect; both panels scroll when the chain is long. Each effect has its on/off button, a `-` that minimizes it to a title bar (name and symbol in the effect's colour) and an `x` that removes it (its settings and modulations are reset). Right-click an effect for Duplicate (same settings), Minimize or Remove. The chain is saved with the preset; presets from before the chain existed load with their enabled effects in their old order.
-- The window can now be resized to any shape (no fixed aspect ratio): sizes scale with the smaller dimension and the sections stretch to fill the rest; the shape is remembered. The Skin Editor window is resizable too (with minimum size).
