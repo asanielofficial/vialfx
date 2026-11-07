@@ -329,13 +329,14 @@ void FullInterface::setSkinValues(const Skin& skin, bool top_level) {
   if (!top_level)
     return;
 
-  std::vector<std::pair<Colour, float>> glows;
+  std::vector<Skin::GlowEntry> glows;
   skin.collectGlows(glows);
   std::vector<GlowPass::Key> keys;
   for (const auto& glow : glows) {
     if (static_cast<int>(keys.size()) >= GlowPass::kMaxKeys)
       break;
-    keys.push_back({ glow.first.getFloatRed(), glow.first.getFloatGreen(), glow.first.getFloatBlue(), glow.second });
+    keys.push_back({ glow.color.getFloatRed(), glow.color.getFloatGreen(), glow.color.getFloatBlue(),
+                     glow.glow, glow.size });
   }
   glow_pass_.setKeys(keys);
 }

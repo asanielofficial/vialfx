@@ -207,8 +207,16 @@ class Skin {
     // Glow amount (0..1) of a colour: how far a soft halo of that colour spreads around widgets that use it.
     void setGlow(ColorId color_id, float glow) { glow_[color_id - kInitialColor] = jlimit(0.0f, 1.0f, glow); }
     float getGlow(ColorId color_id) const { return glow_[color_id - kInitialColor]; }
+    // Glow size (0..1) of a colour: how far the halo reaches.
+    void setGlowSize(ColorId color_id, float size) { glow_size_[color_id - kInitialColor] = jlimit(0.0f, 1.0f, size); }
+    float getGlowSize(ColorId color_id) const { return glow_size_[color_id - kInitialColor]; }
+    struct GlowEntry {
+      Colour color;
+      float glow;
+      float size;
+    };
     // Every colour with glow, including its section-override variants, for the full-screen glow pass.
-    void collectGlows(std::vector<std::pair<Colour, float>>& glows) const;
+    void collectGlows(std::vector<GlowEntry>& glows) const;
     static Identifier glowPropertyName(ColorId color_id) { return Identifier("glow" + String(static_cast<int>(color_id))); }
     Colour getColor(int section, ColorId color_id) const;
     bool overridesColor(int section, ColorId color_id) const;
@@ -239,6 +247,7 @@ class Skin {
   protected:
     Colour colors_[kNumColors];
     float glow_[kNumColors] = { };
+    float glow_size_[kNumColors] = { };
     float values_[kNumSkinValueIds];
     std::map<ColorId, Colour> color_overrides_[kNumSectionOverrides];
     std::map<ValueId, float> value_overrides_[kNumSectionOverrides];

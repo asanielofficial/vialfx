@@ -15,7 +15,7 @@ class GlowPass {
     enum { kMaxKeys = 12 };
 
     struct Key {
-      float red, green, blue, glow;
+      float red, green, blue, glow, size;
     };
 
     void setKeys(const std::vector<Key>& keys) { keys_ = keys; }
@@ -49,23 +49,24 @@ class GlowPass {
       }
       glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
 
-      float strongest = 0.0f;
-      float data[kMaxKeys * 4] = { };
+      float largest = 0.0f;
+      float data[kMaxKeys * 5] = { };
       int count = std::min(static_cast<int>(kMaxKeys), static_cast<int>(keys_.size()));
       for (int i = 0; i < count; ++i) {
-        data[4 * i] = keys_[i].red;
-        data[4 * i + 1] = keys_[i].green;
-        data[4 * i + 2] = keys_[i].blue;
-        data[4 * i + 3] = keys_[i].glow;
-        strongest = std::max(strongest, keys_[i].glow);
+        data[5 * i] = keys_[i].red;
+        data[5 * i + 1] = keys_[i].green;
+        data[5 * i + 2] = keys_[i].blue;
+        data[5 * i + 3] = keys_[i].glow;
+        data[5 * i + 4] = (8.0f + 32.0f * keys_[i].size) * scale;
+        largest = std::max(largest, data[5 * i + 4]);
       }
 
       program_->use();
       program_->setUniform("tex", 0);
       program_->setUniform("texel", 1.0f / width, 1.0f / height);
-      program_->setUniform("radius", (8.0f + 28.0f * strongest) * scale);
+      program_->setUniform("radius", largest);
       program_->setUniform("count", count);
-      program_->setUniform("keys", data, kMaxKeys * 4);
+      program_->setUniform("keys", data, kMaxKeys * 5);
 
       glEnable(GL_BLEND);
       glBlendFunc(GL_ONE, GL_ONE);
@@ -100,7 +101,7 @@ class GlowPass {
           "uniform vec2 texel;\n"
           "uniform float radius;\n"
           "uniform int count;\n"
-          "uniform float keys[48];\n"
+          "uniform float keys[60];\n"
           "varying vec2 uv;\n"
           "void main() {\n"
           "    vec3 total = vec3(0.0);\n"
@@ -115,11 +116,12 @@ class GlowPass {
           "        for (int k = 0; k < 12; ++k) {\n"
           "            if (k >= count)\n"
           "                break;\n"
-          "            vec4 key = vec4(keys[4 * k], keys[4 * k + 1], keys[4 * k + 2], keys[4 * k + 3]);\n"
+          "            vec4 key = vec4(keys[5 * k], keys[5 * k + 1], keys[5 * k + 2], keys[5 * k + 3]);\n"
+          "            float rr = r * radius / max(keys[5 * k + 4], 1.0);\n"
           "            float d = distance(c, key.rgb);\n"
-          "            w = max(w, key.a * (1.0 - smoothstep(0.0, 0.35, d)));\n"
+          "            w = max(w, key.a * (1.0 - smoothstep(0.0, 0.35, d)) * clamp(1.0 - 0.7 * rr, 0.0, 1.0) * step(rr, 1.0));\n"
           "        }\n"
-          "        total += c * w * (1.0 - 0.7 * r);\n"
+          "        total += c * w;\n"
           "    }\n"
           "    gl_FragColor = vec4(total * (4.0 / float(kTaps)), 1.0);\n"
           "}\n";

@@ -201,17 +201,17 @@ Skin::Skin() {
   copyValuesToLookAndFeel(DefaultLookAndFeel::instance());
 }
 
-void Skin::collectGlows(std::vector<std::pair<Colour, float>>& glows) const {
+void Skin::collectGlows(std::vector<GlowEntry>& glows) const {
   for (int i = 0; i < kNumColors; ++i) {
     if (glow_[i] <= 0.0f)
       continue;
 
     ColorId id = static_cast<ColorId>(kInitialColor + i);
-    glows.emplace_back(colors_[i], glow_[i]);
+    glows.push_back({ colors_[i], glow_[i], glow_size_[i] });
     for (int section = 1; section < kNumSectionOverrides; ++section) {
       auto it = color_overrides_[section].find(id);
       if (it != color_overrides_[section].end())
-        glows.emplace_back(it->second, glow_[i]);
+        glows.push_back({ it->second, glow_[i], glow_size_[i] });
     }
   }
 }
@@ -345,8 +345,10 @@ json Skin::stateToJson() {
   for (int i = 0; i < kNumColors; ++i)
     data[kColorNames[i]] = colors_[i].toString().toStdString();
   for (int i = 0; i < kNumColors; ++i) {
-    if (glow_[i] > 0.0f)
+    if (glow_[i] > 0.0f) {
       data[kColorNames[i] + " Glow"] = glow_[i];
+      data[kColorNames[i] + " Glow Size"] = glow_size_[i];
+    }
   }
 
   for (int i = 0; i < kNumSkinValueIds; ++i)
@@ -448,6 +450,7 @@ void Skin::jsonToState(json data) {
       colors_[i] = Colour::fromString(color_string);
     }
     glow_[i] = data.count(kColorNames[i] + " Glow") ? jlimit(0.0f, 1.0f, (float)data[kColorNames[i] + " Glow"]) : 0.0f;
+    glow_size_[i] = data.count(kColorNames[i] + " Glow Size") ? jlimit(0.0f, 1.0f, (float)data[kColorNames[i] + " Glow Size"]) : 0.5f;
   }
 
   for (int i = 0; i < kNumSkinValueIds; ++i) {
@@ -689,18 +692,10 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       hex_.addListener(this);
       addAndMakeVisible(hex_);
 
-      glow_label_.setText("GLOW", dontSendNotification);
-      glow_label_.setColour(Label::textColourId, kEditorDim);
-      glow_label_.setFont(12.0f);
-      addAndMakeVisible(glow_label_);
-      glow_slider_.setRange(0.0, 1.0, 0.01);
-      glow_slider_.setSliderStyle(Slider::LinearHorizontal);
-      glow_slider_.setTextBoxStyle(Slider::TextBoxRight, false, 50, 22);
-      glow_slider_.setColour(Slider::trackColourId, kEditorAccent);
-      glow_slider_.setColour(Slider::textBoxTextColourId, kEditorText);
-      glow_slider_.setColour(Slider::textBoxOutlineColourId, Colour(0xff3a3948));
-      glow_slider_.onValueChange = [this]() { applyGlow(static_cast<float>(glow_slider_.getValue())); };
-      addAndMakeVisible(glow_slider_);
+      setupKnob(glow_slider_, glow_label_, "GLOW STRENGTH");
+      setupKnob(size_slider_, size_label_, "GLOW SIZE");
+      glow_slider_.onValueChange = [this]() { applyGlow(static_cast<float>(glow_slider_.getValue()), true); };
+      size_slider_.onValueChange = [this]() { applyGlow(static_cast<float>(size_slider_.getValue()), false); };
 
       selector_.setColour(ColourSelector::backgroundColourId, kEditorBackground);
       selector_.setColour(ColourSelector::labelTextColourId, kEditorText);
@@ -756,7 +751,7 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
 
       int right_x = list_width + 12;
       int right_width = bounds.getWidth() - right_x - 12;
-      const int picker_height = 270;
+      const int picker_height = 330;
       add_button_.setBounds(right_x, top, 150, 28);
       rows_viewport_.setBounds(right_x, top + 36, right_width,
                                bounds.getHeight() - top - 36 - picker_height - 20);
@@ -766,9 +761,11 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       int picker_y = bounds.getBottom() - picker_height - 8;
       hex_label_.setBounds(right_x, picker_y, 120, 24);
       hex_.setBounds(right_x + 124, picker_y, 110, 24);
-      glow_label_.setBounds(right_x + 250, picker_y, 44, 24);
-      glow_slider_.setBounds(right_x + 296, picker_y, std::max(100, right_width - 300), 24);
-      selector_.setBounds(right_x, picker_y + 30, right_width, picker_height - 30);
+      glow_slider_.setBounds(right_x + 260, picker_y - 4, 56, 48);
+      glow_label_.setBounds(right_x + 248, picker_y + 42, 80, 14);
+      size_slider_.setBounds(right_x + 340, picker_y - 4, 56, 48);
+      size_label_.setBounds(right_x + 336, picker_y + 42, 80, 14);
+      selector_.setBounds(right_x, picker_y + 62, right_width, picker_height - 62);
     }
 
     void buttonClicked(Button* button) override {
@@ -870,13 +867,34 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       applyColor(row, color);
     }
 
-    void applyGlow(float glow) {
+    void setupKnob(Slider& slider, Label& label, const String& text) {
+      slider.setRange(0.0, 1.0, 0.01);
+      slider.setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
+      slider.setTextBoxStyle(Slider::NoTextBox, true, 0, 0);
+      slider.setDoubleClickReturnValue(true, 0.5);
+      slider.setColour(Slider::rotarySliderFillColourId, kEditorAccent);
+      slider.setColour(Slider::rotarySliderOutlineColourId, Colour(0xff3a3948));
+      slider.setColour(Slider::thumbColourId, kEditorText);
+      slider.setPopupDisplayEnabled(true, true, this);
+      addAndMakeVisible(slider);
+      label.setText(text, dontSendNotification);
+      label.setColour(Label::textColourId, kEditorDim);
+      label.setFont(10.0f);
+      label.setJustificationType(Justification::centred);
+      addAndMakeVisible(label);
+    }
+
+    void applyGlow(float value, bool strength) {
       SkinEditorRow* row = selectedRow();
       if (row == nullptr || row->isValue() || bin_ != 0)
         return;
 
-      pushUndo("g:" + String(row->id()));
-      skin_->setGlow(static_cast<Skin::ColorId>(row->id()), glow);
+      pushUndo(String(strength ? "g:" : "gs:") + String(row->id()));
+      Skin::ColorId id = static_cast<Skin::ColorId>(row->id());
+      if (strength)
+        skin_->setGlow(id, value);
+      else
+        skin_->setGlowSize(id, value);
       reloadInterface();
     }
 
@@ -979,10 +997,12 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
 
       bool is_color = row != nullptr && !row->isValue();
       bool show_glow = is_color && bin_ == 0;
-      glow_slider_.setVisible(show_glow);
-      glow_label_.setVisible(show_glow);
-      if (show_glow)
+      for (Component* c : std::initializer_list<Component*>{ &glow_slider_, &glow_label_, &size_slider_, &size_label_ })
+        c->setVisible(show_glow);
+      if (show_glow) {
         glow_slider_.setValue(skin_->getGlow(static_cast<Skin::ColorId>(row->id())), dontSendNotification);
+        size_slider_.setValue(skin_->getGlowSize(static_cast<Skin::ColorId>(row->id())), dontSendNotification);
+      }
       selector_.setVisible(is_color);
       hex_.setVisible(is_color);
       hex_label_.setVisible(is_color);
@@ -1180,8 +1200,8 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
     Viewport rows_viewport_;
     Component rows_container_;
     std::vector<std::unique_ptr<SkinEditorRow>> rows_;
-    Label hex_label_, hint_, glow_label_;
-    Slider glow_slider_;
+    Label hex_label_, hint_, glow_label_, size_label_;
+    Slider glow_slider_, size_slider_;
     TextEditor hex_;
     ColourSelector selector_;
 
