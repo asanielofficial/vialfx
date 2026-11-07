@@ -1,0 +1,42 @@
+name: Stable release
+
+# Run on request (Actions tab > Stable release > Run workflow).
+# Publishes the current "nightly" pre-release assets as a stable release, using the notes in
+# .github/release-notes/<version>.md. The VST3 zips are renamed to VialFX-<version>-<os>-vst3.zip.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version, for example 1.1 (needs .github/release-notes/<version>.md)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          notes=".github/release-notes/$VERSION.md"
+          test -f "$notes"
+          sha=$(gh api "repos/$REPO/releases/tags/nightly" -q .target_commitish)
+          mkdir assets out
+          gh release download nightly --repo "$REPO" --dir assets
+          for f in assets/*; do
+            n=$(basename "$f")
+            case "$n" in
+              *-vst3.zip) os=$(echo "$n" | sed -E 's/.*-(linux|macos|windows)-vst3\.zip/\1/'); cp "$f" "out/VialFX-$VERSION-$os-vst3.zip" ;;
+              *) cp "$f" "out/$n" ;;
+            esac
+          done
+          ls out
+          gh release create "v$VERSION" out/* --repo "$REPO" --target "$sha" \
+            --title "VialFX $VERSION" --notes-file "$notes" --latest
