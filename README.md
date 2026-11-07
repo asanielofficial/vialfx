@@ -10,6 +10,8 @@ effects or straight to the output. It is built from GPLv3 synthesizer source cod
 
 ## Download
 
+The current stable version is [**VialFX 1.0**](https://github.com/asanielofficial/vialfx/releases/tag/stable): a Windows installer (.exe), a macOS installer (.pkg) and VST3 zips for Windows, macOS and Linux.
+
 The newest `main` commit that built on all three platforms is published as the [nightly pre-release](https://github.com/asanielofficial/vialfx/releases/tag/nightly) (Linux, macOS and Windows VST3, plus the Windows and macOS installers). These builds are unsigned and meant for testing. Every CI run also attaches its builds as artifacts.
 
 ## Features
