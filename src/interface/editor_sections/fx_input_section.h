@@ -405,7 +405,7 @@ class FxInputSection : public SynthSection {
       if (order != controls.end() && order->second) {
         warp_first_ = order->second->value() > 0.5f;
         swap_button_->useOnColors(warp_first_);
-        swap_button_->redoImage();
+        swap_button_->getGlComponent()->redoImage();
       }
       updateToolButton();
       connectMemory();
@@ -649,7 +649,7 @@ class FxInputSection : public SynthSection {
     void setWarpFirst(bool warp_first) {
       warp_first_ = warp_first;
       swap_button_->useOnColors(warp_first_);
-      swap_button_->redoImage();
+      swap_button_->getGlComponent()->redoImage();
 
       SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
       if (parent && parent->getSynth()) {
