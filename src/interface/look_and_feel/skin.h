@@ -207,6 +207,8 @@ class Skin {
     // Glow amount (0..1) of a colour: how far a soft halo of that colour spreads around widgets that use it.
     void setGlow(ColorId color_id, float glow) { glow_[color_id - kInitialColor] = jlimit(0.0f, 1.0f, glow); }
     float getGlow(ColorId color_id) const { return glow_[color_id - kInitialColor]; }
+    // Every colour with glow, including its section-override variants, for the full-screen glow pass.
+    void collectGlows(std::vector<std::pair<Colour, float>>& glows) const;
     static Identifier glowPropertyName(ColorId color_id) { return Identifier("glow" + String(static_cast<int>(color_id))); }
     Colour getColor(int section, ColorId color_id) const;
     bool overridesColor(int section, ColorId color_id) const;

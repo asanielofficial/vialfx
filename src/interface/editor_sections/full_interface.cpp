@@ -324,6 +324,22 @@ void FullInterface::paintBackground(Graphics& g) {
   paintChildrenBackgrounds(g);
 }
 
+void FullInterface::setSkinValues(const Skin& skin, bool top_level) {
+  SynthSection::setSkinValues(skin, top_level);
+  if (!top_level)
+    return;
+
+  std::vector<std::pair<Colour, float>> glows;
+  skin.collectGlows(glows);
+  std::vector<GlowPass::Key> keys;
+  for (const auto& glow : glows) {
+    if (static_cast<int>(keys.size()) >= GlowPass::kMaxKeys)
+      break;
+    keys.push_back({ glow.first.getFloatRed(), glow.first.getFloatGreen(), glow.first.getFloatBlue(), glow.second });
+  }
+  glow_pass_.setKeys(keys);
+}
+
 void FullInterface::copySkinValues(const Skin& skin) {
   ScopedLock open_gl_lock(open_gl_critical_section_);
   skin.copyValuesToLookAndFeel(DefaultLookAndFeel::instance());
@@ -696,12 +712,15 @@ void FullInterface::renderOpenGL() {
   background_.render(open_gl_);
   modulation_manager_->renderMeters(open_gl_, animate_);
   renderOpenGlComponents(open_gl_, animate_);
+  glow_pass_.render(open_gl_.context, roundToInt(render_scale * getWidth()), roundToInt(render_scale * getHeight()),
+                    render_scale);
 }
 
 void FullInterface::openGLContextClosing() {
   if (unsupported_)
     return;
 
+  glow_pass_.destroy();
   background_.destroy(open_gl_);
   destroyOpenGlComponents(open_gl_);
   open_gl_.shaders = nullptr;

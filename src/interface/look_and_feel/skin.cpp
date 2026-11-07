@@ -201,6 +201,21 @@ Skin::Skin() {
   copyValuesToLookAndFeel(DefaultLookAndFeel::instance());
 }
 
+void Skin::collectGlows(std::vector<std::pair<Colour, float>>& glows) const {
+  for (int i = 0; i < kNumColors; ++i) {
+    if (glow_[i] <= 0.0f)
+      continue;
+
+    ColorId id = static_cast<ColorId>(kInitialColor + i);
+    glows.emplace_back(colors_[i], glow_[i]);
+    for (int section = 1; section < kNumSectionOverrides; ++section) {
+      auto it = color_overrides_[section].find(id);
+      if (it != color_overrides_[section].end())
+        glows.emplace_back(it->second, glow_[i]);
+    }
+  }
+}
+
 void Skin::clearSkin() {
   for (int i = 0; i < kNumSectionOverrides; ++i)
     color_overrides_[i].clear();
