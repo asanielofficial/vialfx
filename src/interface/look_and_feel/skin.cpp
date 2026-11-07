@@ -683,6 +683,72 @@ namespace {
     return nullptr;
   }
 
+  // A single element of the interface (knob, slider, button, text), for the Alt inspector, with the colours it is
+  // drawn with.
+  struct ElementInfo {
+    Component* component = nullptr;
+    String label;
+    std::vector<Skin::ColorId> colors;
+  };
+
+  bool classifyElement(Component* c, ElementInfo& info) {
+    if (SynthSlider* slider = dynamic_cast<SynthSlider*>(c)) {
+      if (slider->isRotary()) {
+        info.label = "Knob";
+        info.colors = { Skin::kRotaryArc, Skin::kRotaryArcDisabled, Skin::kRotaryArcUnselected,
+                        Skin::kRotaryArcUnselectedDisabled, Skin::kRotaryHand, Skin::kRotaryBody,
+                        Skin::kRotaryBodyBorder };
+      }
+      else {
+        info.label = "Slider";
+        info.colors = { Skin::kLinearSlider, Skin::kLinearSliderDisabled, Skin::kLinearSliderUnselected,
+                        Skin::kLinearSliderThumb, Skin::kLinearSliderThumbDisabled };
+      }
+      if (slider->getName().isNotEmpty())
+        info.label += " - " + slider->getName();
+      return true;
+    }
+    if (dynamic_cast<OpenGlShapeButton*>(c) != nullptr) {
+      info.label = "Icon button";
+      if (c->getName().isNotEmpty())
+        info.label += " - " + c->getName();
+      info.colors = { Skin::kIconButtonOff, Skin::kIconButtonOffHover, Skin::kIconButtonOffPressed,
+                      Skin::kIconButtonOn, Skin::kIconButtonOnHover, Skin::kIconButtonOnPressed };
+      return true;
+    }
+    if (dynamic_cast<OpenGlToggleButton*>(c) != nullptr) {
+      info.label = "Button";
+      if (c->getName().isNotEmpty())
+        info.label += " - " + c->getName();
+      info.colors = { Skin::kUiButton, Skin::kUiButtonText, Skin::kUiButtonHover, Skin::kUiButtonPressed };
+      return true;
+    }
+    if (dynamic_cast<PlainTextComponent*>(c) != nullptr) {
+      info.label = "Text";
+      info.colors = { Skin::kBodyText };
+      return true;
+    }
+    return false;
+  }
+
+  // The topmost element under a point (in the root's coordinates).
+  bool findElement(Component* parent, Component* root, Point<int> point, ElementInfo& info) {
+    for (int i = parent->getNumChildComponents() - 1; i >= 0; --i) {
+      Component* child = parent->getChildComponent(i);
+      if (!child->isVisible() || child->getWidth() <= 0 || child->getHeight() <= 0)
+        continue;
+      if (!root->getLocalArea(child, child->getLocalBounds()).contains(point))
+        continue;
+      if (classifyElement(child, info)) {
+        info.component = child;
+        return true;
+      }
+      if (findElement(child, root, point, info))
+        return true;
+    }
+    return false;
+  }
+
   void collectBinSections(Component* component, const std::vector<Skin::SectionOverride>& sections,
                           FullInterface* root, std::vector<Rectangle<int>>& rects) {
     for (int i = 0; i < component->getNumChildComponents(); ++i) {
@@ -928,7 +994,8 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       selector_.addChangeListener(this);
       addAndMakeVisible(selector_);
 
-      hint_.setText("Hover the plugin to outline a section and its bin. Alt-click a section to edit its bin.",
+      hint_.setText("Hover the plugin to outline a section and its bin. Hold Alt to inspect single elements "
+                    "(knobs, sliders, buttons, text); Alt-click one to edit the colours it is drawn with.",
                     dontSendNotification);
       hint_.setFont(12.0f);
       hint_.setColour(Label::textColourId, kEditorDim);
@@ -1059,6 +1126,17 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       if (!e.mods.isAltDown() || full_interface_ == nullptr)
         return;
 
+      // Alt-click on an element of the plugin: its bin, with the colours that element uses ready to edit.
+      Point<int> point = full_interface_->getLocalPoint(nullptr, Desktop::getInstance().getMainMouseSource().getScreenPosition()).roundToInt();
+      ElementInfo element;
+      if (findElement(full_interface_, full_interface_, point, element)) {
+        int element_bin = -1;
+        if (findBinSection(element.component, full_interface_, element_bin) != nullptr && element_bin > 0) {
+          inspectElement(element_bin, element.colors);
+          return;
+        }
+      }
+
       int bin = -1;
       if (findBinSection(e.eventComponent, full_interface_, bin) != nullptr && bin > 0)
         selectBin(bin);
@@ -1072,6 +1150,16 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
 
       std::vector<Rectangle<int>> rects;
       int bin = -1;
+      if (hover_editor_bin_ < 0 && ModifierKeys::getCurrentModifiersRealtime().isAltDown()) {
+        // Inspector: outline the single element under the mouse, named after what it is.
+        Point<int> point = full_interface_->getLocalPoint(nullptr, Desktop::getInstance().getMainMouseSource().getScreenPosition()).roundToInt();
+        ElementInfo element;
+        if (full_interface_->getLocalBounds().contains(point) && findElement(full_interface_, full_interface_, point, element)) {
+          rects.push_back(full_interface_->getLocalArea(element.component, element.component->getLocalBounds()));
+          full_interface_->setBinHighlight(rects, element.label);
+          return;
+        }
+      }
       if (hover_editor_bin_ > 0) {
         bin = hover_editor_bin_;
         collectBinSections(full_interface_, SkinBins::sections(bin), full_interface_, rects);
@@ -1406,6 +1494,30 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
     bool binListed(int bin) const {
       int parent = SkinBins::parent(bin);
       return parent < 0 || bin_ == parent || SkinBins::parent(bin_) == parent;
+    }
+
+    // Opens the bin of an element and makes sure the colours it is drawn with are listed (added at their current
+    // values when the bin does not override them yet), then selects the first one.
+    void inspectElement(int bin, const std::vector<Skin::ColorId>& colors) {
+      selectBin(bin);
+      bool missing = false;
+      for (Skin::ColorId id : colors)
+        missing = missing || !binHas(false, id);
+
+      if (missing) {
+        pushUndo("inspect");
+        coalesce_key_ = String();
+        for (Skin::ColorId id : colors) {
+          if (binHas(false, id))
+            continue;
+          for (Skin::SectionOverride section : SkinBins::sections(bin))
+            skin_->addOverrideColor(section, id, skin_->getColor(id));
+        }
+        rebuildRows();
+        reloadInterface();
+      }
+      if (!colors.empty())
+        selectById(false, colors[0]);
     }
 
     void selectBin(int bin) {
