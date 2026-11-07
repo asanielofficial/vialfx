@@ -156,7 +156,8 @@ Open it from the preset menu with **Open Skin Editor**. It stays on top of the p
 resized.
 
 - **Bins:** the interface is grouped into bins (Header, Input, Filters, Envelopes, LFO, Voice/MIDI, Effects,
-  Matrix, Browser, Overlays), plus a Global bin for the base skin. Each bin lists its colour and value
+  Matrix, Browser, Overlays), plus a Global bin for the base skin. The Effects bin edits every effect module together, and each module (Chorus, Compressor, Delay,
+  Distortion, Equalizer, Filter, Flanger, Phaser, Reverb) also has its own sub-bin. Each bin lists its colour and value
   overrides; **+ Add override** adds more.
 - **Colour picker:** hex (AARRGGBB), RGB and alpha. Undo/redo, Save and Import work on `.vialskin` files.
 - **Hover outline:** while the editor is open, hovering the plugin (or a bin in the editor) draws a dashed
@@ -196,6 +197,14 @@ See `.github/workflows/build.yml` for the Xcode build steps.
 checks passthrough level, both filters and their routing, key tracking, every filter model, all nine effects,
 oversampling, LFO and envelope behaviour without MIDI, input destinations, and CPU use. CI runs it before
 every Linux build, then validates the plugin with pluginval and checks the binary for forbidden branding.
+
+## Acknowledgements
+
+**Matt Tytel.** VialFX would not exist without him. It is built on the open-source synthesizer code he wrote and released under the GPLv3. His work on the audio engine, the modulation system and the interface gave this project a foundation far beyond what we could have built from scratch. Thank you for sharing that work openly so that others can learn from it and build on it. VialFX is an independent project and is not affiliated with or endorsed by him.
+
+**-LightningPig** made the art for VialFX, including the logo. Thank you for giving the plugin its look.
+
+**Every tester.** Thank you to everyone who installed early builds, reported bugs, sent screenshots and told us what felt wrong. Much of what is in 1.0 exists because of your feedback.
 
 ## License
 

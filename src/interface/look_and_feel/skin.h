@@ -292,6 +292,8 @@ class SkinBins {
     static String name(int bin);
     static const std::vector<Skin::SectionOverride>& sections(int bin);
     static int binOf(Skin::SectionOverride section);
+    // Sub-bins (one per effect module) belong to a parent bin; -1 for top-level bins.
+    static int parent(int bin);
 };
 
 class SkinDesigner : public DocumentWindow {

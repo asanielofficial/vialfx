@@ -611,23 +611,58 @@ namespace {
   struct BinInfo {
     const char* name;
     std::vector<Skin::SectionOverride> sections;
+    int parent = -1;
   };
 
-  const std::vector<BinInfo>& binTable() {
-    static const std::vector<BinInfo> bins = {
-      { "Global", { Skin::kNone } },
-      { "Header", { Skin::kLogo, Skin::kHeader } },
-      { "Input / Oscillators", { Skin::kOscillator, Skin::kSample, Skin::kSub } },
-      { "Filters", { Skin::kFilter, Skin::kFxFilter } },
-      { "Envelopes", { Skin::kEnvelope } },
-      { "LFO / Tables", { Skin::kLfo, Skin::kRandomLfo } },
-      { "Voice / MIDI", { Skin::kVoice, Skin::kMacro, Skin::kKeyboard } },
-      { "Effects", { Skin::kAllEffects, Skin::kChorus, Skin::kCompressor, Skin::kDelay, Skin::kDistortion,
-                     Skin::kEqualizer, Skin::kFlanger, Skin::kPhaser, Skin::kReverb } },
-      { "Matrix / Mod", { Skin::kModulationDragDrop, Skin::kModulationMatrix } },
-      { "Browser", { Skin::kPresetBrowser, Skin::kPopupBrowser } },
-      { "Overlays / Advanced", { Skin::kOverlay, Skin::kAdvanced, Skin::kWavetableEditor } },
+  struct EffectModuleBin {
+    const char* name;
+    Skin::SectionOverride section;
+  };
+
+  // Every effect module that has its own skin sub-bin under "Effects". To add a new effect module:
+  //   1. give its section a SectionOverride (skin.h enum + kOverrideNames) and call setSkinOverride() with it,
+  //   2. add one line here.
+  // The "Effects" bin edits all modules together and each module also gets its own sub-bin, with no other change.
+  const std::vector<EffectModuleBin>& effectModuleBins() {
+    static const std::vector<EffectModuleBin> modules = {
+      { "Chorus", Skin::kChorus },
+      { "Compressor", Skin::kCompressor },
+      { "Delay", Skin::kDelay },
+      { "Distortion", Skin::kDistortion },
+      { "Equalizer", Skin::kEqualizer },
+      { "Filter", Skin::kFxFilter },
+      { "Flanger", Skin::kFlanger },
+      { "Phaser", Skin::kPhaser },
+      { "Reverb", Skin::kReverb },
     };
+    return modules;
+  }
+
+  const std::vector<BinInfo>& binTable() {
+    static const std::vector<BinInfo> bins = []() {
+      std::vector<BinInfo> list = {
+        { "Global", { Skin::kNone } },
+        { "Header", { Skin::kLogo, Skin::kHeader } },
+        { "Input / Oscillators", { Skin::kOscillator, Skin::kSample, Skin::kSub } },
+        { "Filters", { Skin::kFilter, Skin::kFxFilter } },
+        { "Envelopes", { Skin::kEnvelope } },
+        { "LFO / Tables", { Skin::kLfo, Skin::kRandomLfo } },
+        { "Voice / MIDI", { Skin::kVoice, Skin::kMacro, Skin::kKeyboard } },
+      };
+
+      BinInfo effects = { "Effects", { Skin::kAllEffects } };
+      for (const EffectModuleBin& module : effectModuleBins())
+        effects.sections.push_back(module.section);
+      int effects_index = static_cast<int>(list.size());
+      list.push_back(effects);
+      for (const EffectModuleBin& module : effectModuleBins())
+        list.push_back({ module.name, { module.section }, effects_index });
+
+      list.push_back({ "Matrix / Mod", { Skin::kModulationDragDrop, Skin::kModulationMatrix } });
+      list.push_back({ "Browser", { Skin::kPresetBrowser, Skin::kPopupBrowser } });
+      list.push_back({ "Overlays / Advanced", { Skin::kOverlay, Skin::kAdvanced, Skin::kWavetableEditor } });
+      return list;
+    }();
     return bins;
   }
 
@@ -677,13 +712,19 @@ int SkinBins::numBins() { return static_cast<int>(binTable().size()); }
 String SkinBins::name(int bin) { return binTable()[bin].name; }
 const std::vector<Skin::SectionOverride>& SkinBins::sections(int bin) { return binTable()[bin].sections; }
 
+int SkinBins::parent(int bin) { return binTable()[bin].parent; }
+
+// The most specific bin wins (an effect module's own sub-bin over the "Effects" bin that also covers it).
 int SkinBins::binOf(Skin::SectionOverride section) {
   const auto& bins = binTable();
+  int best = -1;
   for (int i = 1; i < static_cast<int>(bins.size()); ++i) {
-    if (std::find(bins[i].sections.begin(), bins[i].sections.end(), section) != bins[i].sections.end())
-      return i;
+    if (std::find(bins[i].sections.begin(), bins[i].sections.end(), section) == bins[i].sections.end())
+      continue;
+    if (best < 0 || bins[i].sections.size() < bins[best].sections.size())
+      best = i;
   }
-  return -1;
+  return best;
 }
 
 // One colour or value in a bin: swatch + name + remove button (or a value slider).
@@ -928,11 +969,20 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
 
       const int list_width = 180;
       int y = top;
-      for (auto& button : bin_buttons_) {
-        button->setBounds(12, y, list_width - 12, 32);
-        y += 38;
+      for (int i = 0; i < static_cast<int>(bin_buttons_.size()); ++i) {
+        bool visible = binListed(i);
+        bin_buttons_[i]->setVisible(visible);
+        if (!visible)
+          continue;
+
+        bool sub = SkinBins::parent(i) >= 0;
+        int indent = sub ? 16 : 0;
+        int height = sub ? 24 : 30;
+        bin_buttons_[i]->setBounds(12 + indent, y, list_width - 12 - indent, height);
+        y += height + (sub ? 3 : 4);
       }
       hint_.setBounds(12, y + 10, list_width - 16, 90);
+      hint_.setVisible(y + 100 < bounds.getHeight());
 
       int right_x = list_width + 12;
       int right_width = bounds.getWidth() - right_x - 12;
@@ -1352,8 +1402,15 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       updateGradientControls();
     }
 
+    // Sub-bins (the effect modules) are listed while their parent bin or one of its sub-bins is selected.
+    bool binListed(int bin) const {
+      int parent = SkinBins::parent(bin);
+      return parent < 0 || bin_ == parent || SkinBins::parent(bin_) == parent;
+    }
+
     void selectBin(int bin) {
       bin_ = bin;
+      resized();
       for (int i = 0; i < static_cast<int>(bin_buttons_.size()); ++i)
         bin_buttons_[i]->setToggleState(i == bin, dontSendNotification);
       add_button_.setVisible(bin > 0);
@@ -1574,7 +1631,7 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
 SkinDesigner::SkinDesigner(Skin* skin, FullInterface* full_interface) :
     DocumentWindow("VialFX Skin Editor", kEditorBackground, DocumentWindow::closeButton) {
   setAlwaysOnTop(true);
-  setResizeLimits(860, 600, 3000, 3000);
+  setResizeLimits(860, 700, 3000, 3000);
   container_ = std::make_unique<SkinEditor>(skin, full_interface);
   container_->setSize(860, 840);
   setContentNonOwned(container_.get(), false);
