@@ -1,0 +1,282 @@
+name: Build VialFX
+
+# One workflow for every platform: the Linux, Windows and macOS VST3 builds, plus the Windows (.exe) and macOS (.pkg)
+# installers. Run it from the Actions tab or push to main; the Nightly release workflow publishes its artifacts.
+on:
+  push:
+    branches: [ main, 'vialfx-*' ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    name: Linux (VST3)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config \
+            libasound2-dev libfreetype6-dev libgl1-mesa-dev libcurl4-openssl-dev \
+            libx11-dev libxext-dev libxinerama-dev libxrandr-dev libxcursor-dev
+
+      - name: Engine test (headless DSP checks)
+        run: |
+          # Passthrough, filters, routing, key tracking, all 9 effects, LFOs without MIDI. Fails on any check.
+          make -C effects/tests -j"$(nproc)"
+
+      - name: Build VialFX VST3
+        run: |
+          set +e
+          make -C effects/builds/linux_vst VST3 CONFIG=Release AR=gcc-ar \
+            SIMDFLAGS="-msse2" GLFLAGS="" BUILD_DATE="$(date +'%Y %m %d %H %M')" > build.log 2>&1
+          status=$?
+          if [ $status -ne 0 ]; then
+            # Surface the first errors as annotations so they are readable without the full log.
+            grep -n -m 40 -E "error|undefined reference|No such file|\*\*\*" build.log \
+              | cut -c1-450 | while IFS= read -r line; do echo "::error::${line}"; done
+            echo "::error::last lines: $(tail -n 6 build.log | tr '\n' '|' | cut -c1-600)"
+          fi
+          exit $status
+
+      - name: Check for Vital branding and service domains
+        run: |
+          set +e
+          # The built plugin must not contain the original product's domains or author/company names.
+          strings -a effects/builds/linux_vst/build/VialFX.vst3/Contents/x86_64-linux/VialFX.so > binary_strings.txt
+          if grep -i -n -E "vital\.audio|account\.vital|store\.vital|forum\.vital|vital audio|tytel" binary_strings.txt | head -20 > hits.txt && [ -s hits.txt ]; then
+            while IFS= read -r l; do echo "::error::[binary] $l"; done < hits.txt
+            exit 1
+          fi
+          # No first-party source/build file (outside third_party, the licence files and copyright headers) may reference them either.
+          if grep -rIn -i -E "vital\.audio|vital audio|tytel\.org|matthewtytel" --exclude-dir=third_party --exclude-dir=.git \
+               --exclude=LICENSE --exclude=NOTICE.md --exclude=copyright --exclude=changelog --exclude-dir=debian \
+               src effects Makefile README.md 2>/dev/null | grep -v -E "Copyright 20[0-9-]+ Matt Tytel" | head -20 > srchits.txt && [ -s srchits.txt ]; then
+            while IFS= read -r l; do echo "::error::[source] $l"; done < srchits.txt
+            exit 1
+          fi
+          echo "branding check passed"
+
+      - name: Package
+        run: |
+          mkdir -p dist
+          cp -r effects/builds/linux_vst/build/VialFX.vst3 dist/
+          ls -R dist | head -30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VialFX-linux-vst3
+          path: dist
+
+      - name: Validate with pluginval
+        run: |
+          set +e
+          sudo apt-get install -y --no-install-recommends xvfb unzip wget gdb libfreetype6 libasound2 libcurl4 libxrandr2 libxinerama1 libxcursor1
+          wget -q https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Linux.zip
+          unzip -q pluginval_Linux.zip
+          PLUGIN=effects/builds/linux_vst/build/VialFX.vst3
+          final=0
+
+          # pluginval randomises parameter values, so run several fixed seeds. On a crash, rerun
+          # the same seed under gdb to capture a backtrace and the last verbose output.
+          run_mode() {
+            mode=$1; extra=$2; level=$3
+            for seed in 1 2 3 4 5 6; do
+              xvfb-run -a ./pluginval --strictness-level 5 --validate-in-process $extra --random-seed $seed \
+                --output-dir "$PWD" "$PLUGIN" > val_${mode}_$seed.log 2>&1
+              rc=$?
+              echo "[$mode] seed $seed exit=$rc"
+              if [ $rc -ne 0 ]; then
+                if [ $rc -ge 128 ]; then
+                  xvfb-run -a gdb -batch -ex "set pagination off" -ex run -ex "bt 30" \
+                    --args ./pluginval --strictness-level 5 --validate-in-process $extra --verbose --random-seed $seed \
+                    --output-dir "$PWD" "$PLUGIN" > gdb_${mode}_$seed.log 2>&1
+                  grep -E "^#[0-9]+" gdb_${mode}_$seed.log | head -30 | cut -c1-330 | while IFS= read -r l; do echo "::$level::[$mode seed $seed bt] $l"; done
+                  grep -B16 -m1 -E "SIGSEGV|Program received" gdb_${mode}_$seed.log | cut -c1-240 | tr '\n' '|' | cut -c1-1800 | while IFS= read -r l; do echo "::$level::[$mode seed $seed before-crash] $l"; done
+                else
+                  grep -i -E "fail|error|assert" val_${mode}_$seed.log | head -15 | cut -c1-300 | while IFS= read -r l; do echo "::$level::[$mode seed $seed] $l"; done
+                fi
+                return $rc
+              fi
+            done
+            return 0
+          }
+
+          run_mode nogui "--skip-gui-tests" error
+          final=$?
+          run_mode gui "" warning
+          exit $final
+
+  windows:
+    name: Windows (VST3 + installer)
+    runs-on: windows-2022
+    timeout-minutes: 90
+    env:
+      CL: /bigobj
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: microsoft/setup-msbuild@v2
+
+      - name: Build VialFX VST3 (x64, Release)
+        shell: pwsh
+        run: |
+          msbuild effects\builds\vs17\VialFX.sln /m /nologo /p:Configuration=Release /p:Platform=x64 `
+            /p:PlatformToolset=v143 "/flp:logfile=msbuild.log;verbosity=minimal"
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            # Surface the first compiler/linker errors as annotations (the full log is not downloadable here).
+            Select-String -Path msbuild.log -Pattern ' error ' | Select-Object -Unique -First 40 |
+              ForEach-Object { $t = $_.Line.Trim(); if ($t.Length -gt 450) { $t = $t.Substring(0,450) }; Write-Host "::error::$t" }
+          }
+          exit $code
+
+      - name: Locate the plugin
+        shell: pwsh
+        run: |
+          $f = Get-ChildItem -Recurse effects\builds\vs17 -Filter *.vst3 | Select-Object -First 1
+          if (-not $f) { Write-Host "::error::no .vst3 produced"; exit 1 }
+          New-Item -ItemType Directory dist | Out-Null
+          Copy-Item $f.FullName dist\
+          Get-ChildItem dist | Format-Table Name, Length
+
+      - name: Check for Vital branding and service domains
+        shell: pwsh
+        run: |
+          python -c "import re,sys,glob; d=open(glob.glob('dist/*.vst3')[0],'rb').read(); m=re.findall(rb'(?i)vital\.audio|account\.vital|store\.vital|forum\.vital|vital audio|tytel', d); print(m[:10]); sys.exit(1 if m else 0)"
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::[binary] Vital branding or service domain found in the plugin"; exit 1 }
+          Write-Host "branding check passed"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VialFX-windows-vst3
+          path: dist
+
+      - name: Build the Windows installer
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          New-Item -ItemType Directory installers | Out-Null
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          & $iscc "/DSourceFile=$PWD\dist\VialFX.vst3" "/DAppVersion=1.0" "/O$PWD\installers" installer\windows\VialFX.iss
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::Inno Setup failed"; exit 1 }
+          Get-ChildItem installers | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VialFX-windows-installer
+          path: installers
+
+      - name: Validate with pluginval (non-blocking)
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Windows.zip -OutFile pluginval.zip
+          Expand-Archive pluginval.zip -DestinationPath pv
+          $plugin = (Get-ChildItem dist -Filter *.vst3 | Select-Object -First 1).FullName
+          foreach ($seed in 1,2,3) {
+            .\pv\pluginval.exe --strictness-level 5 --validate-in-process --skip-gui-tests --random-seed $seed --output-dir $PWD $plugin *> "pv_$seed.log"
+            $rc = $LASTEXITCODE
+            Write-Host "seed $seed exit=$rc"
+            if ($rc -ne 0) {
+              Select-String -Path "pv_$seed.log" -Pattern 'fail|error|crash|assert' | Select-Object -First 15 |
+                ForEach-Object { $t = $_.Line.Trim(); if ($t.Length -gt 300) { $t = $t.Substring(0,300) }; Write-Host "::warning::[pluginval seed $seed] $t" }
+              exit $rc
+            }
+          }
+
+  macos:
+    name: macOS (VST3 + installer)
+    # The last Intel runner: the prebuilt Projucer of the JUCE version this project uses is an Intel binary. The plugin
+    # itself is built universal (arm64 + x86_64).
+    runs-on: macos-15-intel
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get Projucer (JUCE 6.0.5)
+        run: |
+          curl -fsSL -o juce.zip https://github.com/juce-framework/JUCE/releases/download/6.0.5/juce-6.0.5-osx.zip
+          unzip -q juce.zip -d juce_download
+          ls juce_download/JUCE
+
+      - name: Generate the Xcode project
+        run: |
+          python3 - <<'EOF'
+          import re
+          p = 'effects/vial_fx.jucer'
+          s = open(p).read()
+          a = s.index('<XCODE_MAC')
+          b = s.index('</XCODE_MAC>')
+          block = s[a:b]
+          # Authentication is compiled out (NO_AUTH), so the closed-source Firebase frameworks, the Kerberos library and
+          # the original product's post-build step are not needed.
+          for attr in ('extraCustomFrameworks', 'frameworkSearchPaths', 'externalLibraries', 'postbuildCommand',
+                       'iosDevelopmentTeamID'):
+              block = re.sub(r'\s+' + attr + r'="[^"]*"', '', block)
+          block = block.replace('hardenedRuntime="1"', 'hardenedRuntime="0"')
+          block = block.replace('enablePluginBinaryCopyStep="1"', 'enablePluginBinaryCopyStep="0"')
+          block = block.replace('osxCompatibility="10.12 SDK"', 'osxCompatibility="10.13 SDK"')
+          s = s[:a] + block + s[b:]
+          open(p, 'w').write(s)
+          EOF
+          juce_download/JUCE/Projucer.app/Contents/MacOS/Projucer --resave effects/vial_fx.jucer
+          ls effects/builds/osx
+
+      - name: Build VialFX VST3 (universal, Release)
+        run: |
+          set +e
+          xcodebuild -project effects/builds/osx/VialFX.xcodeproj -scheme "VialFX - VST3" -configuration Release \
+            ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO MACOSX_DEPLOYMENT_TARGET=10.13 \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
+            GCC_TREAT_WARNINGS_AS_ERRORS=NO > build.log 2>&1
+          status=$?
+          if [ $status -ne 0 ]; then
+            grep -n -m 40 -E "error:|fatal error|undefined symbol|\*\*\* " build.log \
+              | cut -c1-450 | while IFS= read -r line; do echo "::error::${line}"; done
+            echo "::error::last lines: $(tail -n 8 build.log | tr '\n' '|' | cut -c1-700)"
+          fi
+          exit $status
+
+      - name: Check for Vital branding and service domains
+        run: |
+          set +e
+          BIN=$(find effects/builds/osx/build -name "VialFX" -path "*.vst3/Contents/MacOS/*" | head -1)
+          if [ -z "$BIN" ]; then echo "::error::no VST3 binary produced"; exit 1; fi
+          file "$BIN"
+          strings -a "$BIN" > binary_strings.txt
+          if grep -i -n -E "vital\.audio|account\.vital|store\.vital|forum\.vital|vital audio|tytel" binary_strings.txt | head -20 > hits.txt && [ -s hits.txt ]; then
+            while IFS= read -r l; do echo "::error::[binary] $l"; done < hits.txt
+            exit 1
+          fi
+          echo "branding check passed"
+
+      - name: Package
+        run: |
+          mkdir -p dist
+          VST3=$(find effects/builds/osx/build -name "VialFX.vst3" -maxdepth 4 | head -1)
+          ditto "$VST3" dist/VialFX.vst3
+          ls -R dist | head -20
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VialFX-macos-vst3
+          path: dist
+
+      - name: Build the macOS installer (.pkg)
+        run: |
+          mkdir -p pkgroot installers
+          cp -R dist/VialFX.vst3 pkgroot/VialFX.vst3
+          pkgbuild --root pkgroot --identifier com.vialfx.vst3 --version 1.0 \
+            --install-location /Library/Audio/Plug-Ins/VST3 component.pkg
+          productbuild --package component.pkg installers/VialFX-1.0-macOS.pkg
+          ls -l installers
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VialFX-macos-installer
+          path: installers

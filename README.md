@@ -5,13 +5,12 @@ audio inputs (main and sidechain) that can each be warped, spectrally morphed an
 effects or straight to the output. It is built from GPLv3 synthesizer source code (see
 [NOTICE.md](NOTICE.md) for the origin of the code).
 
-> **Status:** version 0.1.0, early development. VST3 builds for Linux, macOS and Windows are produced by CI,
-> and the plugin passes pluginval. The roadmap through v0.3 (base FX, distortion warp, spectral processing)
-> is done.
+> **Status:** version 1.0. VST3 builds for Linux, macOS and Windows, plus a Windows installer (.exe) and a
+> macOS installer (.pkg), are produced by CI, and the plugin passes pluginval.
 
 ## Download
 
-The newest `main` commit that built on all three platforms is published as the [nightly pre-release](https://github.com/asanielofficial/vialfx/releases/tag/nightly) (Linux, macOS and Windows VST3). These builds are unsigned and meant for testing. Every CI run also attaches its builds as artifacts.
+The newest `main` commit that built on all three platforms is published as the [nightly pre-release](https://github.com/asanielofficial/vialfx/releases/tag/nightly) (Linux, macOS and Windows VST3, plus the Windows and macOS installers). These builds are unsigned and meant for testing. Every CI run also attaches its builds as artifacts.
 
 ## Features
 
@@ -183,11 +182,11 @@ The result is `effects/builds/linux_vst/build/VialFX.vst3`.
 ### Windows (VST3)
 
 Open `effects/builds/vs17` with Visual Studio 2022, or use the MSBuild steps in
-`.github/workflows/build-windows.yml`.
+`.github/workflows/build.yml`.
 
 ### macOS (VST3)
 
-See `.github/workflows/build-macos.yml` for the Xcode build steps.
+See `.github/workflows/build.yml` for the Xcode build steps.
 
 ## Tests
 

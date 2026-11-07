@@ -1,7 +1,7 @@
 name: Nightly release
 
-# Run on request (Actions tab > Nightly release > Run workflow). Publishes the newest main commit's Linux, macOS and Windows VST3 builds as the "nightly" pre-release.
-# It reuses the artifacts of the three build workflows, so it only publishes a commit that built everywhere.
+# Run on request (Actions tab > Nightly release > Run workflow). Publishes the newest main commit's Linux, macOS and Windows VST3 builds and the Windows and macOS installers as the "nightly" pre-release.
+# It reuses the artifacts of the Build VialFX workflow, so it only publishes a commit that built everywhere.
 on:
   workflow_dispatch:
 
@@ -28,23 +28,25 @@ jobs:
           short=$(git rev-parse --short HEAD)
           echo "sha=$sha" >> "$GITHUB_ENV"
           echo "short=$short" >> "$GITHUB_ENV"
+          id=$(gh api "repos/$REPO/actions/workflows/build.yml/runs?head_sha=$sha&status=success&per_page=1" --jq '.workflow_runs[0].id')
+          if [ -z "$id" ] || [ "$id" = "null" ]; then
+            echo "::error::No successful Build VialFX run for $short yet; not publishing."
+            exit 1
+          fi
           mkdir -p art out
-          for pair in linux:build-linux macos:build-macos windows:build-windows; do
-            os=${pair%%:*}; wf=${pair##*:}.yml
-            id=$(gh api "repos/$REPO/actions/workflows/$wf/runs?head_sha=$sha&status=success&per_page=1" --jq '.workflow_runs[0].id')
-            if [ -z "$id" ] || [ "$id" = "null" ]; then
-              echo "::error::No successful $wf run for $short yet; not publishing."
-              exit 1
-            fi
-            gh run download "$id" --repo "$REPO" -D "art/$os"
-            (cd "art/$os" && zip -qr "../../out/VialFX-nightly-$(date -u +%Y%m%d)-$short-$os-vst3.zip" .)
+          gh run download "$id" --repo "$REPO" -D art
+          ls art
+          for os in linux macos windows; do
+            (cd "art/VialFX-$os-vst3" && zip -qr "../../out/VialFX-nightly-$(date -u +%Y%m%d)-$short-$os-vst3.zip" .)
           done
+          cp art/VialFX-windows-installer/*.exe out/
+          cp art/VialFX-macos-installer/*.pkg out/
           ls -l out
 
       - name: Publish the nightly pre-release
         run: |
           set -e
           gh release delete nightly --repo "$REPO" --cleanup-tag --yes || true
-          gh release create nightly out/*.zip --repo "$REPO" --prerelease --target "$sha" \
+          gh release create nightly out/* --repo "$REPO" --prerelease --target "$sha" \
             --title "Nightly $(date -u +%Y-%m-%d) ($short)" \
-            --notes "Automatic build of main at $short for Linux, macOS and Windows (VST3). Unsigned builds for testing."
+            --notes "Automatic build of main at $short for Linux, macOS and Windows (VST3), with a Windows installer (.exe) and a macOS installer (.pkg). Unsigned builds for testing."

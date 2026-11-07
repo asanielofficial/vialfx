@@ -33,7 +33,7 @@ namespace {
 
 #if VITAL_FX
 namespace {
-  const char* const kVialFxVersion = "0.1.0";
+  const char* const kVialFxVersion = "1.0";
 }
 #endif
 
