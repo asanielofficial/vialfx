@@ -218,6 +218,7 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
       minimized_ = minimized;
       section_->setVisible(!minimized);
       power_button_->setVisible(minimized);
+      close_button_->setVisible(minimized);
       power_button_->setToggleState(isOn(), dontSendNotification);
       resized();
       repaintBackground();
@@ -267,11 +268,9 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
       }
       else {
         section_->setBounds(getLocalBounds());
-        // Under the power button in the title strip; the title is kept clear of it.
-        int x = static_cast<int>(getPowerButtonOffset()) + (title_width - small) / 2;
-        int gap = std::max(2, small / 3);
-        close_button_->setBounds(x, title_width, small, small);
-        section_->setHeadingTopInset(small + gap);
+        // Expanded effects have no remove button (select them in the list to remove or duplicate them).
+        close_button_->setVisible(false);
+        section_->setHeadingTopInset(0);
       }
       SynthSection::resized();
     }
@@ -301,6 +300,12 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
     // Right-click on the effect's background or title: duplicate, minimize, remove.
     // Double-click on the effect's background or title: minimize / expand.
     void mouseDoubleClick(const MouseEvent& e) override {
+      // This slot listens to itself (to see its children's clicks), so a click on the slot's own surface arrives
+      // twice: ignore the repeat or the effect would minimize and expand again at once.
+      if (e.eventTime == last_event_time_)
+        return;
+      last_event_time_ = e.eventTime;
+
       if (e.mods.isPopupMenu() || !hitsBackground(e))
         return;
 
@@ -310,14 +315,19 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
 
     bool hitsBackground(const MouseEvent& e) const {
       Component* hit = e.originalComponent;
+      // The minimized bar has no controls but the power and remove buttons; anything else on it counts.
+      if (minimized_)
+        return !(dynamic_cast<Slider*>(hit) || dynamic_cast<Button*>(hit) || dynamic_cast<TextEditor*>(hit));
+
       return !(dynamic_cast<Slider*>(hit) || dynamic_cast<Button*>(hit) || dynamic_cast<TextEditor*>(hit) ||
                (hit != this && hit != section_.get() && dynamic_cast<SynthSection*>(hit) == nullptr &&
                 dynamic_cast<OpenGlComponent*>(hit) != nullptr));
     }
 
     void mouseDown(const MouseEvent& e) override {
-      if (!e.mods.isPopupMenu() || !hitsBackground(e))
+      if (!e.mods.isPopupMenu() || !hitsBackground(e) || e.eventTime == last_event_time_)
         return;
+      last_event_time_ = e.eventTime;
 
       PopupItems options;
       options.addItem(kDuplicate, "Duplicate");
@@ -361,6 +371,7 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
 
     int effect_id_;
     bool minimized_;
+    Time last_event_time_;
     Path icon_;
     std::unique_ptr<SynthSection> section_;
     std::unique_ptr<OpenGlShapeButton> close_button_;
@@ -398,6 +409,14 @@ class FxEffectRow : public SynthSection {
 
     int effectId() const { return effect_id_; }
     void setDragging(bool dragging) { dragging_ = dragging; redraw(); }
+    void setSelection(bool selecting, bool selected) {
+      if (selecting_ == selecting && selected_ == selected)
+        return;
+
+      selecting_ = selecting;
+      selected_ = selected;
+      redraw();
+    }
     void redraw() { background_->redrawImage(true); }
 
     void paintBackground(Graphics& g) override { }
@@ -414,10 +433,29 @@ class FxEffectRow : public SynthSection {
 
       g.setFont(Fonts::instance()->proportional_regular().withPointHeight(size_ratio_ * 12.0f));
       float margin = getHeight() * 0.3f;
+      float text_x = margin;
+      if (selecting_) {
+        float box = getHeight() * 0.4f;
+        Rectangle<float> check_box(margin, (getHeight() - box) / 2.0f, box, box);
+        Colour accent = findColour(Skin::kWidgetPrimary1, true);
+        g.setColour(selected_ ? accent : findColour(Skin::kBodyText, true).withMultipliedAlpha(0.6f));
+        if (selected_) {
+          g.fillRoundedRectangle(check_box, 3.0f);
+          g.setColour(findColour(Skin::kBody, true));
+          Path tick;
+          tick.startNewSubPath(check_box.getX() + box * 0.22f, check_box.getY() + box * 0.52f);
+          tick.lineTo(check_box.getX() + box * 0.42f, check_box.getY() + box * 0.72f);
+          tick.lineTo(check_box.getX() + box * 0.78f, check_box.getY() + box * 0.28f);
+          g.strokePath(tick, PathStrokeType(std::max(1.5f, box * 0.14f), PathStrokeType::curved, PathStrokeType::rounded));
+        }
+        else
+          g.drawRoundedRectangle(check_box, 3.0f, 1.5f);
+        text_x = check_box.getRight() + margin * 0.6f;
+      }
       String text = String(title_).toLowerCase();
       text = text.substring(0, 1).toUpperCase() + text.substring(1);
       g.setColour(findColour(on_ ? Skin::kBodyText : Skin::kHeadingText, true).withMultipliedAlpha(on_ ? 1.0f : 0.6f));
-      g.drawText(text, margin, 0, getWidth() - 2.0f * margin - getHeight(), getHeight(),
+      g.drawText(text, text_x, 0, getWidth() - text_x - margin - getHeight(), getHeight(),
                  Justification::centredLeft, true);
 
       float icon_width = kIconSize * getHeight();
@@ -434,6 +472,7 @@ class FxEffectRow : public SynthSection {
   private:
     int effect_id_;
     bool on_, minimized_, dragging_;
+    bool selecting_ = false, selected_ = false;
     std::string title_;
     Path icon_;
     std::unique_ptr<OpenGlImageComponent> background_;
@@ -461,9 +500,29 @@ class FxEffectList : public SynthSection, public ScrollBar::Listener {
         virtual void addEffectRequested(int type) = 0;
         virtual void chainReordered(const std::vector<int>& effect_ids) = 0;
         virtual void effectSelected(int effect_id) = 0;
+        virtual void effectsDuplicateRequested(const std::vector<int>& effect_ids) = 0;
+        virtual void effectsRemoveRequested(const std::vector<int>& effect_ids) = 0;
     };
 
     FxEffectList() : SynthSection("effect_chain"), dragged_(-1), mouse_down_y_(0), dragged_start_y_(0), moved_(false) {
+      select_button_ = std::make_unique<OpenGlShapeButton>("select_effects");
+      addAndMakeVisible(select_button_.get());
+      addOpenGlComponent(select_button_->getGlComponent());
+      select_button_->addListener(this);
+      select_button_->setClickingTogglesState(true);
+      select_button_->useOnColors(true);
+      select_button_->setShape(selectShape());
+
+      for (OpenGlToggleButton* button : { &duplicate_button_, &delete_button_ }) {
+        addChildComponent(button);
+        addOpenGlComponent(button->getGlComponent());
+        button->addListener(this);
+        button->setLookAndFeel(TextLookAndFeel::instance());
+        button->setUiButton(true);
+      }
+      duplicate_button_.setText("DUPLICATE");
+      delete_button_.setText("DELETE");
+
       add_button_ = std::make_unique<OpenGlToggleButton>("add_effect");
       addAndMakeVisible(add_button_.get());
       addOpenGlComponent(add_button_->getGlComponent());
@@ -503,9 +562,13 @@ class FxEffectList : public SynthSection, public ScrollBar::Listener {
     void setChain(const std::vector<int>& effect_ids, const std::function<bool(int)>& is_on,
                   const std::function<bool(int)>& is_minimized) {
       order_ = effect_ids;
+      selected_.erase(std::remove_if(selected_.begin(), selected_.end(), [this](int id) {
+        return std::find(order_.begin(), order_.end(), id) == order_.end();
+      }), selected_.end());
       for (int i = 0; i < fx_ui::kPoolSize; ++i) {
         if (i < static_cast<int>(order_.size())) {
           rows_[i]->setEffect(order_[i], is_on(order_[i]), is_minimized(order_[i]));
+          rows_[i]->setSelection(selecting_, isSelected(order_[i]));
           rows_[i]->setVisible(true);
         }
         else {
@@ -533,9 +596,16 @@ class FxEffectList : public SynthSection, public ScrollBar::Listener {
       ScopedLock lock(open_gl_critical_section_);
       int margin = std::max(2, static_cast<int>(getWidgetMargin()));
       int button_height = std::max(18, static_cast<int>(size_ratio_ * 30));
-      add_button_->setBounds(margin, margin, getWidth() - 2 * margin, button_height);
-
+      select_button_->setBounds(margin, margin, button_height, button_height);
+      int add_x = select_button_->getRight() + margin;
+      add_button_->setBounds(add_x, margin, getWidth() - add_x - margin, button_height);
       int top = add_button_->getBottom() + margin;
+      if (selecting_) {
+        int half = (getWidth() - 3 * margin) / 2;
+        duplicate_button_.setBounds(margin, top, half, button_height);
+        delete_button_.setBounds(duplicate_button_.getRight() + margin, top, getWidth() - 3 * margin - half, button_height);
+        top = duplicate_button_.getBottom() + margin;
+      }
       int scroll_width = std::max(4, static_cast<int>(size_ratio_ * 6));
       viewport_.setBounds(margin, top, getWidth() - 2 * margin - scroll_width, std::max(1, getHeight() - top - margin));
       scroll_bar_->setBounds(getWidth() - margin - scroll_width, top, scroll_width, viewport_.getHeight());
@@ -545,11 +615,35 @@ class FxEffectList : public SynthSection, public ScrollBar::Listener {
     }
 
     void buttonClicked(Button* clicked_button) override {
+      if (clicked_button == select_button_.get()) {
+        setSelecting(select_button_->getToggleState());
+        return;
+      }
+      if (clicked_button == &duplicate_button_ || clicked_button == &delete_button_) {
+        duplicate_button_.setToggleState(false, dontSendNotification);
+        delete_button_.setToggleState(false, dontSendNotification);
+        std::vector<int> ids;
+        for (int id : order_) {
+          if (isSelected(id))
+            ids.push_back(id);
+        }
+        if (ids.empty())
+          return;
+
+        bool duplicate = clicked_button == &duplicate_button_;
+        selected_.clear();
+        for (Listener* listener : listeners_) {
+          if (duplicate)
+            listener->effectsDuplicateRequested(ids);
+          else
+            listener->effectsRemoveRequested(ids);
+        }
+        return;
+      }
       if (clicked_button != add_button_.get()) {
         SynthSection::buttonClicked(clicked_button);
         return;
       }
-
       PopupItems options;
       for (int type = 0; type < fx_ui::kNumTypes; ++type)
         options.addItem(type + 1, fx_ui::typeMenuName(type));
@@ -587,6 +681,32 @@ class FxEffectList : public SynthSection, public ScrollBar::Listener {
     };
 
   private:
+    // A check box with a tick: the select-multiple icon.
+    static Path selectShape() {
+      Path box_outline, tick_outline, path;
+      box_outline.addRoundedRectangle(0.12f, 0.12f, 0.76f, 0.76f, 0.14f);
+      PathStrokeType(0.09f, PathStrokeType::curved, PathStrokeType::rounded).createStrokedPath(path, box_outline);
+      tick_outline.startNewSubPath(0.3f, 0.52f);
+      tick_outline.lineTo(0.46f, 0.68f);
+      tick_outline.lineTo(0.72f, 0.32f);
+      Path tick;
+      PathStrokeType(0.1f, PathStrokeType::curved, PathStrokeType::rounded).createStrokedPath(tick, tick_outline);
+      path.addPath(tick);
+      return path;
+    }
+
+    bool isSelected(int id) const { return std::find(selected_.begin(), selected_.end(), id) != selected_.end(); }
+
+    void setSelecting(bool selecting) {
+      selecting_ = selecting;
+      selected_.clear();
+      duplicate_button_.setVisible(selecting);
+      delete_button_.setVisible(selecting);
+      for (int i = 0; i < static_cast<int>(order_.size()); ++i)
+        rows_[i]->setSelection(selecting_, false);
+      resized();
+    }
+
     float rowHeight() const { return std::max(18.0f, size_ratio_ * 40.0f); }
     float rowPitch() const { return rowHeight() + std::max(2.0f, size_ratio_ * 5.0f); }
 
@@ -617,8 +737,14 @@ class FxEffectList : public SynthSection, public ScrollBar::Listener {
     }
 
     void rowMouseDown(const MouseEvent& e) {
-      dragged_ = rowAt(e.y);
       moved_ = false;
+      if (selecting_) {
+        // No dragging while selecting: a click toggles the row.
+        dragged_ = -1;
+        select_down_ = rowAt(e.y);
+        return;
+      }
+      dragged_ = rowAt(e.y);
       if (dragged_ < 0)
         return;
 
@@ -660,6 +786,20 @@ class FxEffectList : public SynthSection, public ScrollBar::Listener {
     }
 
     void rowMouseUp(const MouseEvent& e) {
+      if (selecting_) {
+        int index = rowAt(e.y);
+        if (index >= 0 && index == select_down_) {
+          int id = order_[index];
+          auto found = std::find(selected_.begin(), selected_.end(), id);
+          if (found == selected_.end())
+            selected_.push_back(id);
+          else
+            selected_.erase(found);
+          rows_[index]->setSelection(true, isSelected(id));
+        }
+        select_down_ = -1;
+        return;
+      }
       if (dragged_ < 0)
         return;
 
@@ -680,6 +820,8 @@ class FxEffectList : public SynthSection, public ScrollBar::Listener {
     }
 
     std::vector<Listener*> listeners_;
+    std::unique_ptr<OpenGlShapeButton> select_button_;
+    OpenGlToggleButton duplicate_button_{"duplicate_selected"}, delete_button_{"delete_selected"};
     std::unique_ptr<OpenGlToggleButton> add_button_;
     ListViewport viewport_;
     std::unique_ptr<FxRowContainer> container_;
@@ -691,7 +833,9 @@ class FxEffectList : public SynthSection, public ScrollBar::Listener {
     int mouse_down_y_;
     int dragged_start_y_;
     bool moved_;
-
+    bool selecting_ = false;
+    int select_down_ = -1;
+    std::vector<int> selected_;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FxEffectList)
 };
 
@@ -840,6 +984,16 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
     }
 
     void effectSelected(int effect_id) override { scrollToEffect(effect_id); }
+
+    void effectsDuplicateRequested(const std::vector<int>& effect_ids) override {
+      for (int id : effect_ids)
+        effectDuplicateRequested(id);
+    }
+
+    void effectsRemoveRequested(const std::vector<int>& effect_ids) override {
+      for (int id : effect_ids)
+        effectRemoveRequested(id);
+    }
 
     void effectRemoveRequested(int effect_id) override {
       chain_.erase(std::remove_if(chain_.begin(), chain_.end(),

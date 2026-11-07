@@ -702,13 +702,27 @@ class SkinEditorRow : public Component {
       remove_.onClick = [this]() { if (on_remove) on_remove(this); };
 
       if (is_value_) {
-        slider_.setRange(-10000.0, 10000.0);
-        slider_.setSliderStyle(Slider::IncDecButtons);
+        // The stock inc/dec buttons do nothing when the slider has no step, so the buttons are our own.
+        slider_.setRange(-10000.0, 10000.0, 0.01);
+        slider_.setSliderStyle(Slider::LinearBar);
+        slider_.setVelocityBasedMode(true);
         slider_.setNumDecimalPlacesToDisplay(2);
         slider_.setScrollWheelEnabled(false);
-        slider_.setTextBoxStyle(Slider::TextBoxLeft, false, 80, 22);
+        slider_.setTextBoxIsEditable(true);
+        slider_.setColour(Slider::trackColourId, kEditorAccent.withAlpha(0.25f));
+        slider_.setColour(Slider::textBoxTextColourId, kEditorText);
         slider_.onValueChange = [this]() { if (on_value) on_value(this, static_cast<float>(slider_.getValue())); };
         addAndMakeVisible(slider_);
+        for (TextButton* step : { &minus_, &plus_ }) {
+          step->setColour(TextButton::buttonColourId, Colour(0xff3a3948));
+          step->setColour(TextButton::textColourOffId, kEditorText);
+          step->setTooltip("Step by 0.1 (hold Shift for 0.01, Ctrl/Cmd for 1)");
+          addAndMakeVisible(step);
+        }
+        minus_.setButtonText("-");
+        plus_.setButtonText("+");
+        minus_.onClick = [this]() { stepValue(-1.0); };
+        plus_.onClick = [this]() { stepValue(1.0); };
       }
     }
 
@@ -718,12 +732,20 @@ class SkinEditorRow : public Component {
     void setColor(Colour color) { color_ = color; repaint(); }
     void setGradientStops(const std::vector<Colour>& stops) { gradient_stops_ = stops; repaint(); }
     void setValue(float value) { slider_.setValue(value, dontSendNotification); }
+    void stepValue(double direction) {
+      ModifierKeys mods = ModifierKeys::currentModifiers;
+      double step = mods.isShiftDown() ? 0.01 : (mods.isCommandDown() || mods.isCtrlDown() ? 1.0 : 0.1);
+      slider_.setValue(slider_.getValue() + direction * step, sendNotificationSync);
+    }
     void setSelected(bool selected) { selected_ = selected; repaint(); }
 
     void resized() override {
       remove_.setBounds(getWidth() - 30, 5, 24, 24);
-      if (is_value_)
-        slider_.setBounds(getWidth() - 36 - 170, 6, 170, 22);
+      if (is_value_) {
+        minus_.setBounds(getWidth() - 36 - 170, 6, 24, 22);
+        slider_.setBounds(getWidth() - 36 - 142, 6, 110, 22);
+        plus_.setBounds(getWidth() - 36 - 28, 6, 24, 22);
+      }
     }
 
     Rectangle<int> swatchBounds() const { return Rectangle<int>(8, 5, 92, 24); }
@@ -784,7 +806,7 @@ class SkinEditorRow : public Component {
     bool selected_;
     Colour color_;
     std::vector<Colour> gradient_stops_;
-    TextButton remove_;
+    TextButton remove_, minus_, plus_;
     Slider slider_;
 };
 

@@ -196,19 +196,6 @@ checks passthrough level, both filters and their routing, key tracking, every fi
 oversampling, LFO and envelope behaviour without MIDI, input destinations, and CPU use. CI runs it before
 every Linux build, then validates the plugin with pluginval and checks the binary for forbidden branding.
 
-## Roadmap
-
-| Version | Content |
-| --- | --- |
-| v0.1 | Base FX: plugin shell, filters and effects rack, two-lane layout, GUI cleanup and modulation matrix (done) |
-| v0.2 | Distortion warp (done) |
-| v0.3 | Spectral processing: morph engine, dice button, drawable spectral warps and table modes (done) |
-
-## Online features
-
-VialFX does not connect to any web service. Account login, content and pack downloads, preset store links,
-the text-to-wavetable service and update checks are disabled in the effects build.
-
 ## License
 
 GPLv3, see [LICENSE](LICENSE). If you distribute builds you must comply with that license, including making

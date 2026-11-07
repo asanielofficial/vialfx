@@ -440,11 +440,21 @@ void FullInterface::clearBinHighlight() {
     bin_highlight_->clearHighlight();
 }
 
+// Lays out every component again in place (parents before children), so colours cached in resized() refresh
+// without the old shrink-and-restore trick that made the whole window flash on each skin edit.
+static void relayoutTree(Component* parent) {
+  for (int i = 0; i < parent->getNumChildComponents(); ++i) {
+    Component* child = parent->getChildComponent(i);
+    child->resized();
+    relayoutTree(child);
+  }
+}
+
 void FullInterface::reloadSkin(const Skin& skin) {
   copySkinValues(skin);
-  Rectangle<int> bounds = getBounds();
-  setBounds(0, 0, bounds.getWidth() / 4, bounds.getHeight() / 4);
-  setBounds(bounds);
+  resized();
+  relayoutTree(this);
+  repaint();
 }
 
 void FullInterface::dataDirectoryChanged() {
