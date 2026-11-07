@@ -1,7 +1,7 @@
 ; Inno Setup script for the VialFX VST3 installer (built by .github/workflows/build.yml).
-; Build: ISCC /DSourceFile=C:\path\to\VialFX.vst3 /DAppVersion=1.0 installer\windows\VialFX.iss
+; Build: ISCC /DSourceFile=C:\path\to\VialFX.vst3 /DAppVersion=1.1 installer\windows\VialFX.iss
 #ifndef AppVersion
-  #define AppVersion "1.0"
+  #define AppVersion "1.1"
 #endif
 #ifndef SourceFile
   #define SourceFile "..\..\dist\VialFX.vst3"

@@ -5,12 +5,12 @@ audio inputs (main and sidechain) that can each be warped, spectrally morphed an
 effects or straight to the output. It is built from GPLv3 synthesizer source code (see
 [NOTICE.md](NOTICE.md) for the origin of the code).
 
-> **Status:** version 1.0. VST3 builds for Linux, macOS and Windows, plus a Windows installer (.exe) and a
+> **Status:** version 1.1. VST3 builds for Linux, macOS and Windows, plus a Windows installer (.exe) and a
 > macOS installer (.pkg), are produced by CI, and the plugin passes pluginval.
 
 ## Download
 
-The current stable version is [**VialFX 1.0**](https://github.com/asanielofficial/vialfx/releases/tag/stable): a Windows installer (.exe), a macOS installer (.pkg) and VST3 zips for Windows, macOS and Linux.
+The current stable version is [**VialFX 1.1**](https://github.com/asanielofficial/vialfx/releases/latest): a Windows installer (.exe), a macOS installer (.pkg) and VST3 zips for Windows, macOS and Linux.
 
 The newest `main` commit that built on all three platforms is published as the [nightly pre-release](https://github.com/asanielofficial/vialfx/releases/tag/nightly) (Linux, macOS and Windows VST3, plus the Windows and macOS installers). These builds are unsigned and meant for testing. Every CI run also attaches its builds as artifacts.
 
@@ -204,7 +204,7 @@ every Linux build, then validates the plugin with pluginval and checks the binar
 
 **-LightningPig** made the art for VialFX, including the logo. Thank you for giving the plugin its look.
 
-**Every tester.** Thank you to everyone who installed early builds, reported bugs, sent screenshots and told us what felt wrong. Much of what is in 1.0 exists because of your feedback.
+**Every tester.** Thank you to everyone who installed early builds, reported bugs, sent screenshots and told us what felt wrong. Much of what is in 1.1 exists because of your feedback.
 
 ## License
 

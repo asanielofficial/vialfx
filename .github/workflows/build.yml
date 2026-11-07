@@ -162,7 +162,7 @@ jobs:
           choco install innosetup -y --no-progress
           New-Item -ItemType Directory installers | Out-Null
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          & $iscc "/DSourceFile=$PWD\dist\VialFX.vst3" "/DAppVersion=1.0" "/O$PWD\installers" installer\windows\VialFX.iss
+          & $iscc "/DSourceFile=$PWD\dist\VialFX.vst3" "/DAppVersion=1.1" "/O$PWD\installers" installer\windows\VialFX.iss
           if ($LASTEXITCODE -ne 0) { Write-Host "::error::Inno Setup failed"; exit 1 }
           Get-ChildItem installers | Format-Table Name, Length
 
@@ -271,9 +271,9 @@ jobs:
         run: |
           mkdir -p pkgroot installers
           cp -R dist/VialFX.vst3 pkgroot/VialFX.vst3
-          pkgbuild --root pkgroot --identifier com.vialfx.vst3 --version 1.0 \
+          pkgbuild --root pkgroot --identifier com.vialfx.vst3 --version 1.1 \
             --install-location /Library/Audio/Plug-Ins/VST3 component.pkg
-          productbuild --package component.pkg installers/VialFX-1.0-macOS.pkg
+          productbuild --package component.pkg installers/VialFX-1.1-macOS.pkg
           ls -l installers
 
       - uses: actions/upload-artifact@v4
