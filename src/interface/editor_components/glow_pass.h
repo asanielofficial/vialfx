@@ -65,7 +65,7 @@ class GlowPass {
       program_->setUniform("texel", 1.0f / width, 1.0f / height);
       program_->setUniform("radius", (8.0f + 28.0f * strongest) * scale);
       program_->setUniform("count", count);
-      ext.glUniform4fv(program_->getUniformIDFromName("keys"), kMaxKeys, data);
+      program_->setUniform("keys", data, kMaxKeys * 4);
 
       glEnable(GL_BLEND);
       glBlendFunc(GL_ONE, GL_ONE);
@@ -100,7 +100,7 @@ class GlowPass {
           "uniform vec2 texel;\n"
           "uniform float radius;\n"
           "uniform int count;\n"
-          "uniform vec4 keys[12];\n"
+          "uniform float keys[48];\n"
           "varying vec2 uv;\n"
           "void main() {\n"
           "    vec3 total = vec3(0.0);\n"
@@ -115,8 +115,9 @@ class GlowPass {
           "        for (int k = 0; k < 12; ++k) {\n"
           "            if (k >= count)\n"
           "                break;\n"
-          "            float d = distance(c, keys[k].rgb);\n"
-          "            w = max(w, keys[k].a * (1.0 - smoothstep(0.0, 0.35, d)));\n"
+          "            vec4 key = vec4(keys[4 * k], keys[4 * k + 1], keys[4 * k + 2], keys[4 * k + 3]);\n"
+          "            float d = distance(c, key.rgb);\n"
+          "            w = max(w, key.a * (1.0 - smoothstep(0.0, 0.35, d)));\n"
           "        }\n"
           "        total += c * w * (1.0 - 0.7 * r);\n"
           "    }\n"
