@@ -225,6 +225,7 @@ void Skin::setComponentColors(Component* component) const {
     int color_id = i + Skin::kInitialColor;
     Colour color = getColor(static_cast<Skin::ColorId>(color_id));
     component->setColour(color_id, color);
+    component->getProperties().set(glowPropertyName(static_cast<Skin::ColorId>(color_id)), getGlow(static_cast<Skin::ColorId>(color_id)));
   }
 }
 
@@ -328,6 +329,10 @@ json Skin::stateToJson() {
   json data;
   for (int i = 0; i < kNumColors; ++i)
     data[kColorNames[i]] = colors_[i].toString().toStdString();
+  for (int i = 0; i < kNumColors; ++i) {
+    if (glow_[i] > 0.0f)
+      data[kColorNames[i] + " Glow"] = glow_[i];
+  }
 
   for (int i = 0; i < kNumSkinValueIds; ++i)
     data[kValueNames[i]] = values_[i];
@@ -427,6 +432,7 @@ void Skin::jsonToState(json data) {
       std::string color_string = data[kColorNames[i]];
       colors_[i] = Colour::fromString(color_string);
     }
+    glow_[i] = data.count(kColorNames[i] + " Glow") ? jlimit(0.0f, 1.0f, (float)data[kColorNames[i] + " Glow"]) : 0.0f;
   }
 
   for (int i = 0; i < kNumSkinValueIds; ++i) {
@@ -668,6 +674,19 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       hex_.addListener(this);
       addAndMakeVisible(hex_);
 
+      glow_label_.setText("GLOW", dontSendNotification);
+      glow_label_.setColour(Label::textColourId, kEditorDim);
+      glow_label_.setFont(12.0f);
+      addAndMakeVisible(glow_label_);
+      glow_slider_.setRange(0.0, 1.0, 0.01);
+      glow_slider_.setSliderStyle(Slider::LinearHorizontal);
+      glow_slider_.setTextBoxStyle(Slider::TextBoxRight, false, 50, 22);
+      glow_slider_.setColour(Slider::trackColourId, kEditorAccent);
+      glow_slider_.setColour(Slider::textBoxTextColourId, kEditorText);
+      glow_slider_.setColour(Slider::textBoxOutlineColourId, Colour(0xff3a3948));
+      glow_slider_.onValueChange = [this]() { applyGlow(static_cast<float>(glow_slider_.getValue())); };
+      addAndMakeVisible(glow_slider_);
+
       selector_.setColour(ColourSelector::backgroundColourId, kEditorBackground);
       selector_.setColour(ColourSelector::labelTextColourId, kEditorText);
       selector_.addChangeListener(this);
@@ -732,6 +751,8 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       int picker_y = bounds.getBottom() - picker_height - 8;
       hex_label_.setBounds(right_x, picker_y, 120, 24);
       hex_.setBounds(right_x + 124, picker_y, 110, 24);
+      glow_label_.setBounds(right_x + 250, picker_y, 44, 24);
+      glow_slider_.setBounds(right_x + 296, picker_y, std::max(100, right_width - 300), 24);
       selector_.setBounds(right_x, picker_y + 30, right_width, picker_height - 30);
     }
 
@@ -834,6 +855,16 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       applyColor(row, color);
     }
 
+    void applyGlow(float glow) {
+      SkinEditorRow* row = selectedRow();
+      if (row == nullptr || row->isValue() || bin_ != 0)
+        return;
+
+      pushUndo("g:" + String(row->id()));
+      skin_->setGlow(static_cast<Skin::ColorId>(row->id()), glow);
+      reloadInterface();
+    }
+
     SkinEditorRow* selectedRow() {
       if (selected_row_ < 0 || selected_row_ >= static_cast<int>(rows_.size()))
         return nullptr;
@@ -932,6 +963,11 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       }
 
       bool is_color = row != nullptr && !row->isValue();
+      bool show_glow = is_color && bin_ == 0;
+      glow_slider_.setVisible(show_glow);
+      glow_label_.setVisible(show_glow);
+      if (show_glow)
+        glow_slider_.setValue(skin_->getGlow(static_cast<Skin::ColorId>(row->id())), dontSendNotification);
       selector_.setVisible(is_color);
       hex_.setVisible(is_color);
       hex_label_.setVisible(is_color);
@@ -1129,7 +1165,8 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
     Viewport rows_viewport_;
     Component rows_container_;
     std::vector<std::unique_ptr<SkinEditorRow>> rows_;
-    Label hex_label_, hint_;
+    Label hex_label_, hint_, glow_label_;
+    Slider glow_slider_;
     TextEditor hex_;
     ColourSelector selector_;
 

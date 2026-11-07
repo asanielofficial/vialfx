@@ -580,6 +580,22 @@ void SynthSlider::drawRotaryShadow(Graphics &g) {
   float shadow_width = findValue(Skin::kKnobShadowWidth);
   float shadow_offset = findValue(Skin::kKnobShadowOffset);
 
+  float glow = parent_ ? parent_->findGlow(Skin::kRotaryArc) : 0.0f;
+  if (glow > 0.0f) {
+    // Soft halo of the arc colour around the knob, kept inside the slider's bounds.
+    float glow_radius = std::min(center_x, getHeight() / 2.0f);
+    float inner = std::min(radius, glow_radius);
+    Colour arc = findColour(Skin::kRotaryArc, true);
+    ColourGradient halo(arc.withMultipliedAlpha(0.55f * glow), center_x, center_y,
+                        arc.withAlpha(0.0f), center_x + glow_radius, center_y, true);
+    halo.addColour(std::min(0.95f, inner / glow_radius), arc.withMultipliedAlpha(0.55f * glow));
+    g.saveState();
+    g.setOrigin(getX(), getY());
+    g.setGradientFill(halo);
+    g.fillEllipse(center_x - glow_radius, center_y - glow_radius, 2.0f * glow_radius, 2.0f * glow_radius);
+    g.restoreState();
+  }
+
   PathStrokeType outer_stroke(stroke_width, PathStrokeType::beveled, PathStrokeType::rounded);
   PathStrokeType shadow_stroke(stroke_width + 1, PathStrokeType::beveled, PathStrokeType::rounded);
 

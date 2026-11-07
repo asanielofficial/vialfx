@@ -43,6 +43,16 @@ float SynthSection::findValue(Skin::ValueId value_id) const {
   return 0.0f;
 }
 
+float SynthSection::findGlow(Skin::ColorId color_id) const {
+  const var& glow = getProperties()[Skin::glowPropertyName(color_id)];
+  if (!glow.isVoid())
+    return static_cast<float>(glow);
+  if (parent_)
+    return parent_->findGlow(color_id);
+
+  return 0.0f;
+}
+
 void SynthSection::reset() {
   for (auto& sub_section : sub_sections_)
     sub_section->reset();

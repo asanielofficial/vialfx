@@ -195,6 +195,8 @@ class SynthSection : public Component, public Slider::Listener,
 
     void setParent(const SynthSection* parent) { parent_ = parent; }
     float findValue(Skin::ValueId value_id) const;
+    // Glow amount (0..1) the skin gives a colour, looked up through the parent chain.
+    float findGlow(Skin::ColorId color_id) const;
 
     virtual void reset();
     virtual void resized() override;
