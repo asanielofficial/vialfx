@@ -12,7 +12,7 @@
 // in that colour: text, lines, knobs, waveforms, meters.
 class GlowPass {
   public:
-    static constexpr int kMaxKeys = 12;
+    enum { kMaxKeys = 12 };
 
     struct Key {
       float red, green, blue, glow;
@@ -51,7 +51,7 @@ class GlowPass {
 
       float strongest = 0.0f;
       float data[kMaxKeys * 4] = { };
-      int count = std::min(kMaxKeys, static_cast<int>(keys_.size()));
+      int count = std::min(static_cast<int>(kMaxKeys), static_cast<int>(keys_.size()));
       for (int i = 0; i < count; ++i) {
         data[4 * i] = keys_[i].red;
         data[4 * i + 1] = keys_[i].green;
