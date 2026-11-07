@@ -993,9 +993,11 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
         row->setColor(binColor(id));
 
       row->on_select = [this](SkinEditorRow* r) { selectRow(r); };
-      row->on_remove = [this](SkinEditorRow* r) {
-        MessageManager::callAsync([this, r, safe = Component::SafePointer<SkinEditor>(this)]() {
-          if (safe != nullptr) removeRow(r);
+      Component::SafePointer<SkinEditor> safe(this);
+      row->on_remove = [safe](SkinEditorRow* r) {
+        MessageManager::callAsync([safe, r]() {
+          if (safe != nullptr)
+            safe->removeRow(r);
         });
       };
       row->on_value = [this](SkinEditorRow* r, float value) { selectRow(r); applyValue(r, value); };
