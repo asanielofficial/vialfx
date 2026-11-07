@@ -77,6 +77,8 @@ class FullInterface : public SynthSection, public AuthenticationSection::Listene
     void setSkinValues(const Skin& skin, bool top_level) override;
     // Glow needs no layout: just refresh the colours the glow pass looks for.
     void updateGlow(const Skin& skin);
+    // Gradient colours are re-aimed at their sections' bounds whenever the layout changes.
+    void updateGradientRegions();
     void reloadSkin(const Skin& skin);
     // Skin editor: dashed outline over the parts of the UI that belong to a bin.
     void setBinHighlight(const std::vector<Rectangle<int>>& rects, const String& label);
@@ -198,6 +200,7 @@ class FullInterface : public SynthSection, public AuthenticationSection::Listene
     std::unique_ptr<AuthenticationSection> authentication_;
     std::unique_ptr<BinHighlight> bin_highlight_;
     GlowPass glow_pass_;
+    std::vector<Skin::GradientEntry> gradient_entries_;
     std::unique_ptr<UpdateCheckSection> update_check_section_;
     std::unique_ptr<Component> standalone_settings_section_;
 

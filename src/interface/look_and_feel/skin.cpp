@@ -219,6 +219,61 @@ void Skin::collectGlows(std::vector<GlowEntry>& glows) const {
   }
 }
 
+String Skin::Gradient::toString() const {
+  StringArray parts;
+  for (const Colour& stop : stops)
+    parts.add(stop.toString());
+  return parts.joinIntoString(",") + ";" + String(angle);
+}
+
+Skin::Gradient Skin::Gradient::fromString(const String& text) {
+  Gradient gradient;
+  StringArray halves = StringArray::fromTokens(text, ";", "");
+  if (halves.size() < 1)
+    return gradient;
+
+  StringArray stops = StringArray::fromTokens(halves[0], ",", "");
+  for (int i = 0; i < stops.size() && i < 2; ++i)
+    gradient.stops.push_back(Colour::fromString(stops[i]));
+  if (halves.size() > 1)
+    gradient.angle = jlimit(0.0f, 360.0f, halves[1].getFloatValue());
+  return gradient;
+}
+
+void Skin::addOverrideGradient(int section, ColorId color_id, const Gradient& gradient) {
+  if (section == kNone)
+    setGradient(color_id, gradient);
+  else
+    gradient_overrides_[section][color_id] = gradient;
+}
+
+Skin::Gradient Skin::getGradient(int section, ColorId color_id) const {
+  if (section != kNone) {
+    auto it = gradient_overrides_[section].find(color_id);
+    if (it != gradient_overrides_[section].end())
+      return it->second;
+  }
+  return getGradient(color_id);
+}
+
+void Skin::collectGradients(std::vector<GradientEntry>& gradients) const {
+  for (int i = 0; i < kNumColors; ++i) {
+    ColorId id = static_cast<ColorId>(kInitialColor + i);
+    if (gradients_[i].active())
+      gradients.push_back({ colors_[i], gradients_[i], kNone });
+
+    for (int section = 1; section < kNumSectionOverrides; ++section) {
+      auto color = color_overrides_[section].find(id);
+      if (color == color_overrides_[section].end())
+        continue;
+
+      Gradient gradient = getGradient(section, id);
+      if (gradient.active())
+        gradients.push_back({ color->second, gradient, section });
+    }
+  }
+}
+
 void Skin::addOverrideGlow(int section, ColorId color_id, float glow, float size) {
   if (section == kNone) {
     setGlow(color_id, glow);
@@ -247,6 +302,8 @@ void Skin::clearSkin() {
     value_overrides_[i].clear();
   for (int i = 0; i < kNumSectionOverrides; ++i)
     glow_overrides_[i].clear();
+  for (int i = 0; i < kNumSectionOverrides; ++i)
+    gradient_overrides_[i].clear();
 }
 
 void Skin::loadDefaultSkin() {
@@ -353,6 +410,7 @@ void Skin::removeOverrideColor(int section, ColorId color_id) {
   if (section != kNone) {
     color_overrides_[section].erase(color_id);
     glow_overrides_[section].erase(color_id);
+    gradient_overrides_[section].erase(color_id);
   }
 }
 
@@ -377,6 +435,8 @@ json Skin::stateToJson() {
       data[kColorNames[i] + " Glow"] = glow_[i];
       data[kColorNames[i] + " Glow Size"] = glow_size_[i];
     }
+    if (gradients_[i].active())
+      data[kColorNames[i] + " Gradient"] = gradients_[i].toString().toStdString();
   }
 
   for (int i = 0; i < kNumSkinValueIds; ++i)
@@ -394,6 +454,11 @@ json Skin::stateToJson() {
       int index = glow.first - Skin::kInitialColor;
       override_section[kColorNames[index] + " Glow"] = glow.second.first;
       override_section[kColorNames[index] + " Glow Size"] = glow.second.second;
+    }
+
+    for (const auto& gradient : gradient_overrides_[override_index]) {
+      int index = gradient.first - Skin::kInitialColor;
+      override_section[kColorNames[index] + " Gradient"] = gradient.second.toString().toStdString();
     }
 
     for (const auto& value : value_overrides_[override_index]) {
@@ -472,6 +537,13 @@ void Skin::jsonToState(json data) {
           float size = override_section.count(kColorNames[i] + " Glow Size") ? (float)override_section[kColorNames[i] + " Glow Size"] : 0.5f;
           glow_overrides_[override_index][color_id] = { jlimit(0.0f, 1.0f, glow), jlimit(0.0f, 1.0f, size) };
         }
+        if (override_section.count(kColorNames[i] + " Gradient")) {
+          ColorId color_id = static_cast<Skin::ColorId>(i + Skin::kInitialColor);
+          std::string text = override_section[kColorNames[i] + " Gradient"];
+          Gradient gradient = Gradient::fromString(String(text));
+          if (gradient.active())
+            gradient_overrides_[override_index][color_id] = gradient;
+        }
       }
 
       for (int i = 0; i < kNumSkinValueIds; ++i) {
@@ -490,6 +562,11 @@ void Skin::jsonToState(json data) {
       colors_[i] = Colour::fromString(color_string);
     }
     glow_[i] = data.count(kColorNames[i] + " Glow") ? jlimit(0.0f, 1.0f, (float)data[kColorNames[i] + " Glow"]) : 0.0f;
+    gradients_[i] = Gradient();
+    if (data.count(kColorNames[i] + " Gradient")) {
+      std::string text = data[kColorNames[i] + " Gradient"];
+      gradients_[i] = Gradient::fromString(String(text));
+    }
     glow_size_[i] = data.count(kColorNames[i] + " Glow Size") ? jlimit(0.0f, 1.0f, (float)data[kColorNames[i] + " Glow Size"]) : 0.5f;
   }
 
@@ -625,6 +702,7 @@ class SkinEditorRow : public Component {
     int id() const { return id_; }
     Colour color() const { return color_; }
     void setColor(Colour color) { color_ = color; repaint(); }
+    void setGradientStops(const std::vector<Colour>& stops) { gradient_stops_ = stops; repaint(); }
     void setValue(float value) { slider_.setValue(value, dontSendNotification); }
     void setSelected(bool selected) { selected_ = selected; repaint(); }
 
@@ -650,7 +728,14 @@ class SkinEditorRow : public Component {
         g.reduceClipRegion(swatch);
         g.fillCheckerBoard(swatch.toFloat(), 8.0f, 8.0f, Colour(0xff666666), Colour(0xffaaaaaa));
         g.restoreState();
-        g.setColour(color_);
+        if (gradient_stops_.empty())
+          g.setColour(color_);
+        else {
+          ColourGradient preview(color_, swatch.getX(), 0.0f, gradient_stops_.back(), swatch.getRight(), 0.0f, false);
+          if (gradient_stops_.size() > 1)
+            preview.addColour(0.5, gradient_stops_[0]);
+          g.setGradientFill(preview);
+        }
         g.fillRoundedRectangle(swatch.toFloat(), 4.0f);
         g.setColour(color_.withAlpha(1.0f).contrasting(0.9f));
         g.setFont(12.0f);
@@ -684,6 +769,7 @@ class SkinEditorRow : public Component {
     String name_;
     bool selected_;
     Colour color_;
+    std::vector<Colour> gradient_stops_;
     TextButton remove_;
     Slider slider_;
 };
@@ -736,6 +822,27 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       setupKnob(size_slider_, size_label_, "GLOW SIZE");
       glow_slider_.onValueChange = [this]() { applyGlow(static_cast<float>(glow_slider_.getValue()), true); };
       size_slider_.onValueChange = [this]() { applyGlow(static_cast<float>(size_slider_.getValue()), false); };
+
+      grad_toggle_.setButtonText("GRADIENT");
+      grad_toggle_.setClickingTogglesState(true);
+      grad_toggle_.setColour(TextButton::buttonColourId, kEditorPanel);
+      grad_toggle_.setColour(TextButton::buttonOnColourId, kEditorAccent);
+      grad_toggle_.setColour(TextButton::textColourOffId, kEditorText);
+      grad_toggle_.setColour(TextButton::textColourOnId, Colour(0xff1a1426));
+      grad_toggle_.addListener(this);
+      addAndMakeVisible(grad_toggle_);
+      const char* target_names[3] = { "Start", "Stop 2", "Stop 3" };
+      for (int i = 0; i < 3; ++i) {
+        target_buttons_[i].setButtonText(target_names[i]);
+        target_buttons_[i].setColour(TextButton::textColourOffId, kEditorText);
+        target_buttons_[i].setColour(TextButton::textColourOnId, kEditorText);
+        target_buttons_[i].addListener(this);
+        addAndMakeVisible(target_buttons_[i]);
+      }
+      setupKnob(angle_slider_, angle_label_, "ANGLE");
+      angle_slider_.setRange(0.0, 360.0, 1.0);
+      angle_slider_.setDoubleClickReturnValue(true, 90.0);
+      angle_slider_.onValueChange = [this]() { editGradient([this](Skin::Gradient& g) { g.angle = (float)angle_slider_.getValue(); }); };
 
       selector_.setColour(ColourSelector::backgroundColourId, kEditorBackground);
       selector_.setColour(ColourSelector::labelTextColourId, kEditorText);
@@ -805,6 +912,11 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       glow_label_.setBounds(right_x + 248, picker_y + 42, 80, 14);
       size_slider_.setBounds(right_x + 340, picker_y - 4, 56, 48);
       size_label_.setBounds(right_x + 336, picker_y + 42, 80, 14);
+      grad_toggle_.setBounds(right_x + 420, picker_y, 150, 24);
+      for (int i = 0; i < 3; ++i)
+        target_buttons_[i].setBounds(right_x + 420 + i * 52, picker_y + 28, 50, 22);
+      angle_slider_.setBounds(right_x + 590, picker_y - 4, 56, 48);
+      angle_label_.setBounds(right_x + 586, picker_y + 42, 64, 14);
       selector_.setBounds(right_x, picker_y + 62, right_width, picker_height - 62);
     }
 
@@ -812,6 +924,17 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       for (int i = 0; i < static_cast<int>(bin_buttons_.size()); ++i) {
         if (button == bin_buttons_[i].get()) {
           selectBin(i);
+          return;
+        }
+      }
+
+      if (button == &grad_toggle_) {
+        toggleGradient(grad_toggle_.getToggleState());
+        return;
+      }
+      for (int i = 0; i < 3; ++i) {
+        if (button == &target_buttons_[i]) {
+          selectTarget(i);
           return;
         }
       }
@@ -883,6 +1006,14 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
 
       Colour color = selector_.getCurrentColour();
       hex_.setText(color.toDisplayString(true), dontSendNotification);
+      if (edit_target_ > 0) {
+        editGradient([&](Skin::Gradient& g) {
+          size_t index = static_cast<size_t>(edit_target_ - 1);
+          if (index < g.stops.size())
+            g.stops[index] = color;
+        });
+        return;
+      }
       applyColor(row, color);
     }
 
@@ -906,6 +1037,14 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
 
       Colour color = Colour::fromString(text);
       selector_.setCurrentColour(color, dontSendNotification);
+      if (edit_target_ > 0) {
+        editGradient([&](Skin::Gradient& g) {
+          size_t index = static_cast<size_t>(edit_target_ - 1);
+          if (index < g.stops.size())
+            g.stops[index] = color;
+        });
+        return;
+      }
       applyColor(row, color);
     }
 
@@ -1045,6 +1184,105 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       rebuildRows();
     }
 
+    Skin::Gradient currentGradient() {
+      SkinEditorRow* row = selectedRow();
+      if (row == nullptr || row->isValue())
+        return Skin::Gradient();
+      return skin_->getGradient(SkinBins::sections(bin_)[0], static_cast<Skin::ColorId>(row->id()));
+    }
+
+    // Gradients need no layout: the screen-space pass picks them up straight away.
+    void editGradient(const std::function<void(Skin::Gradient&)>& change) {
+      SkinEditorRow* row = selectedRow();
+      if (row == nullptr || row->isValue() || updating_gradient_controls_)
+        return;
+
+      pushUndo("gr:" + String(bin_) + ":" + String(row->id()));
+      Skin::Gradient gradient = currentGradient();
+      change(gradient);
+      Skin::ColorId id = static_cast<Skin::ColorId>(row->id());
+      for (Skin::SectionOverride section : SkinBins::sections(bin_))
+        skin_->addOverrideGradient(section, id, gradient);
+      row->setGradientStops(gradient.stops);
+      refreshGlow();
+      updateTargetButtons();
+    }
+
+    void toggleGradient(bool on) {
+      SkinEditorRow* row = selectedRow();
+      if (row == nullptr || row->isValue())
+        return;
+
+      coalesce_key_ = String();
+      editGradient([&](Skin::Gradient& g) {
+        if (!on)
+          g.stops.clear();
+        else if (g.stops.empty()) {
+          g.stops.push_back(row->color().interpolatedWith(Colours::white, 0.5f));
+          g.angle = 90.0f;
+        }
+      });
+      edit_target_ = 0;
+      updateGradientControls();
+    }
+
+    void selectTarget(int target) {
+      Skin::Gradient gradient = currentGradient();
+      if (!gradient.active() || target > static_cast<int>(gradient.stops.size()) + 0) {
+        // "Stop 3" is created on first use.
+        if (gradient.active() && target == 2) {
+          coalesce_key_ = String();
+          editGradient([](Skin::Gradient& g) { if (g.stops.size() < 2) g.stops.push_back(g.stops.back().brighter(0.4f)); });
+        }
+        else
+          return;
+      }
+      edit_target_ = target;
+      updateGradientControls();
+    }
+
+    void updateTargetButtons() {
+      Skin::Gradient gradient = currentGradient();
+      SkinEditorRow* row = selectedRow();
+      for (int i = 0; i < 3; ++i) {
+        bool present = i == 0 || (gradient.active() && i - 1 < static_cast<int>(gradient.stops.size()));
+        Colour color = i == 0 ? (row ? row->color() : Colours::grey)
+                              : (present ? gradient.stops[i - 1] : kEditorPanel);
+        target_buttons_[i].setColour(TextButton::buttonColourId, color);
+        target_buttons_[i].setColour(TextButton::buttonOnColourId, color);
+        target_buttons_[i].setColour(TextButton::textColourOffId, color.withAlpha(1.0f).contrasting(0.9f));
+        target_buttons_[i].setColour(TextButton::textColourOnId, color.withAlpha(1.0f).contrasting(0.9f));
+        String label = i == 2 && !present ? String("+ Stop 3") : (i == 0 ? String("Start") : "Stop " + String(i + 1));
+        target_buttons_[i].setButtonText(i == edit_target_ ? String(CharPointer_UTF8("\xe2\x80\xa2 ")) + label : label);
+        target_buttons_[i].setToggleState(i == edit_target_, dontSendNotification);
+        target_buttons_[i].repaint();
+      }
+    }
+
+    void updateGradientControls() {
+      SkinEditorRow* row = selectedRow();
+      bool is_color = row != nullptr && !row->isValue();
+      Skin::Gradient gradient = currentGradient();
+      updating_gradient_controls_ = true;
+      grad_toggle_.setVisible(is_color);
+      grad_toggle_.setToggleState(gradient.active(), dontSendNotification);
+      for (int i = 0; i < 3; ++i)
+        target_buttons_[i].setVisible(is_color && gradient.active());
+      angle_slider_.setVisible(is_color && gradient.active());
+      angle_label_.setVisible(is_color && gradient.active());
+      if (gradient.active())
+        angle_slider_.setValue(gradient.angle, dontSendNotification);
+      if (!gradient.active() || edit_target_ > static_cast<int>(gradient.stops.size()))
+        edit_target_ = 0;
+      updateTargetButtons();
+      if (is_color) {
+        Colour color = edit_target_ == 0 ? row->color() : gradient.stops[edit_target_ - 1];
+        selector_.setCurrentColour(color, dontSendNotification);
+        hex_.setText(color.toDisplayString(true), dontSendNotification);
+      }
+      updating_gradient_controls_ = false;
+    }
+
     void selectRow(SkinEditorRow* row) {
       selected_row_ = -1;
       for (int i = 0; i < static_cast<int>(rows_.size()); ++i) {
@@ -1070,6 +1308,8 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
         selector_.setCurrentColour(row->color(), dontSendNotification);
         hex_.setText(row->color().toDisplayString(true), dontSendNotification);
       }
+      edit_target_ = 0;
+      updateGradientControls();
     }
 
     void selectBin(int bin) {
@@ -1120,8 +1360,10 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       auto row = std::make_unique<SkinEditorRow>(is_value, id, String(name), removable);
       if (is_value)
         row->setValue(binValue(id));
-      else
+      else {
         row->setColor(binColor(id));
+        row->setGradientStops(skin_->getGradient(SkinBins::sections(bin_)[0], static_cast<Skin::ColorId>(id)).stops);
+      }
 
       row->on_select = [this](SkinEditorRow* r) { selectRow(r); };
       Component::SafePointer<SkinEditor> safe(this);
@@ -1260,7 +1502,11 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
     Viewport rows_viewport_;
     Component rows_container_;
     std::vector<std::unique_ptr<SkinEditorRow>> rows_;
-    Label hex_label_, hint_, glow_label_, size_label_;
+    Label hex_label_, hint_, glow_label_, size_label_, angle_label_;
+    TextButton grad_toggle_, target_buttons_[3];
+    Slider angle_slider_;
+    int edit_target_ = 0;
+    bool updating_gradient_controls_ = false;
     Slider glow_slider_, size_slider_;
     TextEditor hex_;
     ColourSelector selector_;
@@ -1275,7 +1521,7 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
 SkinDesigner::SkinDesigner(Skin* skin, FullInterface* full_interface) :
     DocumentWindow("VialFX Skin Editor", kEditorBackground, DocumentWindow::closeButton) {
   setAlwaysOnTop(true);
-  setResizeLimits(640, 600, 3000, 3000);
+  setResizeLimits(860, 600, 3000, 3000);
   container_ = std::make_unique<SkinEditor>(skin, full_interface);
   container_->setSize(860, 840);
   setContentNonOwned(container_.get(), false);

@@ -352,8 +352,76 @@ void FullInterface::updateGlow(const Skin& skin) {
       keys.push_back(key);
   }
 
+  {
+    ScopedLock lock(open_gl_critical_section_);
+    glow_pass_.setKeys(keys);
+  }
+
+  gradient_entries_.clear();
+  skin.collectGradients(gradient_entries_);
+  updateGradientRegions();
+}
+
+static void collectSectionRects(Component* component, Skin::SectionOverride override_id, FullInterface* root,
+                                std::vector<Rectangle<int>>& rects) {
+  for (int i = 0; i < component->getNumChildComponents(); ++i) {
+    Component* child = component->getChildComponent(i);
+    if (!child->isVisible())
+      continue;
+
+    SynthSection* section = dynamic_cast<SynthSection*>(child);
+    if (section != nullptr && section->getSkinOverride() == override_id && child->getWidth() > 0) {
+      rects.push_back(root->getLocalArea(child, child->getLocalBounds()));
+      continue;
+    }
+    collectSectionRects(child, override_id, root, rects);
+  }
+}
+
+void FullInterface::updateGradientRegions() {
+  std::vector<GlowPass::GradientKey> keys;
+  float width = static_cast<float>(getWidth());
+  float height = static_cast<float>(getHeight());
+
+  if (width > 0.0f && height > 0.0f) {
+    for (const Skin::GradientEntry& entry : gradient_entries_) {
+      if (static_cast<int>(keys.size()) >= GlowPass::kMaxGradients)
+        break;
+
+      Rectangle<int> region = getLocalBounds();
+      if (entry.section != Skin::kNone) {
+        std::vector<Rectangle<int>> rects;
+        collectSectionRects(this, static_cast<Skin::SectionOverride>(entry.section), this, rects);
+        if (rects.empty())
+          continue;
+
+        region = rects[0];
+        for (const Rectangle<int>& rect : rects)
+          region = region.getUnion(rect);
+      }
+
+      GlowPass::GradientKey key = { };
+      key.base[0] = entry.color.getFloatRed();
+      key.base[1] = entry.color.getFloatGreen();
+      key.base[2] = entry.color.getFloatBlue();
+      key.num_stops = static_cast<int>(entry.gradient.stops.size()) + 1;
+      key.rect[0] = region.getX() / width;
+      key.rect[1] = 1.0f - region.getBottom() / height;
+      key.rect[2] = region.getRight() / width;
+      key.rect[3] = 1.0f - region.getY() / height;
+      float radians = degreesToRadians(entry.gradient.angle);
+      key.direction[0] = std::cos(radians);
+      key.direction[1] = -std::sin(radians);
+      const Colour& stop1 = entry.gradient.stops[0];
+      const Colour& stop2 = entry.gradient.stops.size() > 1 ? entry.gradient.stops[1] : stop1;
+      key.stop1[0] = stop1.getFloatRed(); key.stop1[1] = stop1.getFloatGreen(); key.stop1[2] = stop1.getFloatBlue();
+      key.stop2[0] = stop2.getFloatRed(); key.stop2[1] = stop2.getFloatGreen(); key.stop2[2] = stop2.getFloatBlue();
+      keys.push_back(key);
+    }
+  }
+
   ScopedLock lock(open_gl_critical_section_);
-  glow_pass_.setKeys(keys);
+  glow_pass_.setGradients(keys);
 }
 
 void FullInterface::copySkinValues(const Skin& skin) {
@@ -608,6 +676,8 @@ void FullInterface::resized() {
 
   if (getWidth() && getHeight())
     redoBackground();
+  if (!gradient_entries_.empty())
+    updateGradientRegions();
 }
 
 void FullInterface::setOscilloscopeMemory(const vital::poly_float* memory) {

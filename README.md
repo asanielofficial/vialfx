@@ -166,6 +166,7 @@ resized.
   glow pass makes anything drawn in a glowing colour bloom softly: text, lines, knobs, waveforms and meters,
   including section overrides of that colour. Up to 24 glowing colours are used at once. Glow can be set per
   bin as well, and knobs also get a halo for the Rotary Arc colour.
+- **Gradients:** any colour can be turned into a gradient with the GRADIENT button: the colour is the first stop, with one or two more stops and an angle. Pixels drawn in that colour take their colour from the gradient across the window (global colours) or across the bin's sections (bin overrides). Gradients apply instantly and are saved in the skin.
 - **Smooth editing:** colour and value edits are applied at a limited rate so the plugin window stays smooth
   while you drag; glow changes apply instantly.
 

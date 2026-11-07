@@ -216,6 +216,27 @@ class Skin {
     bool overridesGlow(int section, ColorId color_id) const { return section != kNone && glow_overrides_[section].count(color_id) > 0; }
     float getGlow(int section, ColorId color_id) const;
     float getGlowSize(int section, ColorId color_id) const;
+    // A colour can be a gradient: the colour itself is the first stop, `stops` holds the one or two further
+    // stops, `angle` (degrees, 0 = left to right, 90 = top to bottom) is its direction.
+    struct Gradient {
+      std::vector<Colour> stops;
+      float angle = 90.0f;
+      bool active() const { return !stops.empty(); }
+      String toString() const;
+      static Gradient fromString(const String& text);
+    };
+    void setGradient(ColorId color_id, const Gradient& gradient) { gradients_[color_id - kInitialColor] = gradient; }
+    const Gradient& getGradient(ColorId color_id) const { return gradients_[color_id - kInitialColor]; }
+    void addOverrideGradient(int section, ColorId color_id, const Gradient& gradient);
+    void removeOverrideGradient(int section, ColorId color_id) { if (section != kNone) gradient_overrides_[section].erase(color_id); }
+    bool overridesGradient(int section, ColorId color_id) const { return section != kNone && gradient_overrides_[section].count(color_id) > 0; }
+    Gradient getGradient(int section, ColorId color_id) const;
+    struct GradientEntry {
+      Colour color;
+      Gradient gradient;
+      int section;  // kNone for the global colour
+    };
+    void collectGradients(std::vector<GradientEntry>& gradients) const;
     struct GlowEntry {
       Colour color;
       float glow;
@@ -258,6 +279,8 @@ class Skin {
     std::map<ColorId, Colour> color_overrides_[kNumSectionOverrides];
     std::map<ValueId, float> value_overrides_[kNumSectionOverrides];
     std::map<ColorId, std::pair<float, float>> glow_overrides_[kNumSectionOverrides];
+    Gradient gradients_[kNumColors];
+    std::map<ColorId, Gradient> gradient_overrides_[kNumSectionOverrides];
 };
 
 // Skin "bins": named groups of section overrides that the skin editor edits together.
