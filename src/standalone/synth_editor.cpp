@@ -70,7 +70,8 @@ SynthEditor::SynthEditor(bool use_gui) : SynthGuiInterface(this, use_gui) {
     window_size = std::min(window_size, total_bounds.getWidth() / (1.0f * vital::kDefaultWindowWidth));
     window_size = std::min(window_size, total_bounds.getHeight() / (1.0f * vital::kDefaultWindowHeight));
     int width = std::round(window_size * vital::kDefaultWindowWidth);
-    int height = std::round(window_size * vital::kDefaultWindowHeight);
+    int height = std::round(window_size * LoadSave::loadWindowAspect() * vital::kDefaultWindowHeight);
+    height = std::min(height, total_bounds.getHeight());
     setSize(width, height);
 
     setWantsKeyboardFocus(true);

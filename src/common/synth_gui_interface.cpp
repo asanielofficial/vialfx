@@ -207,6 +207,7 @@ void SynthGuiInterface::setGuiSize(float scale) {
   window_size = std::min(window_size, display_area.getWidth() * 1.0f / vital::kDefaultWindowWidth);
   window_size = std::min(window_size, display_area.getHeight() * 1.0f / vital::kDefaultWindowHeight);
   LoadSave::saveWindowSize(window_size);
+  LoadSave::saveWindowAspect(1.0f);
 
   int width = std::round(window_size * vital::kDefaultWindowWidth);
   int height = std::round(window_size * vital::kDefaultWindowHeight);

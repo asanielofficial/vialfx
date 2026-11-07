@@ -1716,6 +1716,21 @@ float LoadSave::loadWindowSize() {
   return std::max<float>(kMinWindowSize, data["window_size"]);
 }
 
+float LoadSave::loadWindowAspect() {
+  json data = getConfigJson();
+
+  if (!data.count("window_aspect"))
+    return 1.0f;
+
+  return std::min(4.0f, std::max(0.25f, (float)data["window_aspect"]));
+}
+
+void LoadSave::saveWindowAspect(float aspect) {
+  json data = getConfigJson();
+  data["window_aspect"] = aspect;
+  saveJsonToConfig(data);
+}
+
 String LoadSave::loadVersion() {
   json data = getConfigJson();
 

@@ -115,9 +115,6 @@ class SynthApplication : public JUCEApplication {
 
             constrainer_.setMinimumSize(vital::kMinWindowWidth, vital::kMinWindowHeight);
             constrainer_.setBorder(getPeer()->getFrameSize());
-            float ratio = (1.0f * vital::kDefaultWindowWidth) / vital::kDefaultWindowHeight;
-
-            constrainer_.setFixedAspectRatio(ratio);
             setConstrainer(&constrainer_);
 
             centreWithSize(getWidth(), getHeight());

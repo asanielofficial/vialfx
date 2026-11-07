@@ -1275,6 +1275,7 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
 SkinDesigner::SkinDesigner(Skin* skin, FullInterface* full_interface) :
     DocumentWindow("VialFX Skin Editor", kEditorBackground, DocumentWindow::closeButton) {
   setAlwaysOnTop(true);
+  setResizeLimits(640, 600, 3000, 3000);
   container_ = std::make_unique<SkinEditor>(skin, full_interface);
   container_->setSize(860, 840);
   setContentNonOwned(container_.get(), false);

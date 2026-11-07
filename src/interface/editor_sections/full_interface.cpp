@@ -501,19 +501,11 @@ void FullInterface::resized() {
   int height = std::ceil(getHeight() * display_scale_);
   Rectangle<int> bounds(0, 0, width, height);
 
+  // Any window shape is allowed: sizes scale with the smaller of the two ratios and the sections stretch
+  // to fill the rest of the width / height.
   float width_ratio = getWidth() / (1.0f * vital::kDefaultWindowWidth);
-  float ratio = width_ratio * display_scale_;
   float height_ratio = getHeight() / (1.0f * vital::kDefaultWindowHeight);
-  if (width_ratio > height_ratio + 1.0f / vital::kDefaultWindowHeight) {
-    ratio = height_ratio;
-    width = height_ratio * vital::kDefaultWindowWidth * display_scale_;
-    left = (getWidth() - width) / 2;
-  }
-  if (height_ratio > width_ratio + 1.0f / vital::kDefaultWindowHeight) {
-    ratio = width_ratio;
-    height = ratio * vital::kDefaultWindowHeight * display_scale_;
-    top = (getHeight() - height) / 2;
-  }
+  float ratio = std::min(width_ratio, height_ratio) * display_scale_;
 
   setSizeRatio(ratio);
 

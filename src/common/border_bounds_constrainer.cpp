@@ -38,16 +38,14 @@ void BorderBoundsConstrainer::checkBounds(Rectangle<int>& bounds, const Rectangl
   }
 
   if (display_area.getWidth() < bounds.getWidth()) {
-    int new_width = display_area.getWidth();
-    int new_height = std::round(new_width / aspect_ratio);
-    bounds.setWidth(new_width);
-    bounds.setHeight(new_height);
+    bounds.setWidth(display_area.getWidth());
+    if (aspect_ratio > 0.0)
+      bounds.setHeight(std::round(bounds.getWidth() / aspect_ratio));
   }
   if (display_area.getHeight() < bounds.getHeight()) {
-    int new_height = display_area.getHeight();
-    int new_width = std::round(new_height * aspect_ratio);
-    bounds.setWidth(new_width);
-    bounds.setHeight(new_height);
+    bounds.setHeight(display_area.getHeight());
+    if (aspect_ratio > 0.0)
+      bounds.setWidth(std::round(bounds.getHeight() * aspect_ratio));
   }
 
   border_.addTo(bounds);
@@ -60,7 +58,11 @@ void BorderBoundsConstrainer::resizeStart() {
 
 void BorderBoundsConstrainer::resizeEnd() {
   if (gui_) {
-    LoadSave::saveWindowSize(gui_->getWidth() / (1.0f * vital::kDefaultWindowWidth));
+    float width_scale = gui_->getWidth() / (1.0f * vital::kDefaultWindowWidth);
+    float height_scale = gui_->getHeight() / (1.0f * vital::kDefaultWindowHeight);
+    LoadSave::saveWindowSize(width_scale);
+    if (width_scale > 0.0f)
+      LoadSave::saveWindowAspect(height_scale / width_scale);
     gui_->enableRedoBackground(true);
   }
 }
