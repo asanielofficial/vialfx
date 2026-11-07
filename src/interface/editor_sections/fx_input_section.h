@@ -198,6 +198,15 @@ class FxInputSection : public SynthSection {
       spectral_edit_button_->setShape(Paths::pencil());
       spectral_edit_button_->setVisible(false);
 
+      // The swap button between the two dropdowns: which comes first in the signal path, the spectral morph or the
+      // distortion warp. Lit while the warp comes first.
+      swap_button_ = std::make_unique<OpenGlShapeButton>("Swap Order");
+      addAndMakeVisible(swap_button_.get());
+      addOpenGlComponent(swap_button_->getGlComponent());
+      swap_button_->addListener(this);
+      swap_button_->setShape(swapPath());
+      swap_button_->setTooltip("Swap the order: spectral morph then distortion, or distortion then spectral morph");
+
       setSkinOverride(Skin::kOscillator);
       updateDestinationText();
     }
@@ -248,8 +257,7 @@ class FxInputSection : public SynthSection {
       g.setColour(findColour(Skin::kTextComponentBackground, true));
       g.fillRoundedRectangle(spectral_label_bounds_.toFloat(),
                              findValue(Skin::kLabelBackgroundRounding));
-      g.fillRoundedRectangle(getLabelBackgroundBounds(distortion_.get()).toFloat(),
-                             findValue(Skin::kLabelBackgroundRounding));
+      g.fillRoundedRectangle(warp_label_bounds_.toFloat(), findValue(Skin::kLabelBackgroundRounding));
     }
 
     void resized() override {
@@ -292,6 +300,18 @@ class FxInputSection : public SynthSection {
                                    browse_width, browse_width);
 
       Rectangle<int> warp_bounds = getLabelBackgroundBounds(distortion_.get());
+      Rectangle<int> spectral_full = getLabelBackgroundBounds(spectral_morph_.get());
+      int swap_trim = 0;
+      {
+        // The swap button sits in the gap between the two labels, and takes a little room from each.
+        int size = spectral_full.getHeight();
+        int gap = warp_bounds.getX() - spectral_full.getRight();
+        int centre = spectral_full.getRight() + gap / 2;
+        swap_trim = std::max(0, (size + 1) / 2 - gap / 2);
+        warp_bounds = warp_bounds.withTrimmedLeft(swap_trim);
+        swap_button_->setBounds(centre - size / 2, spectral_full.getY(), size, size);
+      }
+      warp_label_bounds_ = warp_bounds;
       int warp_browse = warp_bounds.getHeight();
       warp_text_->setBounds(warp_bounds);
       warp_text_->setTextSize(findValue(Skin::kLabelHeight));
@@ -301,6 +321,7 @@ class FxInputSection : public SynthSection {
       int warp_menu_x = prev_warp_->getRight();
       warp_selector_->setBounds(warp_menu_x, warp_bounds.getY(), next_warp_->getX() - warp_menu_x, warp_browse);
       Rectangle<int> spectral_bounds = getLabelBackgroundBounds(spectral_morph_.get());
+      spectral_bounds = spectral_bounds.withTrimmedRight(swap_trim);
       int spectral_browse = spectral_bounds.getHeight();
       spectral_text_->setBounds(spectral_bounds);
       spectral_text_->setTextSize(findValue(Skin::kLabelHeight));
@@ -380,11 +401,21 @@ class FxInputSection : public SynthSection {
         spectral_text_->setText(strings::kFxSpectralNames[current_spectral_]);
         updateSpectralKnob();
       }
+      auto order = controls.find(prefix_ + "_warp_first");
+      if (order != controls.end() && order->second) {
+        warp_first_ = order->second->value() > 0.5f;
+        swap_button_->useOnColors(warp_first_);
+        swap_button_->redoImage();
+      }
       updateToolButton();
       connectMemory();
     }
 
     void buttonClicked(Button* clicked_button) override {
+      if (clicked_button == swap_button_.get()) {
+        setWarpFirst(!warp_first_);
+        return;
+      }
       if (clicked_button == destination_selector_.get()) {
         PopupItems options;
         for (int i = 0; i < kNumDestinations; ++i)
@@ -604,6 +635,29 @@ class FxInputSection : public SynthSection {
         parent->getSynth()->valueChangedInternal(prefix_ + "_spectral_morph_type", current_spectral_);
     }
 
+    // Two opposing half arrows, the swap icon.
+    static Path swapPath() {
+      Path half;
+      half.addRectangle(0.08f, 0.40f, 0.84f, 0.07f);
+      half.addTriangle(0.94f, 0.47f, 0.62f, 0.47f, 0.62f, 0.22f);
+      Path other = half;
+      other.applyTransform(AffineTransform::rotation(MathConstants<float>::pi, 0.5f, 0.5f));
+      half.addPath(other);
+      return half;
+    }
+
+    void setWarpFirst(bool warp_first) {
+      warp_first_ = warp_first;
+      swap_button_->useOnColors(warp_first_);
+      swap_button_->redoImage();
+
+      SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
+      if (parent && parent->getSynth()) {
+        parent->getSynth()->valueChangedInternal(prefix_ + "_warp_first", warp_first_ ? 1.0f : 0.0f);
+        parent->notifyChange();
+      }
+    }
+
     void setWarp(int mode) {
       bool was_bipolar = isBipolarWarp(current_warp_);
       current_warp_ = clampWarp(mode);
@@ -666,6 +720,8 @@ class FxInputSection : public SynthSection {
     SpectralWarpEditor* spectral_editor_ = nullptr;
     VocoderEditor* vocoder_editor_ = nullptr;
     Rectangle<int> spectral_label_bounds_;
+    Rectangle<int> warp_label_bounds_;
+    bool warp_first_ = false;
     bool memory_connected_ = false;
     std::vector<Listener*> listeners_;
 
@@ -685,6 +741,7 @@ class FxInputSection : public SynthSection {
     std::unique_ptr<PlainTextComponent> spectral_text_;
     std::unique_ptr<OpenGlShapeButton> prev_spectral_;
     std::unique_ptr<OpenGlShapeButton> next_spectral_;
+    std::unique_ptr<OpenGlShapeButton> swap_button_;
     std::unique_ptr<ShapeButton> warp_selector_;
     std::unique_ptr<PlainTextComponent> warp_text_;
     std::unique_ptr<OpenGlShapeButton> prev_warp_;

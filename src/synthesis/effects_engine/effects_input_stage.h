@@ -251,4 +251,77 @@ namespace vital {
     private:
       JUCE_LEAK_DETECTOR(AudioUpsampler)
   };
+
+  // Picks between the two orders of a lane's spectral morph and distortion warp (kA: spectral first, kB: warp
+  // first) with the flag input (> 0.5 selects kB). A change crossfades over 64 samples, so the swap does not click.
+  class OrderSwitch : public Processor {
+    public:
+      enum {
+        kA,
+        kB,
+        kFlag,
+        kNumInputs
+      };
+
+      OrderSwitch() : Processor(kNumInputs, 1), mix_(0.0f), first_block_(true) { }
+
+      Processor* clone() const override { return new OrderSwitch(*this); }
+
+      void process(int num_samples) override {
+        const poly_float* a = input(kA)->source->buffer;
+        const poly_float* b = input(kB)->source->buffer;
+        poly_float* out = output()->buffer;
+        const float target = input(kFlag)->source->buffer[0][0] > 0.5f ? 1.0f : 0.0f;
+        if (first_block_) {
+          mix_ = target;
+          first_block_ = false;
+        }
+
+        const float step = 1.0f / 64.0f;
+        for (int i = 0; i < num_samples; ++i) {
+          mix_ += std::max(-step, std::min(target - mix_, step));
+          if (mix_ <= 0.0f)
+            out[i] = a[i];
+          else if (mix_ >= 1.0f)
+            out[i] = b[i];
+          else
+            out[i] = a[i] + (b[i] - a[i]) * mix_;
+        }
+      }
+
+    private:
+      float mix_;
+      bool first_block_;
+
+      JUCE_LEAK_DETECTOR(OrderSwitch)
+  };
+
+  // Passes a mode value through while its chain is the selected one, and reads 0 (None) otherwise, so the chain
+  // that is not in use only passes the audio along.
+  class OrderGate : public Processor {
+    public:
+      enum {
+        kValue,
+        kFlag,
+        kNumInputs
+      };
+
+      // active_when_flag: true for the warp-first chain (selected while the flag is on).
+      explicit OrderGate(bool active_when_flag) : Processor(kNumInputs, 1), active_when_flag_(active_when_flag) { }
+
+      Processor* clone() const override { return new OrderGate(*this); }
+
+      void process(int num_samples) override {
+        const bool flag = input(kFlag)->source->buffer[0][0] > 0.5f;
+        const float value = flag == active_when_flag_ ? input(kValue)->source->buffer[0][0] : 0.0f;
+        poly_float* out = output()->buffer;
+        for (int i = 0; i < num_samples; ++i)
+          out[i] = poly_float(value);
+      }
+
+    private:
+      bool active_when_flag_;
+
+      JUCE_LEAK_DETECTOR(OrderGate)
+  };
 } // namespace vital

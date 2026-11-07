@@ -135,7 +135,8 @@ namespace vital {
       Value* input_spectral_mode_ = nullptr;
       Value* sidechain_spectral_mode_ = nullptr;
       Value* spectral_engaged_ = nullptr;
-      SpectralMorphProcessor* spectral_[2] = { nullptr, nullptr };
+      SpectralMorphProcessor* spectral_[2] = { nullptr, nullptr };      // spectral-first chain of each lane
+      SpectralMorphProcessor* spectral_alt_[2] = { nullptr, nullptr };  // warp-first chain (same settings)
       std::unique_ptr<LineGenerator> spectral_curves_[2][kNumSpectralCurves];
       std::shared_ptr<StereoMemory> input_memory_;
       std::shared_ptr<StereoMemory> sidechain_memory_;

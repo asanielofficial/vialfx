@@ -163,113 +163,189 @@ namespace vital {
     sidechain_gate->plug(centre_pan, AudioLane::kPan);
     addProcessor(sidechain_gate);
 
-    SpectralMorphProcessor* sidechain_spectral = new SpectralMorphProcessor(false);
-    sidechain_spectral->plug(sidechain_gate, SpectralMorphProcessor::kAudio);
-    sidechain_spectral->plug(sidechain_spectral_mode, SpectralMorphProcessor::kMode);
-    sidechain_spectral->plug(sidechain_spectral_amount, SpectralMorphProcessor::kAmount);
-    sidechain_spectral->plug(fft_size, SpectralMorphProcessor::kFftSize);
-    sidechain_spectral->plug(spectral_engaged_, SpectralMorphProcessor::kEngaged);
-    sidechain_spectral->plug(createMonoModControl("sidechain_spectral_table_mix"), SpectralMorphProcessor::kTableMix);
-    sidechain_spectral->plug(createMonoModControl("sidechain_table_position"), SpectralMorphProcessor::kTablePosition);
-    sidechain_spectral->plug(createMonoModControl("sidechain_table_gain"), SpectralMorphProcessor::kTableGain);
-    sidechain_spectral->plug(createMonoModControl("sidechain_table_resonance"), SpectralMorphProcessor::kTableResonance);
-    sidechain_spectral->plug(sidechain_spectral_position, SpectralMorphProcessor::kPosition);
-    sidechain_spectral->plug(sidechain_random_shuffle, SpectralMorphProcessor::kShuffle);
-    sidechain_spectral->plug(sidechain_random_dice, SpectralMorphProcessor::kDice);
-    sidechain_spectral->plug(createMonoModControl("sidechain_spectral_gain"), SpectralMorphProcessor::kGain);
-    sidechain_spectral->plug(createMonoModControl("sidechain_spectral_density"), SpectralMorphProcessor::kDensity);
-    sidechain_spectral->plug(createMonoModControl("sidechain_spectral_resonance"), SpectralMorphProcessor::kResonance);
-    sidechain_spectral->plug(createMonoModControl("sidechain_spectral_spread"), SpectralMorphProcessor::kSpread);
-    sidechain_spectral->plug(createMonoModControl("sidechain_spectral_depth"), SpectralMorphProcessor::kDepth);
-    sidechain_spectral->plug(createMonoModControl("sidechain_spectral_phase"), SpectralMorphProcessor::kPhase);
-    sidechain_spectral->setTable(fx_tables_[3].get());
-    addProcessor(sidechain_spectral);
+    // Each lane runs its spectral morph and its distortion warp in either order (the swap button between the two
+    // dropdowns, <lane>_warp_first). Both orders exist as separate chains and a switch picks one. The chain that is
+    // not selected has its modes forced to None, so it only passes audio through (the spectral stage's idle path is
+    // a plain delay line) and costs next to nothing. Both orders delay by the same amount.
+    struct LaneControls {
+      Output *table_mix, *table_position, *table_gain, *table_resonance;
+      Output *gain, *density, *resonance, *spread, *depth, *phase;
+      Output *vocode_formant = nullptr, *vocode_flatten = nullptr, *vocode_noise = nullptr, *vocode_emphasis = nullptr,
+             *vocode_gate = nullptr, *vocode_level = nullptr, *vocode_whiten = nullptr;
+      Value *vocode_bands = nullptr, *vocode_attack = nullptr, *vocode_release = nullptr;
+      Output *warp_phase, *warp_bias, *warp_smooth, *warp_drive, *warp_mix;
+      Value* warp_dc;
+    };
+    auto makeControls = [this](const std::string& p, bool main) {
+      LaneControls c;
+      c.table_mix = createMonoModControl(p + "_spectral_table_mix");
+      c.table_position = createMonoModControl(p + "_table_position");
+      c.table_gain = createMonoModControl(p + "_table_gain");
+      c.table_resonance = createMonoModControl(p + "_table_resonance");
+      c.gain = createMonoModControl(p + "_spectral_gain");
+      c.density = createMonoModControl(p + "_spectral_density");
+      c.resonance = createMonoModControl(p + "_spectral_resonance");
+      c.spread = createMonoModControl(p + "_spectral_spread");
+      c.depth = createMonoModControl(p + "_spectral_depth");
+      c.phase = createMonoModControl(p + "_spectral_phase");
+      if (main) {
+        c.vocode_bands = createBaseControl("input_vocoder_bands");
+        c.vocode_attack = createBaseControl("input_vocoder_attack");
+        c.vocode_release = createBaseControl("input_vocoder_release");
+        c.vocode_formant = createMonoModControl("input_vocoder_formant");
+        c.vocode_flatten = createMonoModControl("input_vocoder_flatten");
+        c.vocode_noise = createMonoModControl("input_vocoder_noise");
+        c.vocode_emphasis = createMonoModControl("input_vocoder_emphasis");
+        c.vocode_gate = createMonoModControl("input_vocoder_gate");
+        c.vocode_level = createMonoModControl("input_vocoder_level");
+        c.vocode_whiten = createMonoModControl("input_vocoder_whiten");
+      }
+      c.warp_phase = createMonoModControl(p + "_distortion_phase");
+      c.warp_bias = createMonoModControl(p + "_distortion_bias");
+      c.warp_smooth = createMonoModControl(p + "_distortion_smooth");
+      c.warp_drive = createMonoModControl(p + "_distortion_drive");
+      c.warp_dc = createBaseControl(p + "_distortion_dc_filter");
+      c.warp_mix = createMonoModControl(p + "_distortion_mix");
+      return c;
+    };
+    auto gated = [this](Value* value, Value* flag, bool active_when_flag) -> Processor* {
+      OrderGate* gate = new OrderGate(active_when_flag);
+      gate->plug(value, OrderGate::kValue);
+      gate->plug(flag, OrderGate::kFlag);
+      addProcessor(gate);
+      return gate;
+    };
+    auto makeSpectral = [this](bool main, const LaneControls& c, Processor* audio, Processor* mode,
+                               Output* amount, Output* position, Output* shuffle, Value* dice, Processor* modulator,
+                               int table_index) {
+      SpectralMorphProcessor* sp = new SpectralMorphProcessor(main);
+      sp->plug(audio, SpectralMorphProcessor::kAudio);
+      sp->plug(mode, SpectralMorphProcessor::kMode);
+      sp->plug(amount, SpectralMorphProcessor::kAmount);
+      sp->plug(fft_size_, SpectralMorphProcessor::kFftSize);
+      sp->plug(spectral_engaged_, SpectralMorphProcessor::kEngaged);
+      sp->plug(c.table_mix, SpectralMorphProcessor::kTableMix);
+      sp->plug(c.table_position, SpectralMorphProcessor::kTablePosition);
+      sp->plug(c.table_gain, SpectralMorphProcessor::kTableGain);
+      sp->plug(c.table_resonance, SpectralMorphProcessor::kTableResonance);
+      sp->plug(position, SpectralMorphProcessor::kPosition);
+      sp->plug(shuffle, SpectralMorphProcessor::kShuffle);
+      sp->plug(dice, SpectralMorphProcessor::kDice);
+      sp->plug(c.gain, SpectralMorphProcessor::kGain);
+      sp->plug(c.density, SpectralMorphProcessor::kDensity);
+      sp->plug(c.resonance, SpectralMorphProcessor::kResonance);
+      sp->plug(c.spread, SpectralMorphProcessor::kSpread);
+      sp->plug(c.depth, SpectralMorphProcessor::kDepth);
+      sp->plug(c.phase, SpectralMorphProcessor::kPhase);
+      if (main) {
+        sp->plug(modulator, SpectralMorphProcessor::kModulator);
+        sp->plug(c.vocode_bands, SpectralMorphProcessor::kVocodeBands);
+        sp->plug(c.vocode_attack, SpectralMorphProcessor::kVocodeAttack);
+        sp->plug(c.vocode_release, SpectralMorphProcessor::kVocodeRelease);
+        sp->plug(c.vocode_formant, SpectralMorphProcessor::kVocodeFormant);
+        sp->plug(c.vocode_flatten, SpectralMorphProcessor::kVocodeFlatten);
+        sp->plug(c.vocode_noise, SpectralMorphProcessor::kVocodeNoise);
+        sp->plug(c.vocode_emphasis, SpectralMorphProcessor::kVocodeEmphasis);
+        sp->plug(c.vocode_gate, SpectralMorphProcessor::kVocodeGate);
+        sp->plug(c.vocode_level, SpectralMorphProcessor::kVocodeLevel);
+        sp->plug(c.vocode_whiten, SpectralMorphProcessor::kVocodeWhiten);
+      }
+      sp->setTable(fx_tables_[table_index].get());
+      addProcessor(sp);
+      return sp;
+    };
+    auto makeWarp = [this](bool main, const LaneControls& c, Processor* audio, Processor* mode, Output* amount,
+                           int table_index) {
+      WaveWarp* warp = new WaveWarp(main);
+      warp->plug(audio, WaveWarp::kAudio);
+      warp->plug(mode, WaveWarp::kMode);
+      warp->plug(amount, WaveWarp::kAmount);
+      warp->plug(c.warp_phase, WaveWarp::kPhase);
+      warp->plug(c.warp_bias, WaveWarp::kBias);
+      warp->plug(c.warp_smooth, WaveWarp::kSmooth);
+      warp->plug(c.warp_drive, WaveWarp::kDrive);
+      warp->plug(c.warp_dc, WaveWarp::kDcFilter);
+      warp->plug(c.warp_mix, WaveWarp::kMix);
+      warp->setTable(fx_tables_[table_index].get());
+      addProcessor(warp);
+      return warp;
+    };
+    auto makeSwitch = [this](Processor* spectral_first, Processor* warp_first, Value* flag) {
+      OrderSwitch* order = new OrderSwitch();
+      order->plug(spectral_first, OrderSwitch::kA);
+      order->plug(warp_first, OrderSwitch::kB);
+      order->plug(flag, OrderSwitch::kFlag);
+      addProcessor(order);
+      return order;
+    };
 
-    SpectralMorphProcessor* main_spectral = new SpectralMorphProcessor(true);
-    main_spectral->plug(main_lane, SpectralMorphProcessor::kAudio);
-    main_spectral->plug(input_spectral_mode, SpectralMorphProcessor::kMode);
-    main_spectral->plug(input_spectral_amount, SpectralMorphProcessor::kAmount);
-    main_spectral->plug(fft_size, SpectralMorphProcessor::kFftSize);
-    main_spectral->plug(spectral_engaged_, SpectralMorphProcessor::kEngaged);
-    main_spectral->plug(createMonoModControl("input_spectral_table_mix"), SpectralMorphProcessor::kTableMix);
-    main_spectral->plug(createMonoModControl("input_table_position"), SpectralMorphProcessor::kTablePosition);
-    main_spectral->plug(createMonoModControl("input_table_gain"), SpectralMorphProcessor::kTableGain);
-    main_spectral->plug(createMonoModControl("input_table_resonance"), SpectralMorphProcessor::kTableResonance);
-    main_spectral->plug(input_spectral_position, SpectralMorphProcessor::kPosition);
-    main_spectral->plug(input_random_shuffle, SpectralMorphProcessor::kShuffle);
-    main_spectral->plug(input_random_dice, SpectralMorphProcessor::kDice);
-    main_spectral->plug(createMonoModControl("input_spectral_gain"), SpectralMorphProcessor::kGain);
-    main_spectral->plug(createMonoModControl("input_spectral_density"), SpectralMorphProcessor::kDensity);
-    main_spectral->plug(createMonoModControl("input_spectral_resonance"), SpectralMorphProcessor::kResonance);
-    main_spectral->plug(createMonoModControl("input_spectral_spread"), SpectralMorphProcessor::kSpread);
-    main_spectral->plug(createMonoModControl("input_spectral_depth"), SpectralMorphProcessor::kDepth);
-    main_spectral->plug(createMonoModControl("input_spectral_phase"), SpectralMorphProcessor::kPhase);
-    main_spectral->plug(sidechain_gate, SpectralMorphProcessor::kModulator);
-    main_spectral->plug(createBaseControl("input_vocoder_bands"), SpectralMorphProcessor::kVocodeBands);
-    main_spectral->plug(createBaseControl("input_vocoder_attack"), SpectralMorphProcessor::kVocodeAttack);
-    main_spectral->plug(createBaseControl("input_vocoder_release"), SpectralMorphProcessor::kVocodeRelease);
-    main_spectral->plug(createMonoModControl("input_vocoder_formant"), SpectralMorphProcessor::kVocodeFormant);
-    main_spectral->plug(createMonoModControl("input_vocoder_flatten"), SpectralMorphProcessor::kVocodeFlatten);
-    main_spectral->plug(createMonoModControl("input_vocoder_noise"), SpectralMorphProcessor::kVocodeNoise);
-    main_spectral->plug(createMonoModControl("input_vocoder_emphasis"), SpectralMorphProcessor::kVocodeEmphasis);
-    main_spectral->plug(createMonoModControl("input_vocoder_gate"), SpectralMorphProcessor::kVocodeGate);
-    main_spectral->plug(createMonoModControl("input_vocoder_level"), SpectralMorphProcessor::kVocodeLevel);
-    main_spectral->plug(createMonoModControl("input_vocoder_whiten"), SpectralMorphProcessor::kVocodeWhiten);
-    main_spectral->setTable(fx_tables_[2].get());
-    addProcessor(main_spectral);
+    Value* input_warp_first = createBaseControl("input_warp_first");
+    Value* sidechain_warp_first = createBaseControl("sidechain_warp_first");
+    LaneControls main_controls = makeControls("input", true);
+    LaneControls sidechain_controls = makeControls("sidechain", false);
 
-    // Drawn curves (Spectral Filter / Phaser / Flanger) and Random Amplitudes seeds, per lane.
+    // The sidechain lane goes first; the main lane's FM and RM modes use its result as their modulator. The main
+    // lane's modulator must line up with the main audio at the warp: spectral first, that audio is already delayed
+    // by the spectral stage, so it gets the finished sidechain lane; warp first, it is not, so it gets the
+    // sidechain's warp before any delay (that warp is never gated, so it is always there).
+    SpectralMorphProcessor* sidechain_spectral = makeSpectral(
+        false, sidechain_controls, sidechain_gate, gated(sidechain_spectral_mode, sidechain_warp_first, false),
+        sidechain_spectral_amount, sidechain_spectral_position, sidechain_random_shuffle, sidechain_random_dice,
+        nullptr, 3);
+    WaveWarp* sidechain_warp = makeWarp(false, sidechain_controls, sidechain_spectral,
+                                        gated(sidechain_warp_mode, sidechain_warp_first, false),
+                                        sidechain_warp_amount, 1);
+    WaveWarp* sidechain_warp_early = makeWarp(false, sidechain_controls, sidechain_gate, sidechain_warp_mode,
+                                              sidechain_warp_amount, 1);
+    SpectralMorphProcessor* sidechain_spectral_late = makeSpectral(
+        false, sidechain_controls, sidechain_warp_early, gated(sidechain_spectral_mode, sidechain_warp_first, true),
+        sidechain_spectral_amount, sidechain_spectral_position, sidechain_random_shuffle, sidechain_random_dice,
+        nullptr, 3);
+    OrderSwitch* sidechain_order = makeSwitch(sidechain_warp, sidechain_spectral_late, sidechain_warp_first);
+
+    SpectralMorphProcessor* main_spectral = makeSpectral(
+        true, main_controls, main_lane, gated(input_spectral_mode, input_warp_first, false),
+        input_spectral_amount, input_spectral_position, input_random_shuffle, input_random_dice, sidechain_gate, 2);
+    WaveWarp* main_warp = makeWarp(true, main_controls, main_spectral,
+                                   gated(input_warp_mode, input_warp_first, false), input_warp_amount, 0);
+    main_warp->plug(sidechain_order, WaveWarp::kModulator);
+    main_warp->plug(sidechain_on, WaveWarp::kModulatorOn);
+    WaveWarp* main_warp_early = makeWarp(true, main_controls, main_lane,
+                                         gated(input_warp_mode, input_warp_first, true), input_warp_amount, 0);
+    main_warp_early->plug(sidechain_warp_early, WaveWarp::kModulator);
+    main_warp_early->plug(sidechain_on, WaveWarp::kModulatorOn);
+    SpectralMorphProcessor* main_spectral_late = makeSpectral(
+        true, main_controls, main_warp_early, gated(input_spectral_mode, input_warp_first, true),
+        input_spectral_amount, input_spectral_position, input_random_shuffle, input_random_dice, sidechain_gate, 2);
+    OrderSwitch* main_order = makeSwitch(main_warp, main_spectral_late, input_warp_first);
+
+    // Drawn curves (Spectral Filter / Phaser / Flanger) and Random Amplitudes seeds, per lane (both chains share
+    // the curves and keep the same seed).
     spectral_[0] = main_spectral;
     spectral_[1] = sidechain_spectral;
+    spectral_alt_[0] = main_spectral_late;
+    spectral_alt_[1] = sidechain_spectral_late;
     for (int lane = 0; lane < 2; ++lane) {
       for (int i = 0; i < kNumSpectralCurves; ++i) {
         spectral_curves_[lane][i] = std::make_unique<LineGenerator>();
         spectral_[lane]->setCurve(i, spectral_curves_[lane][i].get());
+        spectral_alt_[lane]->setCurve(i, spectral_curves_[lane][i].get());
       }
       resetSpectralDrawings(lane);
     }
 
-    // The sidechain lane warps first; the main lane's FM and RM modes use its result as their modulator.
-    WaveWarp* sidechain_warp = new WaveWarp(false);
-    sidechain_warp->plug(sidechain_spectral, WaveWarp::kAudio);
-    sidechain_warp->plug(sidechain_warp_mode, WaveWarp::kMode);
-    sidechain_warp->plug(sidechain_warp_amount, WaveWarp::kAmount);
-    sidechain_warp->plug(createMonoModControl("sidechain_distortion_phase"), WaveWarp::kPhase);
-    sidechain_warp->plug(createMonoModControl("sidechain_distortion_bias"), WaveWarp::kBias);
-    sidechain_warp->plug(createMonoModControl("sidechain_distortion_smooth"), WaveWarp::kSmooth);
-    sidechain_warp->plug(createMonoModControl("sidechain_distortion_drive"), WaveWarp::kDrive);
-    sidechain_warp->plug(createBaseControl("sidechain_distortion_dc_filter"), WaveWarp::kDcFilter);
-    sidechain_warp->plug(createMonoModControl("sidechain_distortion_mix"), WaveWarp::kMix);
-    sidechain_warp->setTable(fx_tables_[1].get());
-    addProcessor(sidechain_warp);
-
     AudioLane* sidechain_out = new AudioLane();
-    sidechain_out->plug(sidechain_warp, AudioLane::kAudio);
+    sidechain_out->plug(sidechain_order, AudioLane::kAudio);
     sidechain_out->plug(always_on, AudioLane::kOn);
     sidechain_out->plug(sidechain_level, AudioLane::kLevel);
     sidechain_out->plug(sidechain_pan, AudioLane::kPan);
     addProcessor(sidechain_out);
 
-    WaveWarp* main_warp = new WaveWarp(true);
-    main_warp->plug(createMonoModControl("input_distortion_phase"), WaveWarp::kPhase);
-    main_warp->plug(createMonoModControl("input_distortion_bias"), WaveWarp::kBias);
-    main_warp->plug(createMonoModControl("input_distortion_smooth"), WaveWarp::kSmooth);
-    main_warp->plug(createMonoModControl("input_distortion_drive"), WaveWarp::kDrive);
-    main_warp->plug(createBaseControl("input_distortion_dc_filter"), WaveWarp::kDcFilter);
-    main_warp->plug(createMonoModControl("input_distortion_mix"), WaveWarp::kMix);
-    main_warp->setTable(fx_tables_[0].get());
-    main_warp->plug(main_spectral, WaveWarp::kAudio);
-    main_warp->plug(input_warp_mode, WaveWarp::kMode);
-    main_warp->plug(input_warp_amount, WaveWarp::kAmount);
-    main_warp->plug(sidechain_warp, WaveWarp::kModulator);
-    main_warp->plug(sidechain_on, WaveWarp::kModulatorOn);
-    addProcessor(main_warp);
-
     // The input panels' spectrum displays show each lane after its level, pan and warp.
     input_memory_ = std::make_shared<StereoMemory>(kAudioMemorySamples);
     sidechain_memory_ = std::make_shared<StereoMemory>(kAudioMemorySamples);
     AudioTap* main_tap = new AudioTap(input_memory_.get());
-    main_tap->plug(main_warp, AudioTap::kAudio);
+    main_tap->plug(main_order, AudioTap::kAudio);
     addProcessor(main_tap);
     AudioTap* sidechain_tap = new AudioTap(sidechain_memory_.get());
     sidechain_tap->plug(sidechain_out, AudioTap::kAudio);
@@ -536,6 +612,7 @@ namespace vital {
 
   void SoundEngine::setRandomSeed(int lane, uint32_t seed) {
     spectral_[lane]->setSeed(seed);
+    spectral_alt_[lane]->setSeed(seed);
   }
 
   LineGenerator* SoundEngine::getSpectralCurve(int lane, int index) {

@@ -331,6 +331,11 @@ namespace vital {
       ValueDetails::kIndexed, false, "", "Input Warp Mode", strings::kWarpNames },
     { "sidechain_distortion_type", 0x000000, 0.0, 9.0, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Sidechain Warp Mode", strings::kWarpNames },
+    // Order of the lane's two stages: 0 = spectral morph, then distortion warp; 1 = warp, then spectral morph.
+    { "input_warp_first", 0x000000, 0.0, 1.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Input Warp Before Spectral", strings::kOffOnNames },
+    { "sidechain_warp_first", 0x000000, 0.0, 1.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Sidechain Warp Before Spectral", strings::kOffOnNames },
     // Spectral morph mode (the knob amount is input_spectral_morph_amount / sidechain_spectral_morph_amount).
     // Vocode (the last mode) uses the sidechain lane, so only the main lane offers it.
     { "input_spectral_morph_type", 0x000000, 0.0, 16.0, 0.0, 0.0, 1.0,
