@@ -326,18 +326,33 @@ void FullInterface::paintBackground(Graphics& g) {
 
 void FullInterface::setSkinValues(const Skin& skin, bool top_level) {
   SynthSection::setSkinValues(skin, top_level);
-  if (!top_level)
-    return;
+  if (top_level)
+    updateGlow(skin);
+}
 
+void FullInterface::updateGlow(const Skin& skin) {
   std::vector<Skin::GlowEntry> glows;
   skin.collectGlows(glows);
   std::vector<GlowPass::Key> keys;
   for (const auto& glow : glows) {
-    if (static_cast<int>(keys.size()) >= GlowPass::kMaxKeys)
-      break;
-    keys.push_back({ glow.color.getFloatRed(), glow.color.getFloatGreen(), glow.color.getFloatBlue(),
-                     glow.glow, glow.size });
+    GlowPass::Key key = { glow.color.getFloatRed(), glow.color.getFloatGreen(), glow.color.getFloatBlue(),
+                          glow.glow, glow.size };
+    bool merged = false;
+    for (GlowPass::Key& existing : keys) {
+      float distance = std::abs(existing.red - key.red) + std::abs(existing.green - key.green) +
+                       std::abs(existing.blue - key.blue);
+      if (distance < 0.03f) {
+        existing.glow = std::max(existing.glow, key.glow);
+        existing.size = std::max(existing.size, key.size);
+        merged = true;
+        break;
+      }
+    }
+    if (!merged && static_cast<int>(keys.size()) < GlowPass::kMaxKeys)
+      keys.push_back(key);
   }
+
+  ScopedLock lock(open_gl_critical_section_);
   glow_pass_.setKeys(keys);
 }
 

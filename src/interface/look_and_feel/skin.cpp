@@ -203,17 +203,41 @@ Skin::Skin() {
 
 void Skin::collectGlows(std::vector<GlowEntry>& glows) const {
   for (int i = 0; i < kNumColors; ++i) {
-    if (glow_[i] <= 0.0f)
-      continue;
-
     ColorId id = static_cast<ColorId>(kInitialColor + i);
-    glows.push_back({ colors_[i], glow_[i], glow_size_[i] });
+    if (glow_[i] > 0.0f)
+      glows.push_back({ colors_[i], glow_[i], glow_size_[i] });
+
     for (int section = 1; section < kNumSectionOverrides; ++section) {
       auto it = color_overrides_[section].find(id);
-      if (it != color_overrides_[section].end())
-        glows.push_back({ it->second, glow_[i], glow_size_[i] });
+      if (it == color_overrides_[section].end())
+        continue;
+
+      float glow = getGlow(section, id);
+      if (glow > 0.0f)
+        glows.push_back({ it->second, glow, getGlowSize(section, id) });
     }
   }
+}
+
+void Skin::addOverrideGlow(int section, ColorId color_id, float glow, float size) {
+  if (section == kNone) {
+    setGlow(color_id, glow);
+    setGlowSize(color_id, size);
+  }
+  else
+    glow_overrides_[section][color_id] = { jlimit(0.0f, 1.0f, glow), jlimit(0.0f, 1.0f, size) };
+}
+
+float Skin::getGlow(int section, ColorId color_id) const {
+  if (section != kNone && glow_overrides_[section].count(color_id))
+    return glow_overrides_[section].at(color_id).first;
+  return getGlow(color_id);
+}
+
+float Skin::getGlowSize(int section, ColorId color_id) const {
+  if (section != kNone && glow_overrides_[section].count(color_id))
+    return glow_overrides_[section].at(color_id).second;
+  return getGlowSize(color_id);
 }
 
 void Skin::clearSkin() {
@@ -221,6 +245,8 @@ void Skin::clearSkin() {
     color_overrides_[i].clear();
   for (int i = 0; i < kNumSectionOverrides; ++i)
     value_overrides_[i].clear();
+  for (int i = 0; i < kNumSectionOverrides; ++i)
+    glow_overrides_[i].clear();
 }
 
 void Skin::loadDefaultSkin() {
@@ -324,8 +350,10 @@ void Skin::addOverrideColor(int section, ColorId color_id, Colour color) {
 }
 
 void Skin::removeOverrideColor(int section, ColorId color_id) {
-  if (section != kNone)
+  if (section != kNone) {
     color_overrides_[section].erase(color_id);
+    glow_overrides_[section].erase(color_id);
+  }
 }
 
 void Skin::addOverrideValue(int section, ValueId value_id, float value) {
@@ -360,6 +388,12 @@ json Skin::stateToJson() {
     for (const auto& color : color_overrides_[override_index]) {
       int index = color.first - Skin::kInitialColor;
       override_section[kColorNames[index]] = color.second.toString().toStdString();
+    }
+
+    for (const auto& glow : glow_overrides_[override_index]) {
+      int index = glow.first - Skin::kInitialColor;
+      override_section[kColorNames[index] + " Glow"] = glow.second.first;
+      override_section[kColorNames[index] + " Glow Size"] = glow.second.second;
     }
 
     for (const auto& value : value_overrides_[override_index]) {
@@ -431,6 +465,12 @@ void Skin::jsonToState(json data) {
 
           std::string color_string = override_section[kColorNames[i]];
           color_overrides_[override_index][color_id] = Colour::fromString(color_string);
+        }
+        if (override_section.count(kColorNames[i] + " Glow")) {
+          ColorId color_id = static_cast<Skin::ColorId>(i + Skin::kInitialColor);
+          float glow = override_section[kColorNames[i] + " Glow"];
+          float size = override_section.count(kColorNames[i] + " Glow Size") ? (float)override_section[kColorNames[i] + " Glow Size"] : 0.5f;
+          glow_overrides_[override_index][color_id] = { jlimit(0.0f, 1.0f, glow), jlimit(0.0f, 1.0f, size) };
         }
       }
 
@@ -815,6 +855,8 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       if (full_interface_ == nullptr)
         return;
 
+      flushReload();
+
       std::vector<Rectangle<int>> rects;
       int bin = -1;
       if (hover_editor_bin_ > 0) {
@@ -886,15 +928,18 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
 
     void applyGlow(float value, bool strength) {
       SkinEditorRow* row = selectedRow();
-      if (row == nullptr || row->isValue() || bin_ != 0)
+      if (row == nullptr || row->isValue())
         return;
 
       pushUndo(String(strength ? "g:" : "gs:") + String(row->id()));
       Skin::ColorId id = static_cast<Skin::ColorId>(row->id());
-      if (strength)
-        skin_->setGlow(id, value);
-      else
-        skin_->setGlowSize(id, value);
+      for (Skin::SectionOverride section : SkinBins::sections(bin_)) {
+        float glow = strength ? value : skin_->getGlow(section, id);
+        float size = strength ? skin_->getGlowSize(section, id) : value;
+        skin_->addOverrideGlow(section, id, glow, size);
+      }
+      refreshGlow();
+      return;
       reloadInterface();
     }
 
@@ -953,9 +998,23 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       redo_button_.setEnabled(!redo_stack_.empty());
     }
 
-    void reloadInterface() {
+    // Colour/value edits re-layout the whole interface, so they are coalesced and applied at most every
+    // ~60 ms; dragging a knob stays smooth and the plugin window doesn't flicker. Glow needs no layout.
+    void reloadInterface() { reload_pending_ = true; }
+
+    void refreshGlow() {
       if (full_interface_ != nullptr)
-        full_interface_->reloadSkin(*skin_);
+        full_interface_->updateGlow(*skin_);
+    }
+
+    void flushReload() {
+      double now = Time::getMillisecondCounterHiRes();
+      if (!reload_pending_ || full_interface_ == nullptr || now - last_reload_ < 60.0)
+        return;
+
+      reload_pending_ = false;
+      last_reload_ = now;
+      full_interface_->reloadSkin(*skin_);
     }
 
     void applyColor(SkinEditorRow* row, Colour color) {
@@ -996,12 +1055,13 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       }
 
       bool is_color = row != nullptr && !row->isValue();
-      bool show_glow = is_color && bin_ == 0;
+      bool show_glow = is_color;
       for (Component* c : std::initializer_list<Component*>{ &glow_slider_, &glow_label_, &size_slider_, &size_label_ })
         c->setVisible(show_glow);
       if (show_glow) {
-        glow_slider_.setValue(skin_->getGlow(static_cast<Skin::ColorId>(row->id())), dontSendNotification);
-        size_slider_.setValue(skin_->getGlowSize(static_cast<Skin::ColorId>(row->id())), dontSendNotification);
+        Skin::SectionOverride section = SkinBins::sections(bin_)[0];
+        glow_slider_.setValue(skin_->getGlow(section, static_cast<Skin::ColorId>(row->id())), dontSendNotification);
+        size_slider_.setValue(skin_->getGlowSize(section, static_cast<Skin::ColorId>(row->id())), dontSendNotification);
       }
       selector_.setVisible(is_color);
       hex_.setVisible(is_color);
@@ -1208,10 +1268,13 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
     std::vector<String> undo_stack_, redo_stack_;
     String coalesce_key_;
     double coalesce_time_ = 0.0;
+    bool reload_pending_ = false;
+    double last_reload_ = 0.0;
 };
 
 SkinDesigner::SkinDesigner(Skin* skin, FullInterface* full_interface) :
     DocumentWindow("VialFX Skin Editor", kEditorBackground, DocumentWindow::closeButton) {
+  setAlwaysOnTop(true);
   container_ = std::make_unique<SkinEditor>(skin, full_interface);
   container_->setSize(860, 840);
   setContentNonOwned(container_.get(), false);

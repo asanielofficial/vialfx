@@ -210,6 +210,12 @@ class Skin {
     // Glow size (0..1) of a colour: how far the halo reaches.
     void setGlowSize(ColorId color_id, float size) { glow_size_[color_id - kInitialColor] = jlimit(0.0f, 1.0f, size); }
     float getGlowSize(ColorId color_id) const { return glow_size_[color_id - kInitialColor]; }
+    // Per-section glow overrides (strength, size) for a colour.
+    void addOverrideGlow(int section, ColorId color_id, float glow, float size);
+    void removeOverrideGlow(int section, ColorId color_id) { if (section != kNone) glow_overrides_[section].erase(color_id); }
+    bool overridesGlow(int section, ColorId color_id) const { return section != kNone && glow_overrides_[section].count(color_id) > 0; }
+    float getGlow(int section, ColorId color_id) const;
+    float getGlowSize(int section, ColorId color_id) const;
     struct GlowEntry {
       Colour color;
       float glow;
@@ -251,6 +257,7 @@ class Skin {
     float values_[kNumSkinValueIds];
     std::map<ColorId, Colour> color_overrides_[kNumSectionOverrides];
     std::map<ValueId, float> value_overrides_[kNumSectionOverrides];
+    std::map<ColorId, std::pair<float, float>> glow_overrides_[kNumSectionOverrides];
 };
 
 // Skin "bins": named groups of section overrides that the skin editor edits together.

@@ -75,6 +75,8 @@ class FullInterface : public SynthSection, public AuthenticationSection::Listene
     virtual void paintBackground(Graphics& g) override;
     void copySkinValues(const Skin& skin);
     void setSkinValues(const Skin& skin, bool top_level) override;
+    // Glow needs no layout: just refresh the colours the glow pass looks for.
+    void updateGlow(const Skin& skin);
     void reloadSkin(const Skin& skin);
     // Skin editor: dashed outline over the parts of the UI that belong to a bin.
     void setBinHighlight(const std::vector<Rectangle<int>>& rects, const String& label);

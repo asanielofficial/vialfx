@@ -12,7 +12,7 @@
 // in that colour: text, lines, knobs, waveforms, meters.
 class GlowPass {
   public:
-    enum { kMaxKeys = 12 };
+    enum { kMaxKeys = 24 };
 
     struct Key {
       float red, green, blue, glow, size;
@@ -101,7 +101,7 @@ class GlowPass {
           "uniform vec2 texel;\n"
           "uniform float radius;\n"
           "uniform int count;\n"
-          "uniform float keys[60];\n"
+          "uniform float keys[120];\n"
           "varying vec2 uv;\n"
           "void main() {\n"
           "    vec3 total = vec3(0.0);\n"
@@ -113,7 +113,7 @@ class GlowPass {
           "        vec2 offset = vec2(cos(a), sin(a)) * r * radius;\n"
           "        vec3 c = texture2D(tex, uv + offset * texel).rgb;\n"
           "        float w = 0.0;\n"
-          "        for (int k = 0; k < 12; ++k) {\n"
+          "        for (int k = 0; k < 24; ++k) {\n"
           "            if (k >= count)\n"
           "                break;\n"
           "            vec4 key = vec4(keys[5 * k], keys[5 * k + 1], keys[5 * k + 2], keys[5 * k + 3]);\n"
