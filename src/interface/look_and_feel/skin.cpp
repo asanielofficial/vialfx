@@ -452,302 +452,694 @@ bool Skin::loadFromFile(File source) {
   return stringToState(source.loadFileAsString());
 }
 
-class SkinColorPicker : public Component, public Button::Listener, public Slider::Listener, public ChangeListener {
-  public:
-    static constexpr int kLoadSaveHeight = 20;
-    static constexpr int kButtonHeight = 30;
+namespace {
+  struct BinInfo {
+    const char* name;
+    std::vector<Skin::SectionOverride> sections;
+  };
 
-    SkinColorPicker(String name, Skin* skin, FullInterface* full_interface) :
-        Component(name), load_button_("Load"), save_button_("Save"),
-        override_index_(0), editing_index_(0), skin_(skin), full_interface_(full_interface) {
-      addAndMakeVisible(&load_button_);
-      load_button_.addListener(this);
-      addAndMakeVisible(&save_button_);
-      save_button_.addListener(this);
+  const std::vector<BinInfo>& binTable() {
+    static const std::vector<BinInfo> bins = {
+      { "Global", { Skin::kNone } },
+      { "Header", { Skin::kLogo, Skin::kHeader } },
+      { "Input / Oscillators", { Skin::kOscillator, Skin::kSample, Skin::kSub } },
+      { "Filters", { Skin::kFilter, Skin::kFxFilter } },
+      { "Envelopes", { Skin::kEnvelope } },
+      { "LFO / Tables", { Skin::kLfo, Skin::kRandomLfo } },
+      { "Voice / MIDI", { Skin::kVoice, Skin::kMacro, Skin::kKeyboard } },
+      { "Effects", { Skin::kAllEffects, Skin::kChorus, Skin::kCompressor, Skin::kDelay, Skin::kDistortion,
+                     Skin::kEqualizer, Skin::kFlanger, Skin::kPhaser, Skin::kReverb } },
+      { "Matrix / Mod", { Skin::kModulationDragDrop, Skin::kModulationMatrix } },
+      { "Browser", { Skin::kPresetBrowser, Skin::kPopupBrowser } },
+      { "Overlays / Advanced", { Skin::kOverlay, Skin::kAdvanced, Skin::kWavetableEditor } },
+    };
+    return bins;
+  }
 
-      for (int i = 0; i < Skin::kNumSectionOverrides; ++i)
-        addOverrideSection(i);
+  // Finds the nearest skin-tagged section around a component and the bin it belongs to.
+  SynthSection* findBinSection(Component* component, Component* root, int& bin) {
+    bin = -1;
+    if (root == nullptr || component == nullptr || !(component == root || root->isParentOf(component)))
+      return nullptr;
 
-      addAndMakeVisible(viewport_);
-      container_ = new Component("Container");
-      viewport_.setViewedComponent(container_);
-
-      for (int i = 0; i < Skin::kNumColors; ++i)
-        addColor(i);
-
-      for (int i = 0; i < Skin::kNumSkinValueIds; ++i)
-        addValueSlider(i);
-
-      setSliderValues();
-      setOverride(override_index_);
+    for (Component* c = component; c != nullptr; c = c->getParentComponent()) {
+      SynthSection* section = dynamic_cast<SynthSection*>(c);
+      if (section != nullptr && section->getSkinOverride() != Skin::kNone) {
+        bin = SkinBins::binOf(section->getSkinOverride());
+        if (bin > 0)
+          return section;
+      }
     }
+    return nullptr;
+  }
 
-    void setSliderValues() {
-      for (int i = 0; i < Skin::kNumSkinValueIds; ++i) {
-        float value = skin_->getValue(static_cast<Skin::ValueId>(i));
-        value_sliders_[i]->setValue(value, NotificationType::dontSendNotification);
+  void collectBinSections(Component* component, const std::vector<Skin::SectionOverride>& sections,
+                          FullInterface* root, std::vector<Rectangle<int>>& rects) {
+    for (int i = 0; i < component->getNumChildComponents(); ++i) {
+      Component* child = component->getChildComponent(i);
+      if (!child->isVisible())
+        continue;
+
+      SynthSection* section = dynamic_cast<SynthSection*>(child);
+      if (section != nullptr && child->getWidth() > 0 && child->getHeight() > 0 &&
+          std::find(sections.begin(), sections.end(), section->getSkinOverride()) != sections.end() &&
+          section->getSkinOverride() != Skin::kNone) {
+        rects.push_back(root->getLocalArea(child, child->getLocalBounds()));
+        continue;
+      }
+      collectBinSections(child, sections, root, rects);
+    }
+  }
+
+  const Colour kEditorBackground(0xff1c1b22);
+  const Colour kEditorPanel(0xff282733);
+  const Colour kEditorAccent(0xffa77bff);
+  const Colour kEditorText(0xffe6e3f0);
+  const Colour kEditorDim(0xff8d89a0);
+} // namespace
+
+int SkinBins::numBins() { return static_cast<int>(binTable().size()); }
+String SkinBins::name(int bin) { return binTable()[bin].name; }
+const std::vector<Skin::SectionOverride>& SkinBins::sections(int bin) { return binTable()[bin].sections; }
+
+int SkinBins::binOf(Skin::SectionOverride section) {
+  const auto& bins = binTable();
+  for (int i = 1; i < static_cast<int>(bins.size()); ++i) {
+    if (std::find(bins[i].sections.begin(), bins[i].sections.end(), section) != bins[i].sections.end())
+      return i;
+  }
+  return -1;
+}
+
+// One colour or value in a bin: swatch + name + remove button (or a value slider).
+class SkinEditorRow : public Component {
+  public:
+    static constexpr int kHeight = 34;
+
+    SkinEditorRow(bool is_value, int id, String name, bool removable) :
+        is_value_(is_value), id_(id), name_(std::move(name)), selected_(false) {
+      remove_.setButtonText(CharPointer_UTF8("\xc3\x97"));
+      remove_.setColour(TextButton::buttonColourId, Colour(0xff3a3948));
+      remove_.setColour(TextButton::textColourOffId, kEditorText);
+      remove_.setTooltip("Remove this override from the bin");
+      addChildComponent(remove_);
+      remove_.setVisible(removable);
+      remove_.onClick = [this]() { if (on_remove) on_remove(this); };
+
+      if (is_value_) {
+        slider_.setRange(-10000.0, 10000.0);
+        slider_.setSliderStyle(Slider::IncDecButtons);
+        slider_.setNumDecimalPlacesToDisplay(2);
+        slider_.setScrollWheelEnabled(false);
+        slider_.setTextBoxStyle(Slider::TextBoxLeft, false, 80, 22);
+        slider_.onValueChange = [this]() { if (on_value) on_value(this, static_cast<float>(slider_.getValue())); };
+        addAndMakeVisible(slider_);
       }
     }
 
-    void addOverrideSection(int override_index) {
-      override_buttons_.push_back(std::make_unique<TextButton>(kOverrideNames[override_index]));
-      size_t index = override_buttons_.size() - 1;
-      addAndMakeVisible(override_buttons_[index].get());
-      override_buttons_[index]->addListener(this);
+    bool isValue() const { return is_value_; }
+    int id() const { return id_; }
+    Colour color() const { return color_; }
+    void setColor(Colour color) { color_ = color; repaint(); }
+    void setValue(float value) { slider_.setValue(value, dontSendNotification); }
+    void setSelected(bool selected) { selected_ = selected; repaint(); }
+
+    void resized() override {
+      remove_.setBounds(getWidth() - 30, 5, 24, 24);
+      if (is_value_)
+        slider_.setBounds(getWidth() - 36 - 170, 6, 170, 22);
     }
 
-    void addColor(int color_index) {
-      color_buttons_.push_back(std::make_unique<TextButton>(kColorNames[color_index]));
-      size_t index = color_buttons_.size() - 1;
-      container_->addAndMakeVisible(color_buttons_[index].get());
-      color_buttons_[index]->addListener(this);
+    Rectangle<int> swatchBounds() const { return Rectangle<int>(8, 5, 92, 24); }
 
-      override_toggle_buttons_.push_back(std::make_unique<ToggleButton>(kColorNames[color_index] + " Override"));
-      container_->addAndMakeVisible(override_toggle_buttons_[index].get());
-      override_toggle_buttons_[index]->addListener(this);
-      override_toggle_buttons_[index]->setColour(ToggleButton::tickColourId, Colours::black);
-      override_toggle_buttons_[index]->setColour(ToggleButton::tickDisabledColourId, Colours::black);
+    void paint(Graphics& g) override {
+      g.setColour(selected_ ? kEditorPanel.brighter(0.15f) : kEditorPanel);
+      g.fillRoundedRectangle(getLocalBounds().reduced(2, 1).toFloat(), 5.0f);
+      if (selected_) {
+        g.setColour(kEditorAccent);
+        g.drawRoundedRectangle(getLocalBounds().reduced(2, 1).toFloat(), 5.0f, 1.5f);
+      }
+
+      Rectangle<int> swatch = swatchBounds();
+      if (!is_value_) {
+        g.saveState();
+        g.reduceClipRegion(swatch);
+        g.fillCheckerBoard(swatch.toFloat(), 8.0f, 8.0f, Colour(0xff666666), Colour(0xffaaaaaa));
+        g.restoreState();
+        g.setColour(color_);
+        g.fillRoundedRectangle(swatch.toFloat(), 4.0f);
+        g.setColour(color_.withAlpha(1.0f).contrasting(0.9f));
+        g.setFont(12.0f);
+        g.drawText(color_.toDisplayString(true), swatch, Justification::centred, false);
+      }
+      else {
+        g.setColour(kEditorDim);
+        g.setFont(12.0f);
+        g.drawText("VALUE", swatch, Justification::centred, false);
+      }
+
+      g.setColour(kEditorText);
+      g.setFont(14.0f);
+      int name_width = getWidth() - swatch.getRight() - 16 - (is_value_ ? 210 : 40);
+      g.drawText(name_, swatch.getRight() + 10, 0, std::max(name_width, 40), getHeight(),
+                 Justification::centredLeft, true);
     }
 
-    void addValueSlider(int value_index) {
-      value_sliders_.push_back(std::make_unique<Slider>(kValueNames[value_index]));
-      size_t index = value_sliders_.size() - 1;
-      container_->addAndMakeVisible(value_sliders_[index].get());
-      value_sliders_[index]->setRange(-10000.0f, 10000.0f);
-      value_sliders_[index]->setValue(0.0f);
-      value_sliders_[index]->setScrollWheelEnabled(false);
-      value_sliders_[index]->setSliderStyle(Slider::IncDecButtons);
-      value_sliders_[index]->addListener(this);
+    void mouseDown(const MouseEvent& e) override {
+      if (on_select)
+        on_select(this);
+    }
 
-      value_override_toggle_buttons_.push_back(std::make_unique<ToggleButton>(kValueNames[value_index] + " Override"));
-      container_->addAndMakeVisible(value_override_toggle_buttons_[index].get());
-      value_override_toggle_buttons_[index]->addListener(this);
-      value_override_toggle_buttons_[index]->setColour(ToggleButton::tickColourId, Colours::black);
-      value_override_toggle_buttons_[index]->setColour(ToggleButton::tickDisabledColourId, Colours::black);
+    std::function<void(SkinEditorRow*)> on_select;
+    std::function<void(SkinEditorRow*)> on_remove;
+    std::function<void(SkinEditorRow*, float)> on_value;
+
+  private:
+    bool is_value_;
+    int id_;
+    String name_;
+    bool selected_;
+    Colour color_;
+    TextButton remove_;
+    Slider slider_;
+};
+
+class SkinEditor : public Component, public Button::Listener, public ChangeListener,
+                   public TextEditor::Listener, public Timer {
+  public:
+    SkinEditor(Skin* skin, FullInterface* full_interface) :
+        skin_(skin), full_interface_(full_interface), bin_(0), selected_row_(-1),
+        hover_editor_bin_(-1), last_hover_bin_(-2),
+        selector_(ColourSelector::showAlphaChannel | ColourSelector::showColourAtTop |
+                  ColourSelector::showSliders | ColourSelector::showColourspace, 4, 0) {
+      setOpaque(true);
+
+      for (int i = 0; i < SkinBins::numBins(); ++i) {
+        auto button = std::make_unique<TextButton>(SkinBins::name(i));
+        button->setClickingTogglesState(false);
+        button->setColour(TextButton::buttonColourId, kEditorPanel);
+        button->setColour(TextButton::buttonOnColourId, kEditorAccent);
+        button->setColour(TextButton::textColourOffId, kEditorText);
+        button->setColour(TextButton::textColourOnId, Colour(0xff1a1426));
+        button->addListener(this);
+        button->addMouseListener(this, false);
+        addAndMakeVisible(button.get());
+        bin_buttons_.push_back(std::move(button));
+      }
+
+      setupButton(undo_button_, "Undo");
+      setupButton(redo_button_, "Redo");
+      setupButton(import_button_, "Import");
+      setupButton(save_button_, "Save");
+      setupButton(add_button_, "+ Add override");
+
+      addAndMakeVisible(rows_viewport_);
+      rows_viewport_.setViewedComponent(&rows_container_, false);
+      rows_viewport_.setScrollBarsShown(true, false);
+
+      hex_label_.setText("HEX (AARRGGBB)", dontSendNotification);
+      hex_label_.setColour(Label::textColourId, kEditorDim);
+      hex_label_.setFont(12.0f);
+      addAndMakeVisible(hex_label_);
+      hex_.setInputRestrictions(8, "0123456789abcdefABCDEF");
+      hex_.setColour(TextEditor::backgroundColourId, kEditorPanel);
+      hex_.setColour(TextEditor::textColourId, kEditorText);
+      hex_.setColour(TextEditor::outlineColourId, Colour(0xff3a3948));
+      hex_.addListener(this);
+      addAndMakeVisible(hex_);
+
+      selector_.setColour(ColourSelector::backgroundColourId, kEditorBackground);
+      selector_.setColour(ColourSelector::labelTextColourId, kEditorText);
+      selector_.addChangeListener(this);
+      addAndMakeVisible(selector_);
+
+      hint_.setText("Hover the plugin to outline a section and its bin. Alt-click a section to edit its bin.",
+                    dontSendNotification);
+      hint_.setFont(12.0f);
+      hint_.setColour(Label::textColourId, kEditorDim);
+      hint_.setJustificationType(Justification::topLeft);
+      addAndMakeVisible(hint_);
+
+      Desktop::getInstance().addGlobalMouseListener(this);
+      selectBin(0);
+      startTimerHz(25);
+    }
+
+    ~SkinEditor() override {
+      stopTimer();
+      Desktop::getInstance().removeGlobalMouseListener(this);
+      if (full_interface_ != nullptr)
+        full_interface_->clearBinHighlight();
     }
 
     void paint(Graphics& g) override {
-      g.fillCheckerBoard(getLocalBounds().toFloat(), 20.0f, 20.0f, Colours::grey, Colours::white);
-
-      g.setColour(Colour(0xff444444));
-      int x = getWidth() / 3 + kButtonHeight;
-      int text_x = 2 * getWidth() / 3;
-      int y = -viewport_.getViewPositionY();
-      g.fillRect(x, y, 2 * getWidth() / 3, Skin::kNumSkinValueIds * kButtonHeight);
-
-      g.setColour(Colours::white);
-      int width = getWidth() / 2;
-      for (int i = 0; i < Skin::kNumSkinValueIds; ++i) {
-        g.drawText(kValueNames[i], text_x, y, width, kButtonHeight, Justification::centredLeft);
-        y += kButtonHeight;
-      }
+      g.fillAll(kEditorBackground);
+      g.setColour(kEditorText);
+      g.setFont(Font(18.0f, Font::bold));
+      g.drawText("Skin Editor", 14, 8, 200, 28, Justification::centredLeft);
+      g.setColour(kEditorDim);
+      g.setFont(12.0f);
+      g.drawText(SkinBins::name(bin_) + " bin", 14, 34, 200, 16, Justification::centredLeft);
     }
 
     void resized() override {
-      load_button_.setBounds(0, 0, getWidth() / 6, kLoadSaveHeight);
-      save_button_.setBounds(getWidth() / 6, 0, getWidth() / 6, kLoadSaveHeight);
+      const int top = 56;
+      Rectangle<int> bounds = getLocalBounds();
 
-      float overrides_y = kLoadSaveHeight * 2;
-      float overrides_height = getHeight() - overrides_y;
-      float overrides_width = getWidth() / 3;
-      for (int i = 0; i < Skin::kNumSectionOverrides; ++i) {
-        int override_y = i * overrides_height / Skin::kNumSectionOverrides;
-        int override_height = (i + 1) * overrides_height / Skin::kNumSectionOverrides - override_y;
-        override_buttons_[i]->setBounds(0, override_y + overrides_y, overrides_width, override_height);
+      int x = bounds.getRight() - 12;
+      for (TextButton* b : { &save_button_, &import_button_, &redo_button_, &undo_button_ }) {
+        b->setBounds(x - 76, 14, 76, 28);
+        x -= 84;
       }
 
+      const int list_width = 180;
+      int y = top;
+      for (auto& button : bin_buttons_) {
+        button->setBounds(12, y, list_width - 12, 32);
+        y += 38;
+      }
+      hint_.setBounds(12, y + 10, list_width - 16, 90);
+
+      int right_x = list_width + 12;
+      int right_width = bounds.getWidth() - right_x - 12;
+      const int picker_height = 270;
+      add_button_.setBounds(right_x, top, 150, 28);
+      rows_viewport_.setBounds(right_x, top + 36, right_width,
+                               bounds.getHeight() - top - 36 - picker_height - 20);
+      rows_container_.setSize(rows_viewport_.getMaximumVisibleWidth(), rows_container_.getHeight());
+      layoutRows();
+
+      int picker_y = bounds.getBottom() - picker_height - 8;
+      hex_label_.setBounds(right_x, picker_y, 120, 24);
+      hex_.setBounds(right_x + 124, picker_y, 110, 24);
+      selector_.setBounds(right_x, picker_y + 30, right_width, picker_height - 30);
+    }
+
+    void buttonClicked(Button* button) override {
+      for (int i = 0; i < static_cast<int>(bin_buttons_.size()); ++i) {
+        if (button == bin_buttons_[i].get()) {
+          selectBin(i);
+          return;
+        }
+      }
+
+      if (button == &undo_button_)
+        undo();
+      else if (button == &redo_button_)
+        redo();
+      else if (button == &save_button_)
+        save();
+      else if (button == &import_button_)
+        import();
+      else if (button == &add_button_)
+        showAddMenu();
+    }
+
+    void mouseEnter(const MouseEvent& e) override {
+      for (int i = 0; i < static_cast<int>(bin_buttons_.size()); ++i) {
+        if (e.eventComponent == bin_buttons_[i].get())
+          hover_editor_bin_ = i;
+      }
+    }
+
+    void mouseExit(const MouseEvent& e) override {
+      for (int i = 0; i < static_cast<int>(bin_buttons_.size()); ++i) {
+        if (e.eventComponent == bin_buttons_[i].get() && hover_editor_bin_ == i)
+          hover_editor_bin_ = -1;
+      }
+    }
+
+    void mouseDown(const MouseEvent& e) override {
+      if (!e.mods.isAltDown() || full_interface_ == nullptr)
+        return;
+
+      int bin = -1;
+      if (findBinSection(e.eventComponent, full_interface_, bin) != nullptr && bin > 0)
+        selectBin(bin);
+    }
+
+    void timerCallback() override {
+      if (full_interface_ == nullptr)
+        return;
+
+      std::vector<Rectangle<int>> rects;
+      int bin = -1;
+      if (hover_editor_bin_ > 0) {
+        bin = hover_editor_bin_;
+        collectBinSections(full_interface_, SkinBins::sections(bin), full_interface_, rects);
+      }
+      else if (hover_editor_bin_ < 0) {
+        Component* under = Desktop::getInstance().findComponentAt(Desktop::getMousePosition());
+        SynthSection* section = findBinSection(under, full_interface_, bin);
+        if (section != nullptr)
+          rects.push_back(full_interface_->getLocalArea(section, section->getLocalBounds()));
+      }
+
+      if (rects.empty())
+        full_interface_->clearBinHighlight();
+      else
+        full_interface_->setBinHighlight(rects, SkinBins::name(bin));
+    }
+
+    void changeListenerCallback(ChangeBroadcaster*) override {
+      SkinEditorRow* row = selectedRow();
+      if (row == nullptr || row->isValue())
+        return;
+
+      Colour color = selector_.getCurrentColour();
+      hex_.setText(color.toDisplayString(true), dontSendNotification);
+      applyColor(row, color);
+    }
+
+    void textEditorReturnKeyPressed(TextEditor&) override { applyHex(); }
+    void textEditorFocusLost(TextEditor&) override { applyHex(); }
+
+  private:
+    void setupButton(TextButton& button, const String& text) {
+      button.setButtonText(text);
+      button.setColour(TextButton::buttonColourId, kEditorPanel);
+      button.setColour(TextButton::textColourOffId, kEditorText);
+      button.addListener(this);
+      addAndMakeVisible(button);
+    }
+
+    void applyHex() {
+      SkinEditorRow* row = selectedRow();
+      String text = hex_.getText();
+      if (row == nullptr || row->isValue() || text.length() != 8)
+        return;
+
+      Colour color = Colour::fromString(text);
+      selector_.setCurrentColour(color, dontSendNotification);
+      applyColor(row, color);
+    }
+
+    SkinEditorRow* selectedRow() {
+      if (selected_row_ < 0 || selected_row_ >= static_cast<int>(rows_.size()))
+        return nullptr;
+      return rows_[selected_row_].get();
+    }
+
+    // Skin access for the current bin (every section of the bin is kept in step).
+    bool binHas(bool is_value, int id) const {
+      const auto& sections = SkinBins::sections(bin_);
+      for (Skin::SectionOverride section : sections) {
+        if (is_value ? skin_->overridesValue(section, static_cast<Skin::ValueId>(id))
+                     : skin_->overridesColor(section, static_cast<Skin::ColorId>(id)))
+          return true;
+      }
+      return false;
+    }
+
+    Colour binColor(int id) const {
+      Skin::ColorId color_id = static_cast<Skin::ColorId>(id);
+      for (Skin::SectionOverride section : SkinBins::sections(bin_)) {
+        if (skin_->overridesColor(section, color_id))
+          return skin_->getColor(section, color_id);
+      }
+      return skin_->getColor(color_id);
+    }
+
+    float binValue(int id) const {
+      Skin::ValueId value_id = static_cast<Skin::ValueId>(id);
+      for (Skin::SectionOverride section : SkinBins::sections(bin_)) {
+        if (skin_->overridesValue(section, value_id))
+          return skin_->getValue(section, value_id);
+      }
+      return skin_->getValue(value_id);
+    }
+
+    void pushUndo(const String& key) {
+      double now = Time::getMillisecondCounterHiRes();
+      if (key == coalesce_key_ && now - coalesce_time_ < 900.0) {
+        coalesce_time_ = now;
+        return;
+      }
+      coalesce_key_ = key;
+      coalesce_time_ = now;
+      undo_stack_.push_back(skin_->stateToString());
+      if (undo_stack_.size() > 200)
+        undo_stack_.erase(undo_stack_.begin());
+      redo_stack_.clear();
+      updateUndoButtons();
+    }
+
+    void updateUndoButtons() {
+      undo_button_.setEnabled(!undo_stack_.empty());
+      redo_button_.setEnabled(!redo_stack_.empty());
+    }
+
+    void reloadInterface() {
+      if (full_interface_ != nullptr)
+        full_interface_->reloadSkin(*skin_);
+    }
+
+    void applyColor(SkinEditorRow* row, Colour color) {
+      pushUndo("c" + String(bin_) + ":" + String(row->id()));
+      for (Skin::SectionOverride section : SkinBins::sections(bin_))
+        skin_->addOverrideColor(section, static_cast<Skin::ColorId>(row->id()), color);
+      row->setColor(color);
+      reloadInterface();
+    }
+
+    void applyValue(SkinEditorRow* row, float value) {
+      pushUndo("v" + String(bin_) + ":" + String(row->id()));
+      for (Skin::SectionOverride section : SkinBins::sections(bin_))
+        skin_->addOverrideValue(section, static_cast<Skin::ValueId>(row->id()), value);
+      reloadInterface();
+    }
+
+    void removeRow(SkinEditorRow* row) {
+      pushUndo("r");
+      coalesce_key_ = String();
+      for (Skin::SectionOverride section : SkinBins::sections(bin_)) {
+        if (row->isValue())
+          skin_->removeOverrideValue(section, static_cast<Skin::ValueId>(row->id()));
+        else
+          skin_->removeOverrideColor(section, static_cast<Skin::ColorId>(row->id()));
+      }
+      reloadInterface();
+      rebuildRows();
+    }
+
+    void selectRow(SkinEditorRow* row) {
+      selected_row_ = -1;
+      for (int i = 0; i < static_cast<int>(rows_.size()); ++i) {
+        bool selected = rows_[i].get() == row;
+        rows_[i]->setSelected(selected);
+        if (selected)
+          selected_row_ = i;
+      }
+
+      bool is_color = row != nullptr && !row->isValue();
+      selector_.setVisible(is_color);
+      hex_.setVisible(is_color);
+      hex_label_.setVisible(is_color);
+      if (is_color) {
+        selector_.setCurrentColour(row->color(), dontSendNotification);
+        hex_.setText(row->color().toDisplayString(true), dontSendNotification);
+      }
+    }
+
+    void selectBin(int bin) {
+      bin_ = bin;
+      for (int i = 0; i < static_cast<int>(bin_buttons_.size()); ++i)
+        bin_buttons_[i]->setToggleState(i == bin, dontSendNotification);
+      add_button_.setVisible(bin > 0);
+      selected_row_ = -1;
+      rebuildRows();
+      repaint();
+    }
+
+    void rebuildRows() {
+      int keep_id = -1;
+      bool keep_value = false;
+      if (SkinEditorRow* row = selectedRow()) {
+        keep_id = row->id();
+        keep_value = row->isValue();
+      }
+
+      rows_.clear();
+      rows_container_.removeAllChildren();
+
+      bool global = bin_ == 0;
+      for (int i = 0; i < Skin::kNumColors; ++i) {
+        int id = Skin::kInitialColor + i;
+        if (global || binHas(false, id))
+          addRow(false, id, kColorNames[i], !global);
+      }
+      for (int i = 0; i < Skin::kNumSkinValueIds; ++i) {
+        if (global || binHas(true, i))
+          addRow(true, i, kValueNames[i], !global);
+      }
+
+      layoutRows();
+
+      SkinEditorRow* reselect = nullptr;
+      for (auto& row : rows_) {
+        if (row->id() == keep_id && row->isValue() == keep_value)
+          reselect = row.get();
+      }
+      if (reselect == nullptr && !rows_.empty())
+        reselect = rows_[0].get();
+      selectRow(reselect);
+    }
+
+    void addRow(bool is_value, int id, const std::string& name, bool removable) {
+      auto row = std::make_unique<SkinEditorRow>(is_value, id, String(name), removable);
+      if (is_value)
+        row->setValue(binValue(id));
+      else
+        row->setColor(binColor(id));
+
+      row->on_select = [this](SkinEditorRow* r) { selectRow(r); };
+      row->on_remove = [this](SkinEditorRow* r) {
+        MessageManager::callAsync([this, r, safe = Component::SafePointer<SkinEditor>(this)]() {
+          if (safe != nullptr) removeRow(r);
+        });
+      };
+      row->on_value = [this](SkinEditorRow* r, float value) { selectRow(r); applyValue(r, value); };
+      rows_container_.addAndMakeVisible(row.get());
+      rows_.push_back(std::move(row));
+    }
+
+    void layoutRows() {
+      int width = rows_viewport_.getMaximumVisibleWidth();
       int y = 0;
-      int width = 2 * getWidth() / 3 - 2 * kButtonHeight;
-      int slider_height = kButtonHeight * 0.7f;
-      int slider_pad = 0.5f * (kButtonHeight - slider_height);
+      for (auto& row : rows_) {
+        row->setBounds(0, y, width, SkinEditorRow::kHeight);
+        y += SkinEditorRow::kHeight;
+      }
+      rows_container_.setSize(width, std::max(y, 1));
+    }
 
+    void showAddMenu() {
+      PopupMenu menu, colors, values;
+      for (int i = 0; i < Skin::kNumColors; ++i) {
+        int id = Skin::kInitialColor + i;
+        if (!binHas(false, id))
+          colors.addItem(1000 + i, String(kColorNames[i]));
+      }
       for (int i = 0; i < Skin::kNumSkinValueIds; ++i) {
-        value_sliders_[i]->setBounds(kButtonHeight, y + slider_pad, width / 2, slider_height);
-        value_sliders_[i]->setTextBoxStyle(Slider::TextBoxLeft, false, width / 2, slider_height);
-        value_override_toggle_buttons_[i]->setBounds(0, y, kButtonHeight, kButtonHeight);
-        y += kButtonHeight;
+        if (!binHas(true, i))
+          values.addItem(5000 + i, String(kValueNames[i]));
       }
+      menu.addSubMenu("Colour", colors, colors.getNumItems() > 0);
+      menu.addSubMenu("Value", values, values.getNumItems() > 0);
 
-      for (int i = 0; i < color_buttons_.size(); ++i) {
-        color_buttons_[i]->setBounds(kButtonHeight, y, width, kButtonHeight);
-        override_toggle_buttons_[i]->setBounds(0, y, kButtonHeight, kButtonHeight);
-        y += kButtonHeight;
-      }
+      menu.showMenuAsync(PopupMenu::Options().withTargetComponent(&add_button_),
+                         [this, safe = Component::SafePointer<SkinEditor>(this)](int result) {
+        if (safe == nullptr || result == 0)
+          return;
 
-      container_->setBounds(getWidth() / 3, 0, 2 * getWidth() / 3 - 10, y);
-      viewport_.setBounds(getWidth() / 3, 0, 2 * getWidth() / 3, getHeight());
-    }
-
-    void setOverride(int override_index) {
-      override_index_ = override_index;
-      for (auto& override_button : override_buttons_)
-        override_button->setButtonText(override_button->getName());
-
-      bool show_override = override_index != Skin::kNone;
-      for (int i = 0; i < value_override_toggle_buttons_.size(); ++i) {
-        value_override_toggle_buttons_[i]->setVisible(show_override);
-        Skin::ValueId value_id = static_cast<Skin::ValueId>(i);
-        bool overrides = skin_->overridesValue(override_index_, value_id);
-        value_override_toggle_buttons_[i]->setToggleState(overrides, dontSendNotification);
-      }
-
-      for (int i = 0; i < value_sliders_.size(); ++i) {
-        Skin::ValueId value_id = static_cast<Skin::ValueId>(i);
-        value_sliders_[i]->setValue(skin_->getValue(override_index_, value_id), dontSendNotification);
-      }
-
-      for (int i = 0; i < override_toggle_buttons_.size(); ++i) {
-        override_toggle_buttons_[i]->setVisible(show_override);
-        Skin::ColorId color_id = static_cast<Skin::ColorId>(Skin::kInitialColor + i);
-        bool overrides = skin_->overridesColor(override_index_, color_id);
-        override_toggle_buttons_[i]->setToggleState(overrides, dontSendNotification);
-      }
-
-      for (int i = 0; i < color_buttons_.size(); ++i) {
-        Skin::ColorId color_id = static_cast<Skin::ColorId>(Skin::kInitialColor + i);
-        setButtonColor(i, skin_->getColor(override_index_, color_id));
-      }
-
-      String new_text = "------ " + override_buttons_[override_index_]->getName() + " ------";
-      override_buttons_[override_index_]->setButtonText(new_text);
-    }
-
-    void toggleOverride(int color_index) {
-      bool visible = override_toggle_buttons_[color_index]->isVisible();
-      bool on = override_toggle_buttons_[color_index]->getToggleState();
-      Skin::ColorId color_id = static_cast<Skin::ColorId>(Skin::kInitialColor + color_index);
-      Colour color = color_buttons_[color_index]->findColour(TextButton::buttonColourId);
-      if (on || !visible)
-        skin_->addOverrideColor(override_index_, color_id, color);
-      else
-        skin_->removeOverrideColor(override_index_, color_id);
-
-      repaintWithSettings();
-    }
-
-    void toggleValueOverride(int value_index) {
-      bool visible = value_override_toggle_buttons_[value_index]->isVisible();
-      bool on = value_override_toggle_buttons_[value_index]->getToggleState();
-      Skin::ValueId value_id = static_cast<Skin::ValueId>(value_index);
-      float value = value_sliders_[value_index]->getValue();
-      if (on || !visible)
-        skin_->addOverrideValue(override_index_, value_id, value);
-      else
-        skin_->removeOverrideValue(override_index_, value_id);
-
-      repaintWithSettings();
-    }
-
-    void buttonClicked(Button* clicked_button) override {
-      if (clicked_button == &load_button_) {
-        FileChooser open_box("Open Skin", File(), String(vital::kSkinExtensionsList));
-        if (open_box.browseForFileToOpen()) {
-          if (!skin_->loadFromFile(open_box.getResult())) {
-            AlertWindow::showNativeDialogBox("Error opening skin", "Skin file is corrupted and won't load.", false);
-            return;
-          }
-          setSliderValues();
-          repaintWithSettings();
+        pushUndo("add");
+        coalesce_key_ = String();
+        int bin = bin_;
+        if (result >= 5000) {
+          Skin::ValueId id = static_cast<Skin::ValueId>(result - 5000);
+          for (Skin::SectionOverride section : SkinBins::sections(bin))
+            skin_->addOverrideValue(section, id, skin_->getValue(id));
+          rebuildRows();
+          selectById(true, id);
         }
-        return;
-      }
-      if (clicked_button == &save_button_) {
-        FileChooser save_box("Save Skin", File(), String("*.") + vital::kSkinExtension);
-        if (save_box.browseForFileToSave(true))
-          skin_->saveToFile(save_box.getResult().withFileExtension(vital::kSkinExtension));
+        else {
+          int id = Skin::kInitialColor + result - 1000;
+          for (Skin::SectionOverride section : SkinBins::sections(bin))
+            skin_->addOverrideColor(section, static_cast<Skin::ColorId>(id), skin_->getColor(static_cast<Skin::ColorId>(id)));
+          rebuildRows();
+          selectById(false, id);
+        }
+        reloadInterface();
+      });
+    }
 
+    void selectById(bool is_value, int id) {
+      for (auto& row : rows_) {
+        if (row->id() == id && row->isValue() == is_value) {
+          selectRow(row.get());
+          rows_viewport_.setViewPosition(0, std::max(0, row->getY() - 40));
+        }
+      }
+    }
+
+    void restoreState(const String& state) {
+      skin_->stringToState(state);
+      reloadInterface();
+      rebuildRows();
+      updateUndoButtons();
+    }
+
+    void undo() {
+      if (undo_stack_.empty())
+        return;
+      redo_stack_.push_back(skin_->stateToString());
+      String state = undo_stack_.back();
+      undo_stack_.pop_back();
+      coalesce_key_ = String();
+      restoreState(state);
+    }
+
+    void redo() {
+      if (redo_stack_.empty())
+        return;
+      undo_stack_.push_back(skin_->stateToString());
+      String state = redo_stack_.back();
+      redo_stack_.pop_back();
+      coalesce_key_ = String();
+      restoreState(state);
+    }
+
+    void save() {
+      FileChooser save_box("Save Skin", File(), String("*.") + vital::kSkinExtension);
+      if (save_box.browseForFileToSave(true))
+        skin_->saveToFile(save_box.getResult().withFileExtension(vital::kSkinExtension));
+    }
+
+    void import() {
+      FileChooser open_box("Import Skin", File(), String(vital::kSkinExtensionsList));
+      if (!open_box.browseForFileToOpen())
+        return;
+
+      String before = skin_->stateToString();
+      if (!skin_->loadFromFile(open_box.getResult())) {
+        skin_->stringToState(before);
+        AlertWindow::showNativeDialogBox("Error importing skin", "Skin file is corrupted and won't load.", false);
         return;
       }
 
-      for (int i = 0; i < override_buttons_.size(); ++i) {
-        if (clicked_button == override_buttons_[i].get()) {
-          setOverride(i);
-          return;
-        }
-      }
-
-      for (int i = 0; i < value_override_toggle_buttons_.size(); ++i) {
-        if (clicked_button == value_override_toggle_buttons_[i].get()) {
-          toggleValueOverride(i);
-          return;
-        }
-      }
-
-      for (int i = 0; i < color_buttons_.size(); ++i) {
-        if (clicked_button == override_toggle_buttons_[i].get()) {
-          toggleOverride(i);
-          return;
-        }
-
-        if (clicked_button == color_buttons_[i].get())
-          editing_index_ = i;
-      }
-
-      ColourSelector* color_selector = new ColourSelector();
-      color_selector->setCurrentColour(clicked_button->findColour(TextButton::buttonColourId));
-      color_selector->addChangeListener(this);
-      color_selector->setColour(ColourSelector::backgroundColourId, Colours::transparentBlack);
-      color_selector->setSize(300, 400);
-
-      CallOutBox::launchAsynchronously(std::unique_ptr<Component>(color_selector), clicked_button->getScreenBounds(), nullptr);
+      undo_stack_.push_back(before);
+      redo_stack_.clear();
+      coalesce_key_ = String();
+      reloadInterface();
+      rebuildRows();
+      updateUndoButtons();
     }
-
-    void sliderValueChanged(Slider* changed_slider) override {
-      for (int i = 0; i < Skin::kNumSkinValueIds; ++i) {
-        if (value_sliders_[i].get() == changed_slider) {
-          if (value_override_toggle_buttons_[i]->isVisible())
-            value_override_toggle_buttons_[i]->setToggleState(true, dontSendNotification);
-          toggleValueOverride(i);
-        }
-      }
-    }
-
-    void repaintWithSettings() {
-      full_interface_->reloadSkin(*skin_);
-    }
-
-    void setButtonColor(int index, Colour color) {
-      Colour text_color = color.contrasting(0.9f);
-      TextButton* button = color_buttons_[index].get();
-      button->setColour(TextButton::buttonColourId, color);
-      button->setColour(TextButton::textColourOnId, text_color);
-      button->setColour(TextButton::textColourOffId, text_color);
-    }
-
-    void changeListenerCallback(ChangeBroadcaster* source) override {
-      ColourSelector* selector = dynamic_cast<ColourSelector*>(source);
-      if (selector == nullptr)
-        return;
-
-      Colour color = selector->getCurrentColour();
-      setButtonColor(editing_index_, color);
-
-      if (override_toggle_buttons_[editing_index_]->isVisible())
-        override_toggle_buttons_[editing_index_]->setToggleState(true, dontSendNotification);
-      toggleOverride(editing_index_);
-    }
-
-  protected:
-    TextButton load_button_;
-    TextButton save_button_;
-    std::vector<std::unique_ptr<TextButton>> override_buttons_;
-    std::vector<std::unique_ptr<ToggleButton>> override_toggle_buttons_;
-    std::vector<std::unique_ptr<ToggleButton>> value_override_toggle_buttons_;
-    std::vector<std::unique_ptr<TextButton>> color_buttons_;
-    std::vector<std::unique_ptr<Slider>> value_sliders_;
-    std::vector<std::unique_ptr<Label>> value_labels_;
-    int override_index_;
-    int editing_index_;
 
     Skin* skin_;
-    FullInterface* full_interface_;
-    Component* container_;
-    Viewport viewport_;
+    Component::SafePointer<FullInterface> full_interface_;
+    int bin_;
+    int selected_row_;
+    int hover_editor_bin_;
+    int last_hover_bin_;
+
+    std::vector<std::unique_ptr<TextButton>> bin_buttons_;
+    TextButton undo_button_, redo_button_, import_button_, save_button_, add_button_;
+    Viewport rows_viewport_;
+    Component rows_container_;
+    std::vector<std::unique_ptr<SkinEditorRow>> rows_;
+    Label hex_label_, hint_;
+    TextEditor hex_;
+    ColourSelector selector_;
+
+    std::vector<String> undo_stack_, redo_stack_;
+    String coalesce_key_;
+    double coalesce_time_ = 0.0;
 };
 
 SkinDesigner::SkinDesigner(Skin* skin, FullInterface* full_interface) :
-    DocumentWindow("Skin Designer", Colours::grey, DocumentWindow::closeButton){
-  container_ = std::make_unique<SkinColorPicker>("Container", skin, full_interface);
+    DocumentWindow("VialFX Skin Editor", kEditorBackground, DocumentWindow::closeButton) {
+  container_ = std::make_unique<SkinEditor>(skin, full_interface);
+  container_->setSize(860, 840);
   setContentNonOwned(container_.get(), false);
 }
 

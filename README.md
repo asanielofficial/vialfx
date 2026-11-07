@@ -118,6 +118,7 @@ Additional conditions inherited with the source code are listed in [NOTICE.md](N
 - Spectral Table menu: gain, pitch (transposes the response), resonance (how far the response reaches), mix. These four have their own parameters (`input_table_gain`, `input_table_position`, `input_table_resonance`, `input_spectral_table_mix`, and the `sidechain_` ones), separate from the drawable modes' position, gain and resonance, so each can be modulated from the matrix on its own.
 - Distort Table menu: phase (shifts the transfer curve), bias, smooth, drive, DC filter (removes the offset bias and the curve create), mix. Drive, bias and smooth act even on the clean first frame.
 - Presets are now .vialfx and skins .vialskin (older .vital / .vitalskin still open); the default skin is the attached Default.vialskin.
+- New Skin Editor (preset menu > Open Skin Editor): sections are grouped into bins (Header, Input, Filters, Envelopes, LFO, Voice/MIDI, Effects, Matrix, Browser, Overlays); each bin lists its colour/value overrides, with a colour picker (hex, RGB, alpha), undo/redo and Save/Import to .vialskin. Hovering the plugin (or a bin in the editor) draws a dashed outline around the matching sections; Alt-click a section to jump to its bin.
 
 ## Effects tab
 

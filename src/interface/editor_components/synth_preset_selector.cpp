@@ -226,7 +226,7 @@ void SynthPresetSelector::showPopupMenu(Component* anchor) {
 
 void SynthPresetSelector::showAlternatePopupMenu(Component* anchor) {
   PopupItems options;
-  options.addItem(kOpenSkinDesigner, "Open Skin Designer");
+  options.addItem(kOpenSkinDesigner, "Open Skin Editor");
   options.addItem(kLoadSkin, "Load Skin");
 
   if (LoadSave::getDefaultSkin().exists())
@@ -393,7 +393,7 @@ void SynthPresetSelector::openSkinDesigner() {
                                RectanglePlacement::yTop |
                                RectanglePlacement::doNotResize);
 
-  Rectangle<int> area(0, 0, 700, 800);
+  Rectangle<int> area(0, 0, 860, 840);
   Rectangle<int> bounds = Desktop::getInstance().getDisplays().getMainDisplay().userArea.reduced(20);
   Rectangle<int> bounds_result(placement.appliedTo(area, bounds));
 

@@ -237,6 +237,16 @@ class Skin {
     std::map<ValueId, float> value_overrides_[kNumSectionOverrides];
 };
 
+// Skin "bins": named groups of section overrides that the skin editor edits together.
+// Bin 0 is the global skin; the rest map the parts of the interface to their section overrides.
+class SkinBins {
+  public:
+    static int numBins();
+    static String name(int bin);
+    static const std::vector<Skin::SectionOverride>& sections(int bin);
+    static int binOf(Skin::SectionOverride section);
+};
+
 class SkinDesigner : public DocumentWindow {
   public:
     SkinDesigner(Skin* skin, FullInterface* full_interface);

@@ -27,6 +27,7 @@
 #include "memory.h"
 #include "modulation_matrix.h"
 #include "open_gl_background.h"
+#include "bin_highlight.h"
 #include "shaders.h"
 #include "synth_section.h"
 #include "update_check_section.h"
@@ -73,6 +74,9 @@ class FullInterface : public SynthSection, public AuthenticationSection::Listene
     virtual void paintBackground(Graphics& g) override;
     void copySkinValues(const Skin& skin);
     void reloadSkin(const Skin& skin);
+    // Skin editor: dashed outline over the parts of the UI that belong to a bin.
+    void setBinHighlight(const std::vector<Rectangle<int>>& rects, const String& label);
+    void clearBinHighlight();
 
     void repaintChildBackground(SynthSection* child);
     void repaintSynthesisSection();
@@ -188,6 +192,7 @@ class FullInterface : public SynthSection, public AuthenticationSection::Listene
 
     std::unique_ptr<AboutSection> about_section_;
     std::unique_ptr<AuthenticationSection> authentication_;
+    std::unique_ptr<BinHighlight> bin_highlight_;
     std::unique_ptr<UpdateCheckSection> update_check_section_;
     std::unique_ptr<Component> standalone_settings_section_;
 

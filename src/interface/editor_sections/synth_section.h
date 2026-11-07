@@ -204,6 +204,7 @@ class SynthSection : public Component, public Slider::Listener,
     virtual void paintBackground(Graphics& g);
     virtual void setSkinValues(const Skin& skin, bool top_level);
     void setSkinOverride(Skin::SectionOverride skin_override) { skin_override_ = skin_override; }
+    Skin::SectionOverride getSkinOverride() const { return skin_override_; }
     virtual void repaintBackground();
     // Knobs changed size or place after layout: refresh the modulation rings (see FullInterface).
     void modulationLayoutChanged();

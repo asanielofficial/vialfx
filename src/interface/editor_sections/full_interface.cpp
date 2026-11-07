@@ -257,6 +257,9 @@ FullInterface::FullInterface(SynthGuiData* synth_data) : SynthSection("full_inte
     authentication_->create();
 #endif
 
+  bin_highlight_ = std::make_unique<BinHighlight>();
+  addSubSection(bin_highlight_.get());
+
   setAllValues(synth_data->controls);
   setOpaque(true);
   setSkinValues(default_skin, true);
@@ -325,6 +328,16 @@ void FullInterface::copySkinValues(const Skin& skin) {
   ScopedLock open_gl_lock(open_gl_critical_section_);
   skin.copyValuesToLookAndFeel(DefaultLookAndFeel::instance());
   setSkinValues(skin, true);
+}
+
+void FullInterface::setBinHighlight(const std::vector<Rectangle<int>>& rects, const String& label) {
+  if (bin_highlight_)
+    bin_highlight_->setHighlight(rects, label);
+}
+
+void FullInterface::clearBinHighlight() {
+  if (bin_highlight_)
+    bin_highlight_->clearHighlight();
 }
 
 void FullInterface::reloadSkin(const Skin& skin) {
@@ -479,6 +492,8 @@ void FullInterface::resized() {
     authentication_->setBounds(bounds);
 
   popup_browser_->setBounds(bounds);
+  if (bin_highlight_)
+    bin_highlight_->setBounds(getLocalBounds());
 
   int padding = getPadding();
   int voice_padding = findValue(Skin::kLargePadding);
