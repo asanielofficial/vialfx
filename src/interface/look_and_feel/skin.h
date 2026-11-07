@@ -280,6 +280,7 @@ class Skin {
     std::map<ValueId, float> value_overrides_[kNumSectionOverrides];
     std::map<ColorId, std::pair<float, float>> glow_overrides_[kNumSectionOverrides];
     Gradient gradients_[kNumColors];
+    bool applying_default_ = false;
     std::map<ColorId, Gradient> gradient_overrides_[kNumSectionOverrides];
 };
 

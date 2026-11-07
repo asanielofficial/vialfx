@@ -11,9 +11,7 @@ effects or straight to the output. It is built from GPLv3 synthesizer source cod
 
 ## Download
 
-Every night at 07:00 UTC, the newest `main` commit that built on all three platforms is published as the
-[**nightly** pre-release](../../releases/tag/nightly) (Linux, macOS and Windows VST3). These builds are
-unsigned and meant for testing. Every CI run also attaches its builds as artifacts.
+The newest `main` commit that built on all three platforms is published as the [nightly pre-release](https://github.com/asanielofficial/vialfx/releases/tag/nightly) (Linux, macOS and Windows VST3). These builds are unsigned and meant for testing. Every CI run also attaches its builds as artifacts.
 
 ## Features
 

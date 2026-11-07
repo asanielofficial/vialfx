@@ -1,10 +1,8 @@
 name: Nightly release
 
-# Publishes the newest main commit's Linux, macOS and Windows VST3 builds as the "nightly" pre-release.
+# Run on request (Actions tab > Nightly release > Run workflow). Publishes the newest main commit's Linux, macOS and Windows VST3 builds as the "nightly" pre-release.
 # It reuses the artifacts of the three build workflows, so it only publishes a commit that built everywhere.
 on:
-  schedule:
-    - cron: '0 7 * * *'
   workflow_dispatch:
 
 permissions:

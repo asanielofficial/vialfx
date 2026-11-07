@@ -312,9 +312,12 @@ void Skin::loadDefaultSkin() {
 
   try {
     json data = json::parse(skin_string, nullptr, false);
+    applying_default_ = true;
     jsonToState(data);
+    applying_default_ = false;
   }
   catch (const json::exception& e) {
+    applying_default_ = false;
   }
 }
 
@@ -510,6 +513,17 @@ json Skin::updateJson(json data) {
 }
 
 void Skin::jsonToState(json data) {
+  if (!applying_default_) {
+    // Start from the built-in default so nothing of the previous skin survives where the new one is silent.
+    MemoryInputStream builtin((const void*)BinaryData::default_vitalskin, BinaryData::default_vitalskinSize, false);
+    json base = json::parse(builtin.readEntireStreamAsString().toStdString(), nullptr, false);
+    if (!base.is_discarded()) {
+      applying_default_ = true;
+      jsonToState(base);
+      applying_default_ = false;
+    }
+  }
+
   clearSkin();
   data = updateJson(data);
 
@@ -797,6 +811,8 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
         bin_buttons_.push_back(std::move(button));
       }
 
+      setupButton(default_button_, "Default");
+      default_button_.setTooltip("Reset every colour, value, glow and gradient to the built-in default skin");
       setupButton(undo_button_, "Undo");
       setupButton(redo_button_, "Redo");
       setupButton(import_button_, "Import");
@@ -883,7 +899,7 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       Rectangle<int> bounds = getLocalBounds();
 
       int x = bounds.getRight() - 12;
-      for (TextButton* b : { &save_button_, &import_button_, &redo_button_, &undo_button_ }) {
+      for (TextButton* b : { &save_button_, &import_button_, &redo_button_, &undo_button_, &default_button_ }) {
         b->setBounds(x - 76, 14, 76, 28);
         x -= 84;
       }
@@ -939,7 +955,9 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
         }
       }
 
-      if (button == &undo_button_)
+      if (button == &default_button_)
+        resetToDefault();
+      else if (button == &undo_button_)
         undo();
       else if (button == &redo_button_)
         redo();
@@ -1444,6 +1462,19 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       updateUndoButtons();
     }
 
+    void resetToDefault() {
+      pushUndo("default");
+      coalesce_key_ = String();
+      File saved = LoadSave::getDefaultSkin();
+      if (saved.exists() && saved.hasWriteAccess())
+        saved.deleteFile();
+
+      skin_->loadDefaultSkin();
+      reloadInterface();
+      refreshGlow();
+      rebuildRows();
+    }
+
     void undo() {
       if (undo_stack_.empty())
         return;
@@ -1498,7 +1529,7 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
     int last_hover_bin_;
 
     std::vector<std::unique_ptr<TextButton>> bin_buttons_;
-    TextButton undo_button_, redo_button_, import_button_, save_button_, add_button_;
+    TextButton default_button_, undo_button_, redo_button_, import_button_, save_button_, add_button_;
     Viewport rows_viewport_;
     Component rows_container_;
     std::vector<std::unique_ptr<SkinEditorRow>> rows_;
