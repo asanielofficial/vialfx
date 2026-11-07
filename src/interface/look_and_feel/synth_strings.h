@@ -347,7 +347,8 @@ namespace strings {
     "Spectral Phaser",
     "Spectral Flanger",
     "Vocode",
-    "Spectral Table"
+    "Spectral Table",
+    "Spectral Gate"
   };
 
   const std::string kDiceNames[] = { "0%", "100%" };

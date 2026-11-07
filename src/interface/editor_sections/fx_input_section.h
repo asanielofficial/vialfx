@@ -54,7 +54,7 @@ class FxInputSection : public SynthSection {
 
     // prefix is "input" or "sidechain". num_warp_modes is how many distortion warp modes the lane offers
     // (10 in all; the sidechain has no modulator lane, so its menu skips FM, RM and Vocode).
-    FxInputSection(String title, const std::string& prefix, int num_warp_modes = 10, int num_spectral_modes = 16) :
+    FxInputSection(String title, const std::string& prefix, int num_warp_modes = 10, int num_spectral_modes = 17) :
         SynthSection(title), prefix_(prefix), current_destination_(vital::constants::kDualFilters),
         num_warp_modes_(num_warp_modes), num_spectral_modes_(num_spectral_modes),
         has_modulator_(prefix == "input") {
@@ -406,8 +406,9 @@ class FxInputSection : public SynthSection {
       else if (clicked_button == spectral_selector_.get()) {
         PopupItems options;
         for (int i = 0; i < num_spectral_modes_; ++i) {
-          if (spectralAllowed(i))
-            options.addItem(i, strings::kFxSpectralNames[i]);
+          int mode = spectralModeAt(i);
+          if (spectralAllowed(mode))
+            options.addItem(mode, strings::kFxSpectralNames[mode]);
         }
 
         Point<int> position(spectral_selector_->getX(), spectral_selector_->getBottom());
@@ -463,10 +464,28 @@ class FxInputSection : public SynthSection {
       return mode;
     }
 
+    // Menu position -> stored mode. Spectral Gate (16) was added after the presets had their numbers, so it keeps
+    // the last stored value but is listed right after Spectral Time Skew (10).
+    static int spectralModeAt(int position) {
+      const int kGateMode = 16, kTimeSkewMode = 10;
+      if (position <= kTimeSkewMode)
+        return position;
+      if (position == kTimeSkewMode + 1)
+        return kGateMode;
+      return position - 1;
+    }
+
     int stepSpectral(int direction) const {
+      // Steps through the menu order (Spectral Gate is listed after Time Skew).
+      int position = 0;
+      for (int i = 0; i < num_spectral_modes_; ++i) {
+        if (spectralModeAt(i) == current_spectral_)
+          position = i;
+      }
       int mode = current_spectral_;
       for (int i = 0; i < num_spectral_modes_; ++i) {
-        mode = (mode + direction + num_spectral_modes_) % num_spectral_modes_;
+        position = (position + direction + num_spectral_modes_) % num_spectral_modes_;
+        mode = spectralModeAt(position);
         if (spectralAllowed(mode))
           break;
       }

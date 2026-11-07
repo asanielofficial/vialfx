@@ -333,9 +333,9 @@ namespace vital {
       ValueDetails::kIndexed, false, "", "Sidechain Warp Mode", strings::kWarpNames },
     // Spectral morph mode (the knob amount is input_spectral_morph_amount / sidechain_spectral_morph_amount).
     // Vocode (the last mode) uses the sidechain lane, so only the main lane offers it.
-    { "input_spectral_morph_type", 0x000000, 0.0, 15.0, 0.0, 0.0, 1.0,
+    { "input_spectral_morph_type", 0x000000, 0.0, 16.0, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Input Spectral Mode", strings::kFxSpectralNames },
-    { "sidechain_spectral_morph_type", 0x000000, 0.0, 15.0, 0.0, 0.0, 1.0,
+    { "sidechain_spectral_morph_type", 0x000000, 0.0, 16.0, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Sidechain Spectral Mode", strings::kFxSpectralNames },
     // Position slider of the drawable modes (Spectral Filter, Phaser, Flanger): where the swept filter sits, how
     // far the phase curve is applied, the flanger delay. Modulatable, so an LFO can drive it. (The drawn curves

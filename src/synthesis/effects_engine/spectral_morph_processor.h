@@ -47,6 +47,9 @@ namespace vital {
   //                             up delays the highs, down delays the lows
   //   Shepard Tone              octave-shifted copies crossfaded so the spectrum glides without end
   //   Spectral Time Skew        group delay that grows with the log of the frequency: high frequencies arrive late
+  //   Spectral Gate             a per-bin noise gate: the threshold is relative to the loudest bin of each frame
+  //                             (0 dB at full amount, 70 dB below it at the start of the knob); bins under the
+  //                             threshold fade out over 6 dB, so only the strongest partials remain as it rises
   //   Vocode                    a channel vocoder: the other lane (the modulator) controls the level of this lane
   //                             in a row of log-spaced bands. The knob is the depth. Settings (the Vocoder menu):
   //                             bands (4..64), attack and release of the band followers, formant shift of the
@@ -108,6 +111,7 @@ namespace vital {
         kSpectralFlanger,  // drawable: per-bin comb depth curve
         kVocode,
         kSpectralTable,   // the amount scrubs a wavetable of filter responses (FxTables)
+        kSpectralGate,    // per-bin gate (added last so that saved presets keep their modes; the menu lists it after Time Skew)
         kNumModes
       };
 
@@ -782,6 +786,21 @@ namespace vital {
           }
           spec[1] = 0.0f;
           spec[2 * bins + 1] = 0.0f;
+          break;
+        }
+        case kSpectralGate: {
+          float peak = 0.0f;
+          for (int k = 0; k <= bins; ++k)
+            peak = std::max(peak, spec[2 * k] * spec[2 * k] + spec[2 * k + 1] * spec[2 * k + 1]);
+          peak = sqrtf(peak);
+          float threshold = peak * powf(10.0f, -70.0f * (1.0f - a) / 20.0f) + 1e-20f;
+          float inverse = 1.0f / threshold;
+          for (int k = 0; k <= bins; ++k) {
+            float m = sqrtf(spec[2 * k] * spec[2 * k] + spec[2 * k + 1] * spec[2 * k + 1]);
+            float gain = std::max(0.0f, std::min((m * inverse - 0.5f) * 2.0f, 1.0f));
+            spec[2 * k] *= gain;
+            spec[2 * k + 1] *= gain;
+          }
           break;
         }
         case kRandomAmplitudes: {
