@@ -37,19 +37,19 @@
 class FxMorphSection : public SynthSection {
   public:
     // How tall the effect is, in knob sections (a normal effect takes two).
-    static float heightInKnobSections() { return 1.3f; }
+    static float heightInKnobSections() { return 1.45f; }
 
     FxMorphSection(String title, const std::string& id) : SynthSection(title), id_(id) {
       spectral_morph_ = std::make_unique<SynthSlider>(id + "_spectral_morph_amount");
       addSlider(spectral_morph_.get());
       spectral_morph_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
-      spectral_morph_->setKnobSizeScale(1.5f);
+      spectral_morph_->setKnobSizeScale(1.3f);
       spectral_morph_->setPopupPrefix("Spectral Morph: ");
 
       distortion_ = std::make_unique<SynthSlider>(id + "_distortion_amount");
       addSlider(distortion_.get());
       distortion_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
-      distortion_->setKnobSizeScale(1.5f);
+      distortion_->setKnobSizeScale(1.3f);
       distortion_->setPopupPrefix("Distortion: ");
 
       on_ = std::make_unique<SynthButton>(id + "_on");
@@ -127,7 +127,7 @@ class FxMorphSection : public SynthSection {
       // button and the warp knob, each knob with its mode selector underneath. The group stops growing at a sensible
       // width so a wide effect does not stretch it.
       const int space = std::max(0, getWidth() - title_width - 2 * margin);
-      const int cell_width = std::max(1, std::min((space - gap) / 2, static_cast<int>(knob_height * 2.6f)));
+      const int cell_width = std::max(1, std::min((space - gap) / 2, static_cast<int>(knob_height * 3.0f)));
       const int group_width = 2 * cell_width + gap;
       const int left = title_width + margin + (space - group_width) / 2;
 
