@@ -52,6 +52,7 @@ class Skin {
       kFlanger,
       kPhaser,
       kReverb,
+      kMorph,
       kModulationDragDrop,
       kModulationMatrix,
       kPresetBrowser,

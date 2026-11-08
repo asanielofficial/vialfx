@@ -40,6 +40,7 @@
 #include "fx_effect_chain.h"
 #include "phaser_section.h"
 #include "reverb_section.h"
+#include "fx_morph_section.h"
 
 #include "default_look_and_feel.h"
 #include "fonts.h"
@@ -66,18 +67,27 @@ namespace fx_ui {
 
   inline std::string typeTitle(int type) {
     static const char* kTitles[kNumTypes] = { "CHORUS", "COMPRESSOR", "DELAY", "DISTORTION", "EQ", "FILTER",
-                                              "FLANGER", "PHASER", "REVERB" };
+                                              "FLANGER", "PHASER", "REVERB", "MORPH" };
     return kTitles[type];
   }
 
   inline std::string typeMenuName(int type) {
     static const char* kNames[kNumTypes] = { "Chorus", "Compressor", "Delay", "Distortion", "EQ", "Filter",
-                                             "Flanger", "Phaser", "Reverb" };
+                                             "Flanger", "Phaser", "Reverb", "Morph" };
     return kNames[type];
   }
 
   inline std::string instanceTitle(int type, int instance) {
     return typeTitle(type) + (instance > 0 ? " " + std::to_string(instance + 1) : "");
+  }
+
+  // Two overlapping circles: one sound turning into another.
+  inline Path morphIcon() {
+    Path path;
+    path.setUsingNonZeroWinding(false);
+    path.addEllipse(0.02f, 0.2f, 0.6f, 0.6f);
+    path.addEllipse(0.38f, 0.2f, 0.6f, 0.6f);
+    return path;
   }
 
   inline Path typeIcon(int type) {
@@ -91,6 +101,7 @@ namespace fx_ui {
       case vital::constants::kFlanger: return Paths::flanger();
       case vital::constants::kPhaser: return Paths::phaser();
       case vital::constants::kReverb: return Paths::reverb();
+      case vital::constants::kMorph: return morphIcon();
       default: return Path();
     }
   }
@@ -168,6 +179,9 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
           break;
         case vital::constants::kPhaser:
           section_ = std::make_unique<PhaserSection>(title, id, mono_modulations);
+          break;
+        case vital::constants::kMorph:
+          section_ = std::make_unique<FxMorphSection>(title, id);
           break;
         default:
           section_ = std::make_unique<ReverbSection>(title, id, mono_modulations);
@@ -1048,6 +1062,8 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
       int knob_section_height = getKnobSectionHeight();
       int widget_margin = findValue(Skin::kWidgetMargin);
       int effect_height = 2 * knob_section_height - widget_margin;
+      // The Morph effect has one row of controls, so it is shorter.
+      int morph_height = std::min(effect_height, static_cast<int>(FxMorphSection::heightInKnobSections() * knob_section_height));
       int y = 0;
 
       Point<int> position = viewport_.getViewPosition();
@@ -1062,7 +1078,8 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
         bool minimized = fx_ui::entryMinimized(entry);
         slot->setVisible(true);
         slot->setMinimized(minimized);
-        int height = minimized ? slot->minimizedHeight() : effect_height;
+        int height = minimized ? slot->minimizedHeight()
+                               : (fx_ui::typeOf(id) == vital::constants::kMorph ? morph_height : effect_height);
         slot->setBounds(shadow_width, y, effect_width, height);
         y += height + padding;
         shown[id] = true;

@@ -47,6 +47,7 @@ namespace {
     "Flanger",
     "Phaser",
     "Reverb",
+    "Morph",
     "Modulation Drag Drop",
     "Modulation Matrix",
     "Preset Browser",
@@ -634,6 +635,7 @@ namespace {
       { "Flanger", Skin::kFlanger },
       { "Phaser", Skin::kPhaser },
       { "Reverb", Skin::kReverb },
+      { "Morph", Skin::kMorph },
     };
     return modules;
   }

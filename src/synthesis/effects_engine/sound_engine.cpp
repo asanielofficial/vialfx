@@ -466,6 +466,7 @@ namespace vital {
     filters_module_->plug(modulation_handler_->midi_offset_output(), FiltersModule::kKeytrack);
     filters_module_->plug(modulation_handler_->bent_midi_output(), FiltersModule::kMidi);
     filters_bank_->setNoteOutputs(modulation_handler_->bent_midi_output(), modulation_handler_->current_midi_output());
+    effect_chain_->connectMorph(fft_size_);
     effect_chain_->connectNote(modulation_handler_->bent_midi_output(), modulation_handler_->current_midi_output());
 
     filter_router_->setControls(filters_module_->getFilter1OnValue(), filters_module_->getFilter2OnValue(),
@@ -631,10 +632,15 @@ namespace vital {
   }
 
   int SoundEngine::getLatencySamples() const {
-    if (fft_size_ == nullptr || !spectralEngaged())
+    if (fft_size_ == nullptr)
       return 0;
-    // The lanes and the spectral stage run at the host's rate (only the effect chain is oversampled).
-    return SpectralMorphProcessor::fftSizeFromIndex(static_cast<int>(fft_size_->value() + 0.5f));
+    int fft_index = static_cast<int>(fft_size_->value() + 0.5f);
+    // The lanes and the spectral stage run at the host's rate (only the effect chain is oversampled); the Morph
+    // effects in the chain add their own delay.
+    int latency = spectralEngaged() ? SpectralMorphProcessor::fftSizeFromIndex(fft_index) : 0;
+    if (effect_chain_ != nullptr)
+      latency += effect_chain_->morphLatencySamples(fft_index);
+    return latency;
   }
 
   const StereoMemory* SoundEngine::getInputMemory() { return input_memory_.get(); }

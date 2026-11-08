@@ -467,6 +467,24 @@ namespace vital {
       ValueDetails::kIndexed, false, "", "Sidechain Distortion DC Filter", strings::kOffOnNames },
     { "sidechain_distortion_mix", 0x000000, 0.0, 1.0, 1.0, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Sidechain Distortion Mix", nullptr },
+    // The Morph effect: the spectral morph and the distortion warp of the lanes as an effect (copies 2..8 are
+    // made below). Its spectral modes stop at Time Skew plus Spectral Gate and its warps at Pulse.
+    { "morph_on", 0x000000, 0.0, 1.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Morph Switch", strings::kOffOnNames },
+    { "morph_spectral_morph_type", 0x000000, 0.0, 16.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Morph Spectral Mode", strings::kFxSpectralNames },
+    { "morph_spectral_morph_amount", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Morph Spectral Morph", nullptr },
+    { "morph_random_dice", 0x000000, 0.0, 1.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Morph Random Dice", strings::kDiceNames },
+    { "morph_random_shuffle", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Morph Random Shuffle", nullptr },
+    { "morph_distortion_type", 0x000000, 0.0, 9.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Morph Warp Mode", strings::kWarpNames },
+    { "morph_distortion_amount", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Morph Distortion", nullptr },
+    { "morph_warp_first", 0x000000, 0.0, 1.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Morph Warp Before Spectral", strings::kOffOnNames },
     { "input_on", 0x000000, 0.0, 1.0, 1.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Input Switch", strings::kOffOnNames },
     { "input_level", 0x000000, 0.0, 1.41421356237, 1.0, 0.0, 1.0,
@@ -884,10 +902,10 @@ namespace vital {
     // More copies of every effect: the same parameters under the names "<effect>_<n>_<parameter>".
     {
       static const char* kEffectIds[] = { "chorus", "compressor", "delay", "distortion", "eq", "filter_fx",
-                                          "flanger", "phaser", "reverb" };
+                                          "flanger", "phaser", "reverb", "morph" };
       static const char* kEffectTitles[] = { "Chorus", "Compressor", "Delay", "Distortion", "EQ", "Filter fx",
-                                             "Flanger", "Phaser", "Reverb" };
-      for (int e = 0; e < 9; ++e) {
+                                             "Flanger", "Phaser", "Reverb", "Morph" };
+      for (int e = 0; e < 10; ++e) {
         std::string id = kEffectIds[e];
         std::string title = kEffectTitles[e];
         std::string start = id + "_";

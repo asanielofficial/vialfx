@@ -168,7 +168,8 @@ namespace strings {
     "filter_fx",
     "flanger",
     "phaser",
-    "reverb"
+    "reverb",
+    "morph"
   };
 
   const std::string kSyncedFrequencyNames[] = {
@@ -280,6 +281,7 @@ namespace strings {
     "FLANGER",
     "PHASER",
     "REVERB",
+    "MORPH",
   };
 
   const std::string kDestinationMenuNames[vital::constants::kNumSourceDestinations + vital::constants::kNumEffects] = {
@@ -297,6 +299,7 @@ namespace strings {
     "Flanger",
     "Phaser",
     "Reverb",
+    "Morph",
   };
 
   const std::string kPhaseDistortionNames[] = {

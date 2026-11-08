@@ -116,7 +116,7 @@ target). The stage is a Hann-windowed overlap-add FFT (75% overlap) between the 
 ### Effects rack
 
 - The effects tab starts blank. **ADD EFFECT** (top of the left panel) adds a Chorus, Compressor, Delay,
-  Distortion, EQ, Filter, Flanger, Phaser or Reverb to the end of the chain. The same effect can be added
+  Distortion, EQ, Filter, Flanger, Phaser, Reverb or Morph (the spectral morph and distortion warp of the input panels as an effect) to the end of the chain. The same effect can be added
   several times (up to 8 copies of each type); every copy is a full set of automatable, modulatable
   parameters named e.g. `chorus_2_dry_wet`.
 - Rows in the left panel can be dragged to reorder the chain, and clicking one scrolls to that effect. Both
@@ -157,7 +157,7 @@ resized.
 
 - **Bins:** the interface is grouped into bins (Header, Input, Filters, Envelopes, LFO, Voice/MIDI, Effects,
   Matrix, Browser, Overlays), plus a Global bin for the base skin. The Effects bin edits every effect module together, and each module (Chorus, Compressor, Delay,
-  Distortion, Equalizer, Filter, Flanger, Phaser, Reverb) also has its own sub-bin. Each bin lists its colour and value
+  Distortion, Equalizer, Filter, Flanger, Phaser, Reverb, Morph) also has its own sub-bin. Each bin lists its colour and value
   overrides; **+ Add override** adds more.
 - **Colour picker:** hex (AARRGGBB), RGB and alpha. Undo/redo, Save and Import work on `.vialskin` files.
 - **Hover outline:** while the editor is open, hovering the plugin (or a bin in the editor) draws a dashed

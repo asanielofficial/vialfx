@@ -123,6 +123,7 @@ namespace vital {
       kFlanger,
       kPhaser,
       kReverb,
+      kMorph,
       kNumEffects
     };
 

@@ -25,6 +25,7 @@
 #include "equalizer_module.h"
 #include "filter_module.h"
 #include "keytrack_voices.h"
+#include "morph_module.h"
 #include "flanger_module.h"
 #include "phaser_module.h"
 #include "reverb_module.h"
@@ -111,6 +112,29 @@ namespace vital {
           }
           banks_[id]->setNoteOutputs(midi, current_note);
         }
+      }
+
+      // The Morph effects need the FFT size (an index, from the engine).
+      void connectMorph(const Processor* fft_size) {
+        for (int instance = 0; instance < kMaxEffectInstances; ++instance)
+          effects_[effectId(constants::kMorph, instance)]->plug(fft_size, MorphModule::kFftSize);
+      }
+
+      // The delay the Morph effects in the chain add (they run one after the other), in host samples.
+      int morphLatencySamples(int fft_index) const {
+        int total = 0;
+        for (auto& slot : slots_) {
+          int value = slot.load(std::memory_order_relaxed);
+          if (value <= 0)
+            continue;
+
+          int id = ((value - 1) & (kMinimizedFlag - 1));
+          if (id >= kPoolSize || typeOf(id) != constants::kMorph || effects_on_[id]->value() < 0.5f)
+            continue;
+
+          total += static_cast<MorphModule*>(effects_[id])->latencySamples(fft_index);
+        }
+        return total;
       }
 
       void process(int num_samples) override {
@@ -285,6 +309,8 @@ namespace vital {
             return new PhaserModule(beats_per_second_);
           case constants::kReverb:
             return new ReverbModule();
+          case constants::kMorph:
+            return new MorphModule();
           default:
             return nullptr;
         }
