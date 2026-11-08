@@ -19,6 +19,10 @@ on:
         type: boolean
         default: false
 
+env:
+  # clap-juce-extensions (MIT), the wrapper that turns the JUCE plugin into a CLAP. Pinned to a commit.
+  CLAP_EXT_SHA: 6bde108329ff9fc24404b79b8b397261a75cf6a8
+
 jobs:
   linux:
     name: Linux (VST3)
@@ -92,6 +96,28 @@ jobs:
         with:
           name: VialFX-linux-vst3
           path: dist
+
+      - name: Build the CLAP
+        run: |
+          set -e
+          git init -q clap-ext
+          git -C clap-ext remote add origin https://github.com/free-audio/clap-juce-extensions
+          git -C clap-ext fetch -q --depth 1 origin "$CLAP_EXT_SHA"
+          git -C clap-ext checkout -q FETCH_HEAD
+          git -C clap-ext submodule update -q --init --depth 1 --recursive
+          cmake -S effects/clap -B clap-build -DCMAKE_BUILD_TYPE=Release \
+            -DPATH_TO_CLAP_EXTENSIONS="$PWD/clap-ext" \
+            -DVIALFX_SHARED_LIB="$PWD/effects/builds/linux_vst/build/VialFX.a" -DVIALFX_VERSION=1.1 2>&1 | tail -30
+          cmake --build clap-build --target VialFX_CLAP -j"$(nproc)" 2>&1 | tail -60
+          mkdir -p dist-clap
+          cp clap-build/VialFX_artefacts/Release/VialFX.clap dist-clap/
+          strings -a dist-clap/VialFX.clap | grep -i -E "vital\.audio|account\.vital|store\.vital|forum\.vital|vital audio|tytel" && exit 1
+          ls -l dist-clap
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VialFX-linux-clap
+          path: dist-clap
 
       - name: Validate with pluginval
         run: |
@@ -187,13 +213,42 @@ jobs:
           name: VialFX-windows-vst3
           path: dist
 
+      - name: Build the CLAP
+        shell: pwsh
+        run: |
+          git init -q clap-ext
+          git -C clap-ext remote add origin https://github.com/free-audio/clap-juce-extensions
+          git -C clap-ext fetch -q --depth 1 origin "$CLAP_EXT_SHA"
+          git -C clap-ext checkout -q FETCH_HEAD
+          git -C clap-ext submodule update -q --init --depth 1 --recursive
+          cmake -S effects\clap -B clap-build -G "Visual Studio 17 2022" -A x64 `
+            "-DPATH_TO_CLAP_EXTENSIONS=$PWD\clap-ext" "-DVIALFX_SHARED_LIB=$PWD\effects\builds\vs17\x64\Release\Shared Code\VialFX.lib" -DVIALFX_VERSION=1.1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build clap-build --config Release --target VialFX_CLAP -- /m /nologo "/flp:logfile=clap.log;verbosity=minimal"
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            Select-String -Path clap.log -Pattern ' error ' | Select-Object -Unique -First 40 |
+              ForEach-Object { $t = $_.Line.Trim(); if ($t.Length -gt 450) { $t = $t.Substring(0,450) }; Write-Host "::error::$t" }
+            exit $code
+          }
+          New-Item -ItemType Directory dist-clap | Out-Null
+          Copy-Item clap-build\VialFX_artefacts\Release\VialFX.clap dist-clap\
+          python -c "import re,sys,glob; d=open(glob.glob('dist-clap/*.clap')[0],'rb').read(); m=re.findall(rb'(?i)vital\.audio|account\.vital|store\.vital|forum\.vital|vital audio|tytel', d); print(m[:10]); sys.exit(1 if m else 0)"
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::[binary] Vital branding or service domain found in the CLAP"; exit 1 }
+          Get-ChildItem dist-clap | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VialFX-windows-clap
+          path: dist-clap
+
       - name: Build the Windows installer
         shell: pwsh
         run: |
           choco install innosetup -y --no-progress
           New-Item -ItemType Directory installers | Out-Null
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          & $iscc "/DSourceFile=$PWD\dist\VialFX.vst3" "/DAppVersion=1.1" "/O$PWD\installers" installer\windows\VialFX.iss
+          & $iscc "/DSourceFile=$PWD\dist\VialFX.vst3" "/DClapFile=$PWD\dist-clap\VialFX.clap" "/DAppVersion=1.1" "/O$PWD\installers" installer\windows\VialFX.iss
           if ($LASTEXITCODE -ne 0) { Write-Host "::error::Inno Setup failed"; exit 1 }
           Get-ChildItem installers | Format-Table Name, Length
 
@@ -308,13 +363,50 @@ jobs:
           name: VialFX-macos-vst3
           path: dist
 
+      - name: Build the CLAP
+        run: |
+          set -e
+          git init -q clap-ext
+          git -C clap-ext remote add origin https://github.com/free-audio/clap-juce-extensions
+          git -C clap-ext fetch -q --depth 1 origin "$CLAP_EXT_SHA"
+          git -C clap-ext checkout -q FETCH_HEAD
+          git -C clap-ext submodule update -q --init --depth 1 --recursive
+          LIB=$(find effects/builds/osx/build -name "libVialFX.a" | head -1)
+          echo "shared code library: $LIB"
+          cmake -S effects/clap -B clap-build -G Xcode -DCMAKE_BUILD_TYPE=Release \
+            -DPATH_TO_CLAP_EXTENSIONS="$PWD/clap-ext" -DVIALFX_SHARED_LIB="$PWD/$LIB" -DVIALFX_VERSION=1.1 \
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED=NO 2>&1 | tail -30
+          set +e
+          cmake --build clap-build --config Release --target VialFX_CLAP > clap.log 2>&1
+          status=$?
+          if [ $status -ne 0 ]; then
+            grep -n -m 40 -E "error:|fatal error|undefined symbol|\*\*\* " clap.log | cut -c1-450 | while IFS= read -r line; do echo "::error::${line}"; done
+            echo "::error::last lines: $(tail -n 8 clap.log | tr '\n' '|' | cut -c1-700)"
+            exit $status
+          fi
+          mkdir -p dist-clap
+          CLAP=$(find clap-build -name "VialFX.clap" -maxdepth 4 | head -1)
+          ditto "$CLAP" dist-clap/VialFX.clap
+          lipo -archs dist-clap/VialFX.clap/Contents/MacOS/VialFX
+          if strings -a dist-clap/VialFX.clap/Contents/MacOS/VialFX | grep -i -E "vital\.audio|account\.vital|store\.vital|forum\.vital|vital audio|tytel"; then echo "::error::[binary] Vital branding found in the CLAP"; exit 1; fi
+          ls -R dist-clap | head -20
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VialFX-macos-clap
+          path: dist-clap
+
       - name: Build the macOS installer (.pkg)
         run: |
-          mkdir -p pkgroot installers
-          cp -R dist/VialFX.vst3 pkgroot/VialFX.vst3
-          pkgbuild --root pkgroot --identifier com.vialfx.vst3 --version 1.1 \
-            --install-location /Library/Audio/Plug-Ins/VST3 component.pkg
-          productbuild --package component.pkg installers/VialFX-1.1-macOS.pkg
+          # One installer, two choices the user can switch on and off: VST3 and CLAP.
+          mkdir -p pkgroot-vst3 pkgroot-clap pkgs installers
+          cp -R dist/VialFX.vst3 pkgroot-vst3/VialFX.vst3
+          cp -R dist-clap/VialFX.clap pkgroot-clap/VialFX.clap
+          pkgbuild --root pkgroot-vst3 --identifier com.vialfx.vst3 --version 1.1 \
+            --install-location /Library/Audio/Plug-Ins/VST3 pkgs/vst3.pkg
+          pkgbuild --root pkgroot-clap --identifier com.vialfx.clap --version 1.1 \
+            --install-location /Library/Audio/Plug-Ins/CLAP pkgs/clap.pkg
+          productbuild --distribution installer/macos/distribution.xml --package-path pkgs installers/VialFX-1.1-macOS.pkg
           ls -l installers
 
       - uses: actions/upload-artifact@v4

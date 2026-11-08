@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Installer choices for the VialFX macOS package (built by .github/workflows/build.yml with productbuild). -->
+<installer-gui-script minSpecVersion="2">
+  <title>VialFX</title>
+  <options customize="always" require-scripts="false" hostArchitectures="x86_64,arm64"/>
+  <choices-outline>
+    <line choice="vst3"/>
+    <line choice="clap"/>
+  </choices-outline>
+  <choice id="vst3" title="VST3 plugin" description="Installs VialFX.vst3 to /Library/Audio/Plug-Ins/VST3." start_selected="true">
+    <pkg-ref id="com.vialfx.vst3"/>
+  </choice>
+  <choice id="clap" title="CLAP plugin" description="Installs VialFX.clap to /Library/Audio/Plug-Ins/CLAP." start_selected="true">
+    <pkg-ref id="com.vialfx.clap"/>
+  </choice>
+  <pkg-ref id="com.vialfx.vst3" version="1.1" onConclusion="none">vst3.pkg</pkg-ref>
+  <pkg-ref id="com.vialfx.clap" version="1.1" onConclusion="none">clap.pkg</pkg-ref>
+</installer-gui-script>

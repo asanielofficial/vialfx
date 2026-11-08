@@ -43,6 +43,7 @@ jobs:
           mkdir out
           for os in linux macos windows; do
             (cd "art/VialFX-$os-vst3" && zip -qr "../../out/VialFX-$VERSION-$os-vst3.zip" .)
+            (cd "art/VialFX-$os-clap" && zip -qr "../../out/VialFX-$VERSION-$os-clap.zip" .)
           done
           cp art/VialFX-windows-installer/*.exe out/
           cp art/VialFX-macos-installer/*.pkg out/
