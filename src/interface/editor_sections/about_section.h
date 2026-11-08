@@ -79,6 +79,7 @@ class AboutSection : public Overlay {
 
     Rectangle<int> getInfoRect();
 
+    void mouseMove(const MouseEvent& e) override;
     void mouseUp(const MouseEvent& e) override;
     void setVisible(bool should_be_visible) override;
     void buttonClicked(Button* clicked_button) override;
@@ -103,6 +104,10 @@ class AboutSection : public Overlay {
     std::unique_ptr<AppLogo> logo_;
     std::unique_ptr<PlainTextComponent> name_text_;
     std::unique_ptr<PlainTextComponent> version_text_;
+    std::unique_ptr<PlainTextComponent> nightly_text_;
+    std::unique_ptr<PlainTextComponent> link_text_;
+    std::unique_ptr<OpenGlQuad> link_underline_;
+    Rectangle<int> link_bounds_;
     std::unique_ptr<PlainTextComponent> check_updates_text_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AboutSection)

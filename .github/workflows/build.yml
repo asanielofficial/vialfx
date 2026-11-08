@@ -7,6 +7,17 @@ on:
     branches: [ main, 'vialfx-*' ]
   pull_request:
   workflow_dispatch:
+    inputs:
+      stable:
+        description: "Stable release build (no NIGHTLY marker in the About box)"
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      stable:
+        description: "Stable release build (no NIGHTLY marker in the About box)"
+        type: boolean
+        default: false
 
 jobs:
   linux:
@@ -15,6 +26,16 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+
+      - name: Mark the build channel
+        shell: bash
+        run: |
+          # Every build except a stable release says NIGHTLY in the About box.
+          if [ "${{ inputs.stable }}" != "true" ]; then
+            sed -i.bak 's/#define VIALFX_NIGHTLY 0/#define VIALFX_NIGHTLY 1/' src/common/build_channel.h
+            rm -f src/common/build_channel.h.bak
+          fi
+          grep VIALFX_NIGHTLY src/common/build_channel.h
 
       - name: Install build dependencies
         run: |
@@ -120,6 +141,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Mark the build channel
+        shell: bash
+        run: |
+          # Every build except a stable release says NIGHTLY in the About box.
+          if [ "${{ inputs.stable }}" != "true" ]; then
+            sed -i.bak 's/#define VIALFX_NIGHTLY 0/#define VIALFX_NIGHTLY 1/' src/common/build_channel.h
+            rm -f src/common/build_channel.h.bak
+          fi
+          grep VIALFX_NIGHTLY src/common/build_channel.h
+
       - uses: microsoft/setup-msbuild@v2
 
       - name: Build VialFX VST3 (x64, Release)
@@ -197,6 +228,16 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+
+      - name: Mark the build channel
+        shell: bash
+        run: |
+          # Every build except a stable release says NIGHTLY in the About box.
+          if [ "${{ inputs.stable }}" != "true" ]; then
+            sed -i.bak 's/#define VIALFX_NIGHTLY 0/#define VIALFX_NIGHTLY 1/' src/common/build_channel.h
+            rm -f src/common/build_channel.h.bak
+          fi
+          grep VIALFX_NIGHTLY src/common/build_channel.h
 
       - name: Get Projucer (JUCE 6.0.5)
         run: |

@@ -15,6 +15,7 @@
  */
 
 #include "about_section.h"
+#include "build_channel.h"
 #include "skin.h"
 #include "fonts.h"
 #include "load_save.h"
@@ -34,6 +35,7 @@ namespace {
 #if VITAL_FX
 namespace {
   const char* const kVialFxVersion = "1.1";
+  const char* const kVialFxUrl = "https://github.com/asanielofficial/vialfx";
 }
 #endif
 
@@ -57,6 +59,24 @@ AboutSection::AboutSection(const String& name) : Overlay(name), body_(Shaders::k
   addOpenGlComponent(version_text_.get());
   version_text_->setFontType(PlainTextComponent::kLight);
   version_text_->setTextSize(12.0f);
+
+#if VITAL_FX
+  // Test builds say so, in purple, under the version number.
+  nightly_text_ = std::make_unique<PlainTextComponent>("nightly", "NIGHTLY");
+  addOpenGlComponent(nightly_text_.get());
+  nightly_text_->setFontType(PlainTextComponent::kRegular);
+  nightly_text_->setTextSize(12.0f);
+  nightly_text_->setColor(Colour(0xffa77bff));
+  nightly_text_->setVisible(VIALFX_NIGHTLY != 0);
+
+  // The project page, in the middle of the box (clicking it opens the page in the browser).
+  link_text_ = std::make_unique<PlainTextComponent>("link", kVialFxUrl);
+  addOpenGlComponent(link_text_.get());
+  link_text_->setFontType(PlainTextComponent::kLight);
+  link_text_->setTextSize(14.0f);
+  link_underline_ = std::make_unique<OpenGlQuad>(Shaders::kColorFragment);
+  addOpenGlComponent(link_underline_.get());
+#endif
 
   check_for_updates_text_ = std::make_unique<PlainTextComponent>("Check for updates", String("Check for updates"));
   addOpenGlComponent(check_for_updates_text_.get());
@@ -162,6 +182,31 @@ void AboutSection::resized() {
   version_text_->setBounds(info_rect.getX() + name_x, info_rect.getY() + padding_y + 76 * size_ratio_,
                            info_rect.getWidth() - name_x - kNameRightBuffer * size_ratio_, 32 * size_ratio_);
 
+#if VITAL_FX
+  {
+    Colour accent = findColour(Skin::kWidgetAccent1, true);
+    nightly_text_->setColor(Colour(0xffa77bff));
+    nightly_text_->setBounds(version_text_->getX(), version_text_->getY() + 16 * size_ratio_,
+                             version_text_->getWidth(), 20 * size_ratio_);
+    nightly_text_->setTextSize(12.0f * size_ratio_);
+
+    // The empty strip where the update check used to be: the link, centred, underlined.
+    int link_height = static_cast<int>(button_height * 0.6f);
+    int link_y = info_rect.getY() + padding_y + 145 * size_ratio_;
+    link_text_->setColor(accent);
+    link_text_->setTextSize(14.0f * size_ratio_);
+    link_text_->setBounds(info_rect.getX() + padding_x, link_y, info_rect.getWidth() - 2 * padding_x, link_height);
+    float text_width = Fonts::instance()->proportional_light().withPointHeight(14.0f * size_ratio_)
+                           .getStringWidthFloat(kVialFxUrl);
+    int underline_width = static_cast<int>(text_width);
+    int underline_x = info_rect.getCentreX() - underline_width / 2;
+    int underline_y = link_y + link_height / 2 + static_cast<int>(10.0f * size_ratio_);
+    link_underline_->setBounds(underline_x, underline_y, underline_width, std::max(1, static_cast<int>(size_ratio_)));
+    link_underline_->setColor(accent);
+    link_bounds_ = Rectangle<int>(underline_x - 6, link_y, underline_width + 12, link_height);
+  }
+#endif
+
   int size_padding = 5 * size_ratio_;
   int size_start_x = info_rect.getX() + padding_x;
   int size_end_x = info_rect.getRight() - padding_x + size_padding;
@@ -223,7 +268,20 @@ void AboutSection::resized() {
   Overlay::resized();
 }
 
+void AboutSection::mouseMove(const MouseEvent& e) {
+#if VITAL_FX
+  setMouseCursor(link_bounds_.contains(e.getPosition()) ? MouseCursor::PointingHandCursor : MouseCursor::NormalCursor);
+#endif
+  Overlay::mouseMove(e);
+}
+
 void AboutSection::mouseUp(const MouseEvent &e) {
+#if VITAL_FX
+  if (link_bounds_.contains(e.getPosition())) {
+    URL(kVialFxUrl).launchInDefaultBrowser();
+    return;
+  }
+#endif
   if (!getInfoRect().contains(e.getPosition()))
     setVisible(false);
 }
