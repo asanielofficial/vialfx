@@ -239,7 +239,7 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
 
     bool hasAttachments() const { return morph_ != nullptr && !minimized_ && anyAttachmentOpen(); }
 
-    int attachmentsHeight(int knob_section_height) const {
+    int attachmentsHeight(int knob_section_height) {
       if (!hasAttachments())
         return 0;
       return getPadding() + static_cast<int>(attachmentHeightInKnobSections() * knob_section_height);
