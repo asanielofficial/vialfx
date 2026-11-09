@@ -3,9 +3,9 @@ name: Build VialFX
 # One workflow for every platform: the Linux, Windows and macOS VST3 builds, plus the Windows (.exe) and macOS (.pkg)
 # installers. Run it from the Actions tab or push to main; the Nightly release workflow publishes its artifacts.
 on:
-  push:
-    branches: [ main, 'vialfx-*' ]
-  pull_request:
+  # Whole builds (all platforms, installers, CLAP, pluginval) run only when asked for: from the Actions tab, from the
+  # Nightly release workflow, or from the release workflow. Pushes do not start them; use "Test build" for a quick
+  # portable Windows or Linux build of a change.
   workflow_dispatch:
     inputs:
       stable:

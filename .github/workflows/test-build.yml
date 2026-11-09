@@ -1,0 +1,115 @@
+name: Test build
+
+# A quick portable build for trying a change: one platform (Windows or Linux), the VST3 zipped, no installers, no
+# CLAP, no validation. Run it from the Actions tab and pick the platform. The full builds are in "Build VialFX".
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Platform to build"
+        type: choice
+        options: [ windows, linux ]
+        default: windows
+
+jobs:
+  linux:
+    if: inputs.platform == 'linux'
+    name: Linux portable (zip)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Mark the build as a test build
+        run: |
+          sed -i 's/#define VIALFX_NIGHTLY 0/#define VIALFX_NIGHTLY 1/' src/common/build_channel.h
+          grep VIALFX_NIGHTLY src/common/build_channel.h
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config \
+            libasound2-dev libfreetype6-dev libgl1-mesa-dev libcurl4-openssl-dev \
+            libx11-dev libxext-dev libxinerama-dev libxrandr-dev libxcursor-dev zip
+
+      - name: Build VialFX VST3
+        run: |
+          set +e
+          make -C effects/builds/linux_vst VST3 CONFIG=Release AR=gcc-ar \
+            SIMDFLAGS="-msse2" GLFLAGS="" BUILD_DATE="$(date +'%Y %m %d %H %M')" > build.log 2>&1
+          status=$?
+          if [ $status -ne 0 ]; then
+            grep -n -m 40 -E "error|undefined reference|No such file|\*\*\*" build.log \
+              | cut -c1-450 | while IFS= read -r line; do echo "::error::${line}"; done
+            echo "::error::last lines: $(tail -n 6 build.log | tr '\n' '|' | cut -c1-600)"
+          fi
+          exit $status
+
+      - name: Check for Vital branding and service domains
+        run: |
+          strings -a effects/builds/linux_vst/build/VialFX.vst3/Contents/x86_64-linux/VialFX.so > binary_strings.txt
+          if grep -i -n -E "vital\.audio|account\.vital|store\.vital|forum\.vital|vital audio|tytel" binary_strings.txt | head -20 > hits.txt && [ -s hits.txt ]; then
+            while IFS= read -r l; do echo "::error::[binary] $l"; done < hits.txt
+            exit 1
+          fi
+          echo "branding check passed"
+
+      - name: Zip
+        run: |
+          mkdir -p dist
+          cp -r effects/builds/linux_vst/build/VialFX.vst3 dist/
+          (cd dist && zip -qr ../VialFX-linux-portable.zip VialFX.vst3)
+          ls -l VialFX-linux-portable.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VialFX-linux-portable
+          path: VialFX-linux-portable.zip
+
+  windows:
+    if: inputs.platform == 'windows'
+    name: Windows portable (zip)
+    runs-on: windows-2022
+    timeout-minutes: 90
+    env:
+      CL: /bigobj
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Mark the build as a test build
+        shell: bash
+        run: |
+          sed -i 's/#define VIALFX_NIGHTLY 0/#define VIALFX_NIGHTLY 1/' src/common/build_channel.h
+          grep VIALFX_NIGHTLY src/common/build_channel.h
+
+      - uses: microsoft/setup-msbuild@v2
+
+      - name: Build VialFX VST3 (x64, Release)
+        shell: pwsh
+        run: |
+          msbuild effects\builds\vs17\VialFX.sln /m /nologo /p:Configuration=Release /p:Platform=x64 `
+            /p:PlatformToolset=v143 "/flp:logfile=msbuild.log;verbosity=minimal"
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            Select-String -Path msbuild.log -Pattern ' error ' | Select-Object -Unique -First 40 |
+              ForEach-Object { $t = $_.Line.Trim(); if ($t.Length -gt 450) { $t = $t.Substring(0,450) }; Write-Host "::error::$t" }
+          }
+          exit $code
+
+      - name: Locate the plugin and check for Vital branding
+        shell: pwsh
+        run: |
+          $f = Get-ChildItem -Recurse effects\builds\vs17 -Filter *.vst3 | Select-Object -First 1
+          if (-not $f) { Write-Host "::error::no .vst3 produced"; exit 1 }
+          New-Item -ItemType Directory dist | Out-Null
+          Copy-Item $f.FullName dist\
+          python -c "import re,sys,glob; d=open(glob.glob('dist/*.vst3')[0],'rb').read(); m=re.findall(rb'(?i)vital\.audio|account\.vital|store\.vital|forum\.vital|vital audio|tytel', d); print(m[:10]); sys.exit(1 if m else 0)"
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::[binary] Vital branding or service domain found in the plugin"; exit 1 }
+          Compress-Archive -Path dist\* -DestinationPath VialFX-windows-portable.zip
+          Get-ChildItem VialFX-windows-portable.zip | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VialFX-windows-portable
+          path: VialFX-windows-portable.zip

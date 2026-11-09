@@ -1893,13 +1893,37 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
     double last_reload_ = 0.0;
 };
 
+// The editor is laid out for at least 860 x 860. In a smaller window it is scaled down to fit instead of being
+// cut off, so the window can shrink as far as the user likes.
+class SkinEditorHost : public Component {
+  public:
+    enum { kDesignSize = 860 };
+
+    SkinEditorHost(Skin* skin, FullInterface* full_interface) {
+      editor_ = std::make_unique<SkinEditor>(skin, full_interface);
+      addAndMakeVisible(editor_.get());
+      setSize(kDesignSize, kDesignSize);
+    }
+
+    void resized() override {
+      float scale = jmin(1.0f, static_cast<float>(getWidth()) / kDesignSize,
+                         static_cast<float>(getHeight()) / kDesignSize);
+      scale = jmax(scale, 0.2f);
+      editor_->setTransform(AffineTransform::scale(scale));
+      editor_->setBounds(0, 0, roundToInt(getWidth() / scale), roundToInt(getHeight() / scale));
+    }
+
+  private:
+    std::unique_ptr<SkinEditor> editor_;
+};
+
 SkinDesigner::SkinDesigner(Skin* skin, FullInterface* full_interface) :
     DocumentWindow("VialFX Skin Editor", kEditorBackground, DocumentWindow::closeButton) {
   setAlwaysOnTop(true);
-  setResizeLimits(860, 700, 3000, 3000);
-  container_ = std::make_unique<SkinEditor>(skin, full_interface);
-  container_->setSize(860, 840);
+  setResizeLimits(320, 300, 3000, 3000);
+  container_ = std::make_unique<SkinEditorHost>(skin, full_interface);
   setContentNonOwned(container_.get(), false);
+  setSize(860, 860);
 }
 
 SkinDesigner::~SkinDesigner() = default;
