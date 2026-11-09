@@ -85,7 +85,7 @@ class GlowPass {
           d[8] = key.direction[0]; d[9] = key.direction[1];
           d[10] = key.stop1[0]; d[11] = key.stop1[1]; d[12] = key.stop1[2];
           d[13] = key.stop2[0]; d[14] = key.stop2[1]; d[15] = key.stop2[2];
-          d[16] = key.bevel_size > 0.0f ? (2.0f + 22.0f * key.bevel_size) * scale : 0.0f;
+          d[16] = key.bevel_size > 0.0f ? (3.0f + 21.0f * key.bevel_size) * scale : 0.0f;
           d[17] = key.bevel_depth; d[18] = key.bevel_gloss;
           d[19] = key.light[0]; d[20] = key.light[1];
         }
@@ -189,24 +189,28 @@ class GlowPass {
           "        if (bevel_px > 0.5) {\n"
           "            float depth = gk[b + 17];\n"
           "            vec2 grad = vec2(0.0);\n"
-          "            for (int i = 0; i < 12; ++i) {\n"
-          "                float a = float(i) * 0.5235988;\n"
+          "            float wsum = 0.0;\n"
+          "            for (int i = 0; i < 40; ++i) {\n"
+          "                float fi = float(i) + 0.5;\n"
+          "                float r = sqrt(fi / 40.0);\n"
+          "                float a = fi * 2.39996323;\n"
           "                vec2 d = vec2(cos(a), sin(a));\n"
-          "                vec3 c1 = texture2D(tex, uv + d * bevel_px * 0.5 * texel).rgb;\n"
-          "                vec3 c2 = texture2D(tex, uv + d * bevel_px * texel).rgb;\n"
-          "                float m1 = 1.0 - smoothstep(0.0, 0.1, distance(c1, base));\n"
-          "                float m2 = 1.0 - smoothstep(0.0, 0.1, distance(c2, base));\n"
-          "                grad += d * (m1 + m2);\n"
+          "                vec3 c1 = texture2D(tex, uv + d * (r * bevel_px) * texel).rgb;\n"
+          "                float m = 1.0 - smoothstep(0.0, 0.3, distance(c1, base));\n"
+          "                float wt = 0.35 + r;\n"
+          "                grad += d * m * wt;\n"
+          "                wsum += wt;\n"
           "            }\n"
-          "            grad /= 24.0;\n"
-          "            float lit = -dot(grad, ldir) * 2.4 * depth;\n"
-          "            g = lit > 0.0 ? mix(g, vec3(1.0), min(lit, 1.0) * 0.85) : mix(g, vec3(0.0), min(-lit, 1.0) * 0.85);\n"
+          "            grad /= wsum;\n"
+          "            float x = -dot(grad, ldir) * 3.4 * depth;\n"
+          "            float lit = (x >= 0.0 ? 1.0 : -1.0) * (1.0 - exp(-2.0 * abs(x)));\n"
+          "            g = lit > 0.0 ? mix(g, vec3(1.0), lit * 0.75) : mix(g, vec3(0.0), -lit * 0.75);\n"
           "        }\n"
           "        if (gloss > 0.0) {\n"
           "            float along = dot(p, ldir);\n"
           "            float perp = dot(p, vec2(-ldir.y, ldir.x));\n"
           "            float split = 0.06 - 0.3 * perp * perp;\n"
-          "            float hi = smoothstep(0.0, 0.012, along - split);\n"
+          "            float hi = smoothstep(0.0, 0.03, along - split);\n"
           "            float fade = clamp(1.0 - (along - split) * 1.7, 0.0, 1.0);\n"
           "            g = mix(g, vec3(1.0), hi * fade * gloss * 0.45);\n"
           "            g = mix(g, vec3(0.0), (1.0 - hi) * gloss * 0.14);\n"
