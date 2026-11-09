@@ -232,9 +232,30 @@ class Skin {
     void removeOverrideGradient(int section, ColorId color_id) { if (section != kNone) gradient_overrides_[section].erase(color_id); }
     bool overridesGradient(int section, ColorId color_id) const { return section != kNone && gradient_overrides_[section].count(color_id) > 0; }
     Gradient getGradient(int section, ColorId color_id) const;
+    // A colour can also be bevelled: widgets drawn in it are lit like raised (or, with a negative depth, pressed
+    // in) glass. `size` (0..1) is how wide the bevelled rim is, `depth` (-1..1) how strongly it is lit, `gloss`
+    // (0..1) adds a curved glassy sheen across the top, `angle` (degrees, 90 = from above) is where the light is.
+    struct Bevel {
+      bool on = false;
+      float size = 0.4f;
+      float depth = 0.6f;
+      float gloss = 0.0f;
+      float angle = 135.0f;
+      bool active() const { return on; }
+      String toString() const;
+      static Bevel fromString(const String& text);
+    };
+    void setBevel(ColorId color_id, const Bevel& bevel) { bevels_[color_id - kInitialColor] = bevel; }
+    const Bevel& getBevel(ColorId color_id) const { return bevels_[color_id - kInitialColor]; }
+    void addOverrideBevel(int section, ColorId color_id, const Bevel& bevel);
+    void removeOverrideBevel(int section, ColorId color_id) { if (section != kNone) bevel_overrides_[section].erase(color_id); }
+    bool overridesBevel(int section, ColorId color_id) const { return section != kNone && bevel_overrides_[section].count(color_id) > 0; }
+    Bevel getBevel(int section, ColorId color_id) const;
+    // One entry per colour that is a gradient and / or bevelled.
     struct GradientEntry {
       Colour color;
       Gradient gradient;
+      Bevel bevel;
       int section;  // kNone for the global colour
     };
     void collectGradients(std::vector<GradientEntry>& gradients) const;
@@ -281,8 +302,10 @@ class Skin {
     std::map<ValueId, float> value_overrides_[kNumSectionOverrides];
     std::map<ColorId, std::pair<float, float>> glow_overrides_[kNumSectionOverrides];
     Gradient gradients_[kNumColors];
+    Bevel bevels_[kNumColors];
     bool applying_default_ = false;
     std::map<ColorId, Gradient> gradient_overrides_[kNumSectionOverrides];
+    std::map<ColorId, Bevel> bevel_overrides_[kNumSectionOverrides];
 };
 
 // Skin "bins": named groups of section overrides that the skin editor edits together.

@@ -503,6 +503,8 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
     void attachmentVisibilityChanged() {
       if (suppress_layout_)
         return;
+      // The slot keeps its height when a second editor opens, so the list would not re-lay this slot out: do it here.
+      resized();
       for (Listener* listener : listeners_)
         listener->effectLayoutChanged(effect_id_);
     }

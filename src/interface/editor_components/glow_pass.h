@@ -28,7 +28,12 @@ class GlowPass {
       float direction[2];
       float stop1[3];
       float stop2[3];
+      // Bevel: lights the rim of whatever is drawn in the base colour. size is 0..1 (0 = no bevel), depth -1..1,
+      // gloss 0..1, light is the unit vector the light comes from (GL orientation).
+      float bevel_size, bevel_depth, bevel_gloss;
+      float light[2];
     };
+    enum { kGradientStride = 24 };
 
     void setKeys(const std::vector<Key>& keys) { keys_ = keys; }
     void setGradients(const std::vector<GradientKey>& gradients) { gradients_ = gradients; }
@@ -69,23 +74,27 @@ class GlowPass {
       glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
 
       if (gradient) {
-        float data[kMaxGradients * 16] = { };
+        float data[kMaxGradients * kGradientStride] = { };
         int count = std::min(static_cast<int>(kMaxGradients), static_cast<int>(gradients_.size()));
         for (int i = 0; i < count; ++i) {
           const GradientKey& key = gradients_[i];
-          float* d = data + 16 * i;
+          float* d = data + kGradientStride * i;
           d[0] = key.base[0]; d[1] = key.base[1]; d[2] = key.base[2];
           d[3] = static_cast<float>(key.num_stops);
           d[4] = key.rect[0]; d[5] = key.rect[1]; d[6] = key.rect[2]; d[7] = key.rect[3];
           d[8] = key.direction[0]; d[9] = key.direction[1];
           d[10] = key.stop1[0]; d[11] = key.stop1[1]; d[12] = key.stop1[2];
           d[13] = key.stop2[0]; d[14] = key.stop2[1]; d[15] = key.stop2[2];
+          d[16] = key.bevel_size > 0.0f ? (2.0f + 22.0f * key.bevel_size) * scale : 0.0f;
+          d[17] = key.bevel_depth; d[18] = key.bevel_gloss;
+          d[19] = key.light[0]; d[20] = key.light[1];
         }
 
         gradient_program_->use();
         gradient_program_->setUniform("tex", 0);
         gradient_program_->setUniform("count", count);
-        gradient_program_->setUniform("gk", data, kMaxGradients * 16);
+        gradient_program_->setUniform("texel", 1.0f / width, 1.0f / height);
+        gradient_program_->setUniform("gk", data, kMaxGradients * kGradientStride);
         glDisable(GL_BLEND);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
       }
@@ -150,7 +159,8 @@ class GlowPass {
       static const char* kFragment =
           "uniform sampler2D tex;\n"
           "uniform int count;\n"
-          "uniform float gk[256];\n"
+          "uniform vec2 texel;\n"
+          "uniform float gk[384];\n"
           "varying vec2 uv;\n"
           "void main() {\n"
           "    vec3 c = texture2D(tex, uv).rgb;\n"
@@ -158,7 +168,7 @@ class GlowPass {
           "    for (int k = 0; k < 16; ++k) {\n"
           "        if (k >= count)\n"
           "            break;\n"
-          "        int b = 16 * k;\n"
+          "        int b = 24 * k;\n"
           "        vec3 base = vec3(gk[b], gk[b + 1], gk[b + 2]);\n"
           "        vec4 rect = vec4(gk[b + 4], gk[b + 5], gk[b + 6], gk[b + 7]);\n"
           "        if (uv.x < rect.x || uv.y < rect.y || uv.x > rect.z || uv.y > rect.w)\n"
@@ -171,8 +181,36 @@ class GlowPass {
           "        float t = clamp(dot(p, dir) / max(abs(dir.x) + abs(dir.y), 0.0001) + 0.5, 0.0, 1.0);\n"
           "        vec3 s1 = vec3(gk[b + 10], gk[b + 11], gk[b + 12]);\n"
           "        vec3 s2 = vec3(gk[b + 13], gk[b + 14], gk[b + 15]);\n"
-          "        vec3 g = gk[b + 3] < 2.5 ? mix(base, s1, t) :\n"
-          "                 (t < 0.5 ? mix(base, s1, t * 2.0) : mix(s1, s2, (t - 0.5) * 2.0));\n"
+          "        vec3 g = gk[b + 3] < 1.5 ? base : (gk[b + 3] < 2.5 ? mix(base, s1, t) :\n"
+          "                 (t < 0.5 ? mix(base, s1, t * 2.0) : mix(s1, s2, (t - 0.5) * 2.0)));\n"
+          "        float bevel_px = gk[b + 16];\n"
+          "        float gloss = gk[b + 18];\n"
+          "        vec2 ldir = vec2(gk[b + 19], gk[b + 20]);\n"
+          "        if (bevel_px > 0.5) {\n"
+          "            float depth = gk[b + 17];\n"
+          "            vec2 grad = vec2(0.0);\n"
+          "            for (int i = 0; i < 12; ++i) {\n"
+          "                float a = float(i) * 0.5235988;\n"
+          "                vec2 d = vec2(cos(a), sin(a));\n"
+          "                vec3 c1 = texture2D(tex, uv + d * bevel_px * 0.5 * texel).rgb;\n"
+          "                vec3 c2 = texture2D(tex, uv + d * bevel_px * texel).rgb;\n"
+          "                float m1 = 1.0 - smoothstep(0.0, 0.1, distance(c1, base));\n"
+          "                float m2 = 1.0 - smoothstep(0.0, 0.1, distance(c2, base));\n"
+          "                grad += d * (m1 + m2);\n"
+          "            }\n"
+          "            grad /= 24.0;\n"
+          "            float lit = -dot(grad, ldir) * 2.4 * depth;\n"
+          "            g = lit > 0.0 ? mix(g, vec3(1.0), min(lit, 1.0) * 0.85) : mix(g, vec3(0.0), min(-lit, 1.0) * 0.85);\n"
+          "        }\n"
+          "        if (gloss > 0.0) {\n"
+          "            float along = dot(p, ldir);\n"
+          "            float perp = dot(p, vec2(-ldir.y, ldir.x));\n"
+          "            float split = 0.06 - 0.3 * perp * perp;\n"
+          "            float hi = smoothstep(0.0, 0.012, along - split);\n"
+          "            float fade = clamp(1.0 - (along - split) * 1.7, 0.0, 1.0);\n"
+          "            g = mix(g, vec3(1.0), hi * fade * gloss * 0.45);\n"
+          "            g = mix(g, vec3(0.0), (1.0 - hi) * gloss * 0.14);\n"
+          "        }\n"
           "        result = mix(result, g, w);\n"
           "    }\n"
           "    gl_FragColor = vec4(result, 1.0);\n"

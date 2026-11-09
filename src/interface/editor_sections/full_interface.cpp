@@ -422,7 +422,7 @@ void FullInterface::updateGradientRegions() {
       key.base[0] = entry.color.getFloatRed();
       key.base[1] = entry.color.getFloatGreen();
       key.base[2] = entry.color.getFloatBlue();
-      key.num_stops = static_cast<int>(entry.gradient.stops.size()) + 1;
+      key.num_stops = entry.gradient.active() ? static_cast<int>(entry.gradient.stops.size()) + 1 : 1;
       key.rect[0] = region.getX() / width;
       key.rect[1] = 1.0f - region.getBottom() / height;
       key.rect[2] = region.getRight() / width;
@@ -430,10 +430,19 @@ void FullInterface::updateGradientRegions() {
       float radians = degreesToRadians(entry.gradient.angle);
       key.direction[0] = std::cos(radians);
       key.direction[1] = -std::sin(radians);
-      const Colour& stop1 = entry.gradient.stops[0];
-      const Colour& stop2 = entry.gradient.stops.size() > 1 ? entry.gradient.stops[1] : stop1;
+      Colour stop1 = entry.gradient.active() ? entry.gradient.stops[0] : entry.color;
+      Colour stop2 = entry.gradient.stops.size() > 1 ? entry.gradient.stops[1] : stop1;
       key.stop1[0] = stop1.getFloatRed(); key.stop1[1] = stop1.getFloatGreen(); key.stop1[2] = stop1.getFloatBlue();
       key.stop2[0] = stop2.getFloatRed(); key.stop2[1] = stop2.getFloatGreen(); key.stop2[2] = stop2.getFloatBlue();
+      if (entry.bevel.active()) {
+        // Size 0 means "no bevel" to the shader: a bevel with only a gloss still needs it on.
+        key.bevel_size = entry.bevel.size;
+        key.bevel_depth = entry.bevel.depth;
+        key.bevel_gloss = entry.bevel.gloss;
+        float light = degreesToRadians(entry.bevel.angle);
+        key.light[0] = std::cos(light);
+        key.light[1] = std::sin(light);
+      }
       keys.push_back(key);
     }
   }

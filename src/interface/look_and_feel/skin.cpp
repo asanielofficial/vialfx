@@ -241,6 +241,40 @@ Skin::Gradient Skin::Gradient::fromString(const String& text) {
   return gradient;
 }
 
+String Skin::Bevel::toString() const {
+  return String(size) + "," + String(depth) + "," + String(gloss) + "," + String(angle);
+}
+
+Skin::Bevel Skin::Bevel::fromString(const String& text) {
+  Bevel bevel;
+  StringArray values = StringArray::fromTokens(text, ",", "");
+  if (values.size() < 4)
+    return bevel;
+
+  bevel.on = true;
+  bevel.size = jlimit(0.0f, 1.0f, values[0].getFloatValue());
+  bevel.depth = jlimit(-1.0f, 1.0f, values[1].getFloatValue());
+  bevel.gloss = jlimit(0.0f, 1.0f, values[2].getFloatValue());
+  bevel.angle = jlimit(0.0f, 360.0f, values[3].getFloatValue());
+  return bevel;
+}
+
+void Skin::addOverrideBevel(int section, ColorId color_id, const Bevel& bevel) {
+  if (section == kNone)
+    setBevel(color_id, bevel);
+  else
+    bevel_overrides_[section][color_id] = bevel;
+}
+
+Skin::Bevel Skin::getBevel(int section, ColorId color_id) const {
+  if (section != kNone) {
+    auto it = bevel_overrides_[section].find(color_id);
+    if (it != bevel_overrides_[section].end())
+      return it->second;
+  }
+  return getBevel(color_id);
+}
+
 void Skin::addOverrideGradient(int section, ColorId color_id, const Gradient& gradient) {
   if (section == kNone)
     setGradient(color_id, gradient);
@@ -260,8 +294,8 @@ Skin::Gradient Skin::getGradient(int section, ColorId color_id) const {
 void Skin::collectGradients(std::vector<GradientEntry>& gradients) const {
   for (int i = 0; i < kNumColors; ++i) {
     ColorId id = static_cast<ColorId>(kInitialColor + i);
-    if (gradients_[i].active())
-      gradients.push_back({ colors_[i], gradients_[i], kNone });
+    if (gradients_[i].active() || bevels_[i].active())
+      gradients.push_back({ colors_[i], gradients_[i], bevels_[i], kNone });
 
     for (int section = 1; section < kNumSectionOverrides; ++section) {
       auto color = color_overrides_[section].find(id);
@@ -269,8 +303,9 @@ void Skin::collectGradients(std::vector<GradientEntry>& gradients) const {
         continue;
 
       Gradient gradient = getGradient(section, id);
-      if (gradient.active())
-        gradients.push_back({ color->second, gradient, section });
+      Bevel bevel = getBevel(section, id);
+      if (gradient.active() || bevel.active())
+        gradients.push_back({ color->second, gradient, bevel, section });
     }
   }
 }
@@ -305,6 +340,8 @@ void Skin::clearSkin() {
     glow_overrides_[i].clear();
   for (int i = 0; i < kNumSectionOverrides; ++i)
     gradient_overrides_[i].clear();
+  for (int i = 0; i < kNumSectionOverrides; ++i)
+    bevel_overrides_[i].clear();
 }
 
 void Skin::loadDefaultSkin() {
@@ -415,6 +452,7 @@ void Skin::removeOverrideColor(int section, ColorId color_id) {
     color_overrides_[section].erase(color_id);
     glow_overrides_[section].erase(color_id);
     gradient_overrides_[section].erase(color_id);
+    bevel_overrides_[section].erase(color_id);
   }
 }
 
@@ -441,6 +479,8 @@ json Skin::stateToJson() {
     }
     if (gradients_[i].active())
       data[kColorNames[i] + " Gradient"] = gradients_[i].toString().toStdString();
+    if (bevels_[i].active())
+      data[kColorNames[i] + " Bevel"] = bevels_[i].toString().toStdString();
   }
 
   for (int i = 0; i < kNumSkinValueIds; ++i)
@@ -463,6 +503,11 @@ json Skin::stateToJson() {
     for (const auto& gradient : gradient_overrides_[override_index]) {
       int index = gradient.first - Skin::kInitialColor;
       override_section[kColorNames[index] + " Gradient"] = gradient.second.toString().toStdString();
+    }
+
+    for (const auto& bevel : bevel_overrides_[override_index]) {
+      int index = bevel.first - Skin::kInitialColor;
+      override_section[kColorNames[index] + " Bevel"] = bevel.second.toString().toStdString();
     }
 
     for (const auto& value : value_overrides_[override_index]) {
@@ -559,6 +604,13 @@ void Skin::jsonToState(json data) {
           if (gradient.active())
             gradient_overrides_[override_index][color_id] = gradient;
         }
+        if (override_section.count(kColorNames[i] + " Bevel")) {
+          ColorId color_id = static_cast<Skin::ColorId>(i + Skin::kInitialColor);
+          std::string text = override_section[kColorNames[i] + " Bevel"];
+          Bevel bevel = Bevel::fromString(String(text));
+          if (bevel.active())
+            bevel_overrides_[override_index][color_id] = bevel;
+        }
       }
 
       for (int i = 0; i < kNumSkinValueIds; ++i) {
@@ -581,6 +633,11 @@ void Skin::jsonToState(json data) {
     if (data.count(kColorNames[i] + " Gradient")) {
       std::string text = data[kColorNames[i] + " Gradient"];
       gradients_[i] = Gradient::fromString(String(text));
+    }
+    bevels_[i] = Bevel();
+    if (data.count(kColorNames[i] + " Bevel")) {
+      std::string text = data[kColorNames[i] + " Bevel"];
+      bevels_[i] = Bevel::fromString(String(text));
     }
     glow_size_[i] = data.count(kColorNames[i] + " Glow Size") ? jlimit(0.0f, 1.0f, (float)data[kColorNames[i] + " Glow Size"]) : 0.5f;
   }
@@ -943,7 +1000,7 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       }
 
       setupButton(default_button_, "Default");
-      default_button_.setTooltip("Reset every colour, value, glow and gradient to the built-in default skin");
+      default_button_.setTooltip("Reset every colour, value, glow, gradient and bevel to the built-in default skin");
       setupButton(undo_button_, "Undo");
       setupButton(redo_button_, "Redo");
       setupButton(import_button_, "Import");
@@ -990,6 +1047,31 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       angle_slider_.setRange(0.0, 360.0, 1.0);
       angle_slider_.setDoubleClickReturnValue(true, 90.0);
       angle_slider_.onValueChange = [this]() { editGradient([this](Skin::Gradient& g) { g.angle = (float)angle_slider_.getValue(); }); };
+
+      bevel_toggle_.setButtonText("BEVEL");
+      bevel_toggle_.setTooltip("Light the rim of everything drawn in this colour like raised glass; add gloss for an "
+                               "aero / glossy look");
+      bevel_toggle_.setClickingTogglesState(true);
+      bevel_toggle_.setColour(TextButton::buttonColourId, kEditorPanel);
+      bevel_toggle_.setColour(TextButton::buttonOnColourId, kEditorAccent);
+      bevel_toggle_.setColour(TextButton::textColourOffId, kEditorText);
+      bevel_toggle_.setColour(TextButton::textColourOnId, Colour(0xff1a1426));
+      bevel_toggle_.addListener(this);
+      addAndMakeVisible(bevel_toggle_);
+      setupKnob(bevel_size_slider_, bevel_size_label_, "BEVEL SIZE");
+      setupKnob(bevel_depth_slider_, bevel_depth_label_, "DEPTH");
+      setupKnob(bevel_gloss_slider_, bevel_gloss_label_, "GLOSS");
+      setupKnob(bevel_light_slider_, bevel_light_label_, "LIGHT");
+      bevel_size_slider_.setDoubleClickReturnValue(true, 0.4);
+      bevel_depth_slider_.setRange(-1.0, 1.0, 0.01);
+      bevel_depth_slider_.setDoubleClickReturnValue(true, 0.6);
+      bevel_gloss_slider_.setDoubleClickReturnValue(true, 0.0);
+      bevel_light_slider_.setRange(0.0, 360.0, 1.0);
+      bevel_light_slider_.setDoubleClickReturnValue(true, 135.0);
+      bevel_size_slider_.onValueChange = [this]() { editBevel([this](Skin::Bevel& b) { b.size = (float)bevel_size_slider_.getValue(); }); };
+      bevel_depth_slider_.onValueChange = [this]() { editBevel([this](Skin::Bevel& b) { b.depth = (float)bevel_depth_slider_.getValue(); }); };
+      bevel_gloss_slider_.onValueChange = [this]() { editBevel([this](Skin::Bevel& b) { b.gloss = (float)bevel_gloss_slider_.getValue(); }); };
+      bevel_light_slider_.onValueChange = [this]() { editBevel([this](Skin::Bevel& b) { b.angle = (float)bevel_light_slider_.getValue(); }); };
 
       selector_.setColour(ColourSelector::backgroundColourId, kEditorBackground);
       selector_.setColour(ColourSelector::labelTextColourId, kEditorText);
@@ -1055,7 +1137,7 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
 
       int right_x = list_width + 12;
       int right_width = bounds.getWidth() - right_x - 12;
-      const int picker_height = 330;
+      const int picker_height = 390;
       add_button_.setBounds(right_x, top, 150, 28);
       rows_viewport_.setBounds(right_x, top + 36, right_width,
                                bounds.getHeight() - top - 36 - picker_height - 20);
@@ -1074,7 +1156,15 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
         target_buttons_[i].setBounds(right_x + 420 + i * 52, picker_y + 28, 50, 22);
       angle_slider_.setBounds(right_x + 590, picker_y - 4, 56, 48);
       angle_label_.setBounds(right_x + 586, picker_y + 42, 64, 14);
-      selector_.setBounds(right_x, picker_y + 62, right_width, picker_height - 62);
+      int bevel_y = picker_y + 62;
+      bevel_toggle_.setBounds(right_x, bevel_y + 12, 150, 24);
+      Slider* bevel_sliders[4] = { &bevel_size_slider_, &bevel_depth_slider_, &bevel_gloss_slider_, &bevel_light_slider_ };
+      Label* bevel_labels[4] = { &bevel_size_label_, &bevel_depth_label_, &bevel_gloss_label_, &bevel_light_label_ };
+      for (int i = 0; i < 4; ++i) {
+        bevel_sliders[i]->setBounds(right_x + 180 + i * 84, bevel_y - 4, 56, 48);
+        bevel_labels[i]->setBounds(right_x + 168 + i * 84, bevel_y + 42, 80, 14);
+      }
+      selector_.setBounds(right_x, picker_y + 124, right_width, picker_height - 124);
     }
 
     void buttonClicked(Button* button) override {
@@ -1087,6 +1177,10 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
 
       if (button == &grad_toggle_) {
         toggleGradient(grad_toggle_.getToggleState());
+        return;
+      }
+      if (button == &bevel_toggle_) {
+        toggleBevel(bevel_toggle_.getToggleState());
         return;
       }
       for (int i = 0; i < 3; ++i) {
@@ -1388,6 +1482,58 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
       updateTargetButtons();
     }
 
+    Skin::Bevel currentBevel() {
+      SkinEditorRow* row = selectedRow();
+      if (row == nullptr || row->isValue())
+        return Skin::Bevel();
+      return skin_->getBevel(SkinBins::sections(bin_)[0], static_cast<Skin::ColorId>(row->id()));
+    }
+
+    // Like gradients, bevels are applied by the screen-space pass, so no layout is needed.
+    void editBevel(const std::function<void(Skin::Bevel&)>& change) {
+      SkinEditorRow* row = selectedRow();
+      if (row == nullptr || row->isValue() || updating_bevel_controls_)
+        return;
+
+      pushUndo("bv:" + String(bin_) + ":" + String(row->id()));
+      Skin::Bevel bevel = currentBevel();
+      change(bevel);
+      Skin::ColorId id = static_cast<Skin::ColorId>(row->id());
+      for (Skin::SectionOverride section : SkinBins::sections(bin_))
+        skin_->addOverrideBevel(section, id, bevel);
+      refreshGlow();
+    }
+
+    void toggleBevel(bool on) {
+      coalesce_key_ = String();
+      editBevel([&](Skin::Bevel& b) {
+        b.on = on;
+        if (on && b.size <= 0.0f && b.gloss <= 0.0f)
+          b.size = 0.4f;
+      });
+      updateBevelControls();
+    }
+
+    void updateBevelControls() {
+      SkinEditorRow* row = selectedRow();
+      bool is_color = row != nullptr && !row->isValue();
+      Skin::Bevel bevel = currentBevel();
+      updating_bevel_controls_ = true;
+      bevel_toggle_.setVisible(is_color);
+      bevel_toggle_.setToggleState(bevel.active(), dontSendNotification);
+      Slider* sliders[4] = { &bevel_size_slider_, &bevel_depth_slider_, &bevel_gloss_slider_, &bevel_light_slider_ };
+      Label* labels[4] = { &bevel_size_label_, &bevel_depth_label_, &bevel_gloss_label_, &bevel_light_label_ };
+      for (int i = 0; i < 4; ++i) {
+        sliders[i]->setVisible(is_color && bevel.active());
+        labels[i]->setVisible(is_color && bevel.active());
+      }
+      bevel_size_slider_.setValue(bevel.size, dontSendNotification);
+      bevel_depth_slider_.setValue(bevel.depth, dontSendNotification);
+      bevel_gloss_slider_.setValue(bevel.gloss, dontSendNotification);
+      bevel_light_slider_.setValue(bevel.angle, dontSendNotification);
+      updating_bevel_controls_ = false;
+    }
+
     void toggleGradient(bool on) {
       SkinEditorRow* row = selectedRow();
       if (row == nullptr || row->isValue())
@@ -1461,6 +1607,7 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
         hex_.setText(color.toDisplayString(true), dontSendNotification);
       }
       updating_gradient_controls_ = false;
+      updateBevelControls();
     }
 
     void selectRow(SkinEditorRow* row) {
@@ -1729,6 +1876,10 @@ class SkinEditor : public Component, public Button::Listener, public ChangeListe
     Label hex_label_, hint_, glow_label_, size_label_, angle_label_;
     TextButton grad_toggle_, target_buttons_[3];
     Slider angle_slider_;
+    TextButton bevel_toggle_;
+    Slider bevel_size_slider_, bevel_depth_slider_, bevel_gloss_slider_, bevel_light_slider_;
+    Label bevel_size_label_, bevel_depth_label_, bevel_gloss_label_, bevel_light_label_;
+    bool updating_bevel_controls_ = false;
     int edit_target_ = 0;
     bool updating_gradient_controls_ = false;
     Slider glow_slider_, size_slider_;
