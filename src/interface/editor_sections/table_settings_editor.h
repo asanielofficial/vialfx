@@ -39,9 +39,13 @@ class TableSettingsEditor : public SynthSection, public Wavetable3d::Listener {
     enum Kind { kSpectral, kDistort };
     static constexpr int kMaxKnobs = 5;
 
-    // slot is the wavetable slot of the mode: 0 / 1 the input / sidechain Distort Table, 2 / 3 the Spectral Tables.
+    // slot is the wavetable slot of the mode: 0 / 1 the input / sidechain Distort Table, 2 / 3 the Spectral Tables
+    // (slots 4 and up belong to the Morph effect).
+    // The Morph effect's copies pass their own wavetable slot (4 + 2n / 5 + 2n), prefix ("morph", "morph_2" ...) and
+    // subtitle (the title says which copy).
     TableSettingsEditor(Kind kind, const std::string& prefix, int slot,
-                        const vital::output_map& mono_modulations, const vital::output_map& poly_modulations) :
+                        const vital::output_map& mono_modulations, const vital::output_map& poly_modulations,
+                        const std::string& subtitle = "") :
         SynthSection("table_settings_" + prefix + (kind == kSpectral ? "_spectral" : "_distort")), kind_(kind) {
       struct KnobInfo {
         std::string parameter;
@@ -65,7 +69,7 @@ class TableSettingsEditor : public SynthSection, public Wavetable3d::Listener {
                   { prefix + "_distortion_mix", "MIX", "Mix: ", false } };
         title_ = "DISTORT TABLE";
       }
-      title_ += prefix == "input" ? "  -  INPUT" : "  -  SIDECHAIN";
+      title_ += "  -  " + (!subtitle.empty() ? subtitle : std::string(prefix == "input" ? "INPUT" : "SIDECHAIN"));
 
       num_knobs_ = static_cast<int>(knobs.size());
       for (int i = 0; i < num_knobs_; ++i) {

@@ -61,7 +61,12 @@ namespace vital {
 
       // Drawn spectral curves and Random Amplitudes seed of each lane (0 = main, 1 = sidechain). Saved with the
       // preset; the curves are not parameters. The seed is scrambled by flipping the lane's dice switch parameter.
+      // Lanes 2 .. 9 are the copies of the Morph effect (copy n is lane 2 + n).
       static constexpr int kNumSpectralCurves = 3;
+      static constexpr int kNumDrawingLanes = 2 + kMaxEffectInstances;
+      static int morphLane(int instance) { return 2 + instance; }
+      // Whether copy n of the Morph effect is in the effect chain (its tables are only saved with the preset then).
+      bool isMorphInUse(int instance) const;
       LineGenerator* getSpectralCurve(int lane, int index);
       void resetSpectralCurve(int lane, int index);
       void resetSpectralDrawings(int lane);
@@ -137,7 +142,7 @@ namespace vital {
       Value* spectral_engaged_ = nullptr;
       SpectralMorphProcessor* spectral_[2] = { nullptr, nullptr };      // spectral-first chain of each lane
       SpectralMorphProcessor* spectral_alt_[2] = { nullptr, nullptr };  // warp-first chain (same settings)
-      std::unique_ptr<LineGenerator> spectral_curves_[2][kNumSpectralCurves];
+      std::unique_ptr<LineGenerator> spectral_curves_[kNumDrawingLanes][kNumSpectralCurves];
       std::shared_ptr<StereoMemory> input_memory_;
       std::shared_ptr<StereoMemory> sidechain_memory_;
       const poly_float* sidechain_in_;

@@ -103,10 +103,28 @@ FullInterface::FullInterface(SynthGuiData* synth_data) : SynthSection("full_inte
         });
   }
 
+#if VITAL_FX
+  effects_interface_ = std::make_unique<EffectsInterface>(synth_data->mono_modulations,
+                                                          synth_data->poly_modulations,
+                                                          synth_data->synth->getEngine());
+#else
   effects_interface_ = std::make_unique<EffectsInterface>(synth_data->mono_modulations);
+#endif
   addSubSection(effects_interface_.get());
   effects_interface_->setVisible(false);
   effects_interface_->addListener(this);
+#if VITAL_FX
+  // The Morph effects' table menus open the same wavetable editors as the voice panel's.
+  effects_interface_->setTableEditorCallback([this](int index) { showWavetableEditSection(index); });
+  effects_interface_->setTableImportCallback(
+      [this](int index, String name, InputStream* stream, WavetableCreator::AudioFileLoadStyle style) {
+        if (index < 0 || index >= vital::kNumWavetableSlots || wavetable_edits_[index] == nullptr) {
+          delete stream;
+          return false;
+        }
+        return wavetable_edits_[index]->loadAudioAsWavetable(name, stream, style);
+      });
+#endif
 
   master_controls_interface_ = std::make_unique<MasterControlsInterface>(synth_data->mono_modulations,
                                                                          synth_data->poly_modulations,
@@ -975,6 +993,19 @@ void FullInterface::showWavetableEditSection(int index) {
   }
 
   bool show_rest = index < 0;
+  bool restore_effects = false;
+  // The effects tab may be what opened the editor: hide it now, and bring it back when the editor closes.
+  if (effects_interface_) {
+    if (!show_rest) {
+      if (effects_interface_->isVisible())
+        effects_hidden_by_editor_ = true;
+      effects_interface_->setVisible(false);
+    }
+    else if (effects_hidden_by_editor_) {
+      restore_effects = true;
+      effects_hidden_by_editor_ = false;
+    }
+  }
   header_->setVisible(show_rest);
   if (synthesis_interface_)
     synthesis_interface_->setVisible(show_rest);
@@ -991,6 +1022,14 @@ void FullInterface::showWavetableEditSection(int index) {
   voice_section_->setVisible(show_rest);
   bend_section_->setVisible(show_rest);
   portamento_section_->setVisible(show_rest);
+  if (restore_effects) {
+    // Back to the effects tab, not the voice tab.
+    if (synthesis_interface_)
+      synthesis_interface_->setVisible(false);
+    if (fx_voice_interface_)
+      fx_voice_interface_->setVisible(false);
+    effects_interface_->setVisible(true);
+  }
   redoBackground();
 }
 

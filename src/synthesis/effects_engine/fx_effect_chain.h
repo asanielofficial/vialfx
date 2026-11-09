@@ -120,6 +120,17 @@ namespace vital {
           effects_[effectId(constants::kMorph, instance)]->plug(fft_size, MorphModule::kFftSize);
       }
 
+      // Whether a copy of the Morph effect is in the chain (on or off). Safe from any thread.
+      bool morphInChain(int instance) const {
+        int wanted = effectId(constants::kMorph, instance);
+        for (auto& slot : slots_) {
+          int value = slot.load(std::memory_order_relaxed);
+          if (value > 0 && ((value - 1) & (kMinimizedFlag - 1)) == wanted)
+            return true;
+        }
+        return false;
+      }
+
       // The delay the Morph effects in the chain add (they run one after the other), in host samples.
       int morphLatencySamples(int fft_index) const {
         int total = 0;

@@ -95,25 +95,26 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
     static constexpr int kDefaultGridSizeX = 8;
     static constexpr int kDefaultGridSizeY = 4;
 
-    // Each editor is bound to one lane (0 = input, 1 = sidechain), so both lanes can have a curve editor open at once.
-    SpectralWarpEditor(vital::SoundEngine* engine, int owned_lane) :
-        SynthSection("spectral_warp_editor_" + String(owned_lane)), engine_(engine), owned_lane_(owned_lane) {
+    // Each editor is bound to one drawing lane of the engine (0 = input, 1 = sidechain, 2 + n = copy n of the Morph
+    // effect), so several can be open at once. prefix is the start of the lane's parameter names ("input",
+    // "sidechain", "morph", "morph_2" ...); the default is the one of the two input lanes.
+    SpectralWarpEditor(vital::SoundEngine* engine, int owned_lane, const std::string& prefix = "") :
+        SynthSection("spectral_warp_editor_" + String(owned_lane)), engine_(engine), owned_lane_(owned_lane),
+        lane_(owned_lane), prefix_(!prefix.empty() ? prefix : (owned_lane == 0 ? "input" : "sidechain")) {
 
-      for (int lane = 0; lane < 2; ++lane) {
-        for (int curve = 0; curve < kNumCurves; ++curve) {
-          editors_[lane][curve] = std::make_unique<SpectralCurveEditor>(engine_->getSpectralCurve(lane, curve));
-          SpectralCurveEditor* editor = editors_[lane][curve].get();
-          editor->setGridSizeX(kDefaultGridSizeX);
-          editor->setGridSizeY(kDefaultGridSizeY);
-          editor->setLoop(false);
-          editor->setAllowFileLoading(true);
-          editor->setAllowImportExport(true);
-          editor->addListener(this);
-          editor->setPaintPattern(LfoSection::getPaintPattern(LfoSection::kDown));
-          addOpenGlComponent(editor);
-          addOpenGlComponent(editor->getTextEditorComponent());
-          editor->setVisible(false);
-        }
+      for (int curve = 0; curve < kNumCurves; ++curve) {
+        editors_[curve] = std::make_unique<SpectralCurveEditor>(engine_->getSpectralCurve(owned_lane_, curve));
+        SpectralCurveEditor* editor = editors_[curve].get();
+        editor->setGridSizeX(kDefaultGridSizeX);
+        editor->setGridSizeY(kDefaultGridSizeY);
+        editor->setLoop(false);
+        editor->setAllowFileLoading(true);
+        editor->setAllowImportExport(true);
+        editor->addListener(this);
+        editor->setPaintPattern(LfoSection::getPaintPattern(LfoSection::kDown));
+        addOpenGlComponent(editor);
+        addOpenGlComponent(editor->getTextEditorComponent());
+        editor->setVisible(false);
       }
 
       paint_ = std::make_unique<OpenGlShapeButton>("paint");
@@ -170,35 +171,28 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
       bottom_label_->setFontType(PlainTextComponent::kLight);
       bottom_label_->setJustification(Justification::centredRight);
 
-      // The position slider along the bottom. One per lane (each is a modulation target of its own).
-      position_[0] = std::make_unique<SynthSlider>("input_spectral_position");
-      position_[1] = std::make_unique<SynthSlider>("sidechain_spectral_position");
-      for (int lane = 0; lane < 2; ++lane) {
-        SynthSlider* slider = position_[lane].get();
-        addLaneSlider(slider, lane);
-        slider->setSliderStyle(Slider::LinearBar);
-        slider->setPopupPlacement(BubbleComponent::above);
-        slider->setModulationPlacement(BubbleComponent::above);
-        slider->setPopupPrefix("Position: ");
-        slider->setDoubleClickReturnValue(true, 0.5);
-        slider->setVisible(false);
-      }
+      // The position slider along the bottom (a modulation target of its own).
+      position_ = std::make_unique<SynthSlider>(prefix_ + "_spectral_position");
+      addSlider(position_.get());
+      position_->setSliderStyle(Slider::LinearBar);
+      position_->setPopupPlacement(BubbleComponent::above);
+      position_->setModulationPlacement(BubbleComponent::above);
+      position_->setPopupPrefix("Position: ");
+      position_->setDoubleClickReturnValue(true, 0.5);
+      position_->setVisible(false);
 
       // The detail bar under the position slider: gain, and up to three controls whose meaning depends on the mode.
       // Each is a modulation target (parameters <lane>_spectral_gain / _density / _resonance / _spread).
       static const char* kDetailParameters[kNumDetails] = { "gain", "density", "resonance", "spread", "depth", "phase" };
-      for (int lane = 0; lane < 2; ++lane) {
-        for (int i = 0; i < kNumDetails; ++i) {
-          std::string name = std::string(lane == 0 ? "input" : "sidechain") + "_spectral_" + kDetailParameters[i];
-          detail_[lane][i] = std::make_unique<SynthSlider>(name);
-          SynthSlider* slider = detail_[lane][i].get();
-          addLaneSlider(slider, lane);
-          slider->setSliderStyle(Slider::LinearBar);
-          slider->setPopupPlacement(BubbleComponent::above);
-          slider->setModulationPlacement(BubbleComponent::above);
-          slider->setDoubleClickReturnValue(true, i == 5 ? 0.0 : 0.5);
-          slider->setVisible(false);
-        }
+      for (int i = 0; i < kNumDetails; ++i) {
+        detail_[i] = std::make_unique<SynthSlider>(prefix_ + "_spectral_" + kDetailParameters[i]);
+        SynthSlider* slider = detail_[i].get();
+        addSlider(slider);
+        slider->setSliderStyle(Slider::LinearBar);
+        slider->setPopupPlacement(BubbleComponent::above);
+        slider->setModulationPlacement(BubbleComponent::above);
+        slider->setDoubleClickReturnValue(true, i == 5 ? 0.0 : 0.5);
+        slider->setVisible(false);
       }
       for (int i = 0; i < kNumDetails; ++i) {
         detail_labels_[i] = std::make_unique<PlainTextComponent>("Detail", "");
@@ -228,9 +222,10 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
     // Called when the editor is shown or hidden (the filters underneath hide while it is open).
     void setVisibilityCallback(std::function<void(bool)> callback) { visibility_callback_ = callback; }
 
-    // lane: 0 = main input, 1 = sidechain. curve: 0 = Spectral Filter, 1 = Spectral Phaser, 2 = Spectral Flanger.
+    // curve: 0 = Spectral Filter, 1 = Spectral Phaser, 2 = Spectral Flanger. (The editor's lane is fixed; the first
+    // argument is kept for the callers that name it.)
     void showCurve(int lane, int curve) {
-      lane_ = std::max(0, std::min(lane, 1));
+      lane_ = owned_lane_;
       curve_ = std::max(0, std::min(curve, kNumCurves - 1));
 
       // What the detail controls are called in each mode ("" = unused).
@@ -241,25 +236,21 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
       };
       for (int i = 0; i < kNumDetails; ++i) {
         detail_labels_[i]->setText(kDetailNames[curve_][i]);
-        for (int l = 0; l < 2; ++l) {
-          detail_[l][i]->setVisible(l == lane_ && kDetailNames[curve_][i][0] != '\0');
-          detail_[l][i]->setPopupPrefix(std::string(kDetailNames[curve_][i]) + ": ");
-        }
+        detail_[i]->setVisible(kDetailNames[curve_][i][0] != '\0');
+        detail_[i]->setPopupPrefix(std::string(kDetailNames[curve_][i]) + ": ");
       }
 
-      for (int l = 0; l < 2; ++l) {
-        position_[l]->setVisible(l == lane_);
-        for (int c = 0; c < kNumCurves; ++c)
-          editors_[l][c]->setVisible(l == lane_ && c == curve_);
-      }
+      position_->setVisible(true);
+      for (int c = 0; c < kNumCurves; ++c)
+        editors_[c]->setVisible(c == curve_);
 
       static const char* kTop[kNumCurves] = { "+48 dB", "6 turns", "4x delay" };
       static const char* kBottom[kNumCurves] = { "-48 dB", "none", "1/4 delay" };
-      preset_selector_->setText(shape_names_[lane_][curve_]);
+      preset_selector_->setText(shape_names_[curve_]);
       top_label_->setText(kTop[curve_]);
       bottom_label_->setText(kBottom[curve_]);
 
-      SpectralCurveEditor* editor = editors_[lane_][curve_].get();
+      SpectralCurveEditor* editor = editors_[curve_].get();
       editor->setPaint(paint_->getToggleState());
       smooth_->setToggleState(editor->getSmooth(), dontSendNotification);
       editor->resetPositions();
@@ -333,8 +324,7 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
       int row_gap = margin / 2;
       int detail_top = getHeight() - margin - num_rows * slider_height - (num_rows - 1) * row_gap;
       int slider_y = detail_top - row_gap - slider_height;
-      for (auto& slider : position_)
-        slider->setBounds(margin, slider_y, getWidth() - 2 * margin, slider_height);
+      position_->setBounds(margin, slider_y, getWidth() - 2 * margin, slider_height);
 
       int cell_width = (getWidth() - 2 * margin) / per_row;
       int label_width = std::min<int>(size_ratio_ * 70, cell_width / 2);
@@ -345,8 +335,7 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
         detail_labels_[i]->setTextSize(text_size);
         detail_labels_[i]->setColor(body_text);
         detail_labels_[i]->setBounds(cell_x, detail_y, label_width, slider_height);
-        for (int l = 0; l < 2; ++l)
-          detail_[l][i]->setBounds(cell_x + label_width, detail_y, cell_width - label_width - margin, slider_height);
+        detail_[i]->setBounds(cell_x + label_width, detail_y, cell_width - label_width - margin, slider_height);
       }
 
       int editor_x = margin;
@@ -354,11 +343,9 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
       int editor_width = getWidth() - 2 * margin;
       int editor_height = std::max(1, slider_y - margin / 2 - editor_y);
       draw_area_ = Rectangle<int>(editor_x, editor_y, editor_width, editor_height);
-      for (int l = 0; l < 2; ++l) {
-        for (int c = 0; c < kNumCurves; ++c) {
-          editors_[l][c]->setSizeRatio(size_ratio_);
-          editors_[l][c]->setBounds(draw_area_);
-        }
+      for (int c = 0; c < kNumCurves; ++c) {
+        editors_[c]->setSizeRatio(size_ratio_);
+        editors_[c]->setBounds(draw_area_);
       }
 
       // Axis and range labels sit inside the well, on top of the drawing.
@@ -404,19 +391,16 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
       SynthSection::sliderValueChanged(changed_slider);
 
       if (changed_slider == grid_size_x_.get()) {
-        for (auto& lane : editors_)
-          for (auto& editor : lane)
-            editor->setGridSizeX(grid_size_x_->getValue());
+        for (auto& editor : editors_)
+          editor->setGridSizeX(grid_size_x_->getValue());
       }
       else if (changed_slider == grid_size_y_.get()) {
-        for (auto& lane : editors_)
-          for (auto& editor : lane)
-            editor->setGridSizeY(grid_size_y_->getValue());
+        for (auto& editor : editors_)
+          editor->setGridSizeY(grid_size_y_->getValue());
       }
       else if (changed_slider == paint_pattern_.get()) {
-        for (auto& lane : editors_)
-          for (auto& editor : lane)
-            editor->setPaintPattern(LfoSection::getPaintPattern(static_cast<int>(paint_pattern_->getValue())));
+        for (auto& editor : editors_)
+          editor->setPaintPattern(LfoSection::getPaintPattern(static_cast<int>(paint_pattern_->getValue())));
       }
     }
 
@@ -426,19 +410,18 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
       else if (clicked_button == reset_button_.get()) {
         engine_->resetSpectralCurve(lane_, curve_);
         static const char* kDefaultNames[kNumCurves] = { "Flat", "Ramp Up", "Flat" };
-        shape_names_[lane_][curve_] = kDefaultNames[curve_];
-        current_file_[lane_][curve_] = File();
-        preset_selector_->setText(shape_names_[lane_][curve_]);
-        editors_[lane_][curve_]->resetPositions();
-        smooth_->setToggleState(editors_[lane_][curve_]->getSmooth(), dontSendNotification);
+        shape_names_[curve_] = kDefaultNames[curve_];
+        current_file_[curve_] = File();
+        preset_selector_->setText(shape_names_[curve_]);
+        editors_[curve_]->resetPositions();
+        smooth_->setToggleState(editors_[curve_]->getSmooth(), dontSendNotification);
       }
       else if (clicked_button == paint_.get()) {
-        for (auto& lane : editors_)
-          for (auto& editor : lane)
-            editor->setPaint(paint_->getToggleState());
+        for (auto& editor : editors_)
+          editor->setPaint(paint_->getToggleState());
       }
       else if (clicked_button == smooth_.get())
-        editors_[lane_][curve_]->setSmooth(smooth_->getToggleState());
+        editors_[curve_]->setSmooth(smooth_->getToggleState());
       else
         SynthSection::buttonClicked(clicked_button);
     }
@@ -474,14 +457,14 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
       paint_pattern_->setActive(enabled != temporary_switch);
     }
     void fileLoaded() override {
-      smooth_->setToggleState(editors_[lane_][curve_]->getSmooth(), dontSendNotification);
+      smooth_->setToggleState(editors_[curve_]->getSmooth(), dontSendNotification);
     }
     void importLfo() override { openShape(); }
     void exportLfo() override { saveShape(); }
 
     // SynthSection: the browser calls these.
     void loadFile(const File& file) override { loadShapeFile(file); }
-    File getCurrentFile() override { return current_file_[lane_][curve_]; }
+    File getCurrentFile() override { return current_file_[curve_]; }
 
   private:
     struct Shape {
@@ -581,7 +564,7 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
       Array<File> files = allShapeFiles();
       if (files.isEmpty())
         return;
-      int index = files.indexOf(current_file_[lane_][curve_]);
+      int index = files.indexOf(current_file_[curve_]);
       index = index < 0 ? (direction > 0 ? 0 : files.size() - 1) : (index + direction + files.size()) % files.size();
       loadShapeFile(files[index]);
     }
@@ -595,9 +578,9 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
       if (!choice.exists())
         choice.create();
       choice.replaceWithText(engine_->getSpectralCurve(lane_, curve_)->stateToJson().dump());
-      current_file_[lane_][curve_] = choice;
-      shape_names_[lane_][curve_] = choice.getFileNameWithoutExtension().toStdString();
-      preset_selector_->setText(shape_names_[lane_][curve_]);
+      current_file_[curve_] = choice;
+      shape_names_[curve_] = choice.getFileNameWithoutExtension().toStdString();
+      preset_selector_->setText(shape_names_[curve_]);
     }
 
     void openShape() {
@@ -617,21 +600,11 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
       catch (const std::exception&) {
         return;
       }
-      current_file_[lane_][curve_] = file;
-      shape_names_[lane_][curve_] = file.getFileNameWithoutExtension().toStdString();
-      preset_selector_->setText(shape_names_[lane_][curve_]);
-      editors_[lane_][curve_]->resetPositions();
-      smooth_->setToggleState(editors_[lane_][curve_]->getSmooth(), dontSendNotification);
-    }
-
-    // Only the editor's own lane registers its sliders (so the parameter names stay unique across the two editors);
-    // the other lane's sliders exist only because the editor code indexes both lanes and are never shown.
-    void addLaneSlider(SynthSlider* slider, int lane) {
-      addSlider(slider);
-      if (lane != owned_lane_) {
-        slider_lookup_.erase(slider->getName().toStdString());
-        all_sliders_.erase(slider->getName().toStdString());
-      }
+      current_file_[curve_] = file;
+      shape_names_[curve_] = file.getFileNameWithoutExtension().toStdString();
+      preset_selector_->setText(shape_names_[curve_]);
+      editors_[curve_]->resetPositions();
+      smooth_->setToggleState(editors_[curve_]->getSmooth(), dontSendNotification);
     }
 
     std::unique_ptr<SynthSlider> makeGridSlider(const std::string& name, int max_value, int default_value,
@@ -652,28 +625,29 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
     }
 
     vital::SoundEngine* engine_;
-    int lane_ = 0;
     int owned_lane_ = 0;
+    int lane_ = 0;
+    std::string prefix_;
     int curve_ = 0;
     Rectangle<int> pattern_group_;
     Rectangle<int> grid_group_;
     Rectangle<int> draw_area_;
     std::function<void(bool)> visibility_callback_;
-    File current_file_[2][kNumCurves];
+    File current_file_[kNumCurves];
 
-    std::unique_ptr<SpectralCurveEditor> editors_[2][kNumCurves];
+    std::unique_ptr<SpectralCurveEditor> editors_[kNumCurves];
     std::unique_ptr<OpenGlShapeButton> paint_;
     std::unique_ptr<PaintPatternSelector> paint_pattern_;
     std::unique_ptr<SynthSlider> grid_size_x_;
     std::unique_ptr<SynthSlider> grid_size_y_;
     std::unique_ptr<OpenGlShapeButton> smooth_;
     std::unique_ptr<PresetSelector> preset_selector_;
-    std::string shape_names_[2][kNumCurves] = { { "Flat", "Ramp Up", "Flat" }, { "Flat", "Ramp Up", "Flat" } };
+    std::string shape_names_[kNumCurves] = { "Flat", "Ramp Up", "Flat" };
     std::unique_ptr<PlainTextComponent> axis_[kNumAxisLabels];
     std::unique_ptr<PlainTextComponent> top_label_;
     std::unique_ptr<PlainTextComponent> bottom_label_;
-    std::unique_ptr<SynthSlider> position_[2];
-    std::unique_ptr<SynthSlider> detail_[2][kNumDetails];
+    std::unique_ptr<SynthSlider> position_;
+    std::unique_ptr<SynthSlider> detail_[kNumDetails];
     std::unique_ptr<PlainTextComponent> detail_labels_[kNumDetails];
     std::unique_ptr<OpenGlToggleButton> reset_button_;
     std::unique_ptr<OpenGlShapeButton> close_button_;

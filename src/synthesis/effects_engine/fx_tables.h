@@ -33,6 +33,12 @@ namespace vital {
   class FxTables {
     public:
       static constexpr int kFrames = 16;
+
+      // 0 = Distort Table, 1 = Spectral Table, for a wavetable slot (see kNumFxTables).
+      // The two lanes have four tables (slots 0..3); the Morph copies' tables follow.
+      static constexpr int kNumLaneTables = 4;
+      static int kindOfSlot(int slot) { return slot < 4 ? (slot < 2 ? 0 : 1) : ((slot - 4) & 1); }
+      static int morphSlot(int instance, bool spectral) { return 4 + 2 * instance + (spectral ? 1 : 0); }
       static constexpr float kMinHz = 20.0f;
       static constexpr float kOctaves = 9.9658f;   // log2(20000 / 20)
 

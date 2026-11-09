@@ -41,12 +41,16 @@ namespace vital {
         kNumInputs
       };
 
+      // Everything but Vocode (it needs the sidechain as its modulator).
       static bool isAllowedSpectral(int mode) {
-        return (mode >= SpectralMorphProcessor::kNone && mode <= SpectralMorphProcessor::kTimeSkew) ||
-               mode == SpectralMorphProcessor::kSpectralGate;
+        return mode >= SpectralMorphProcessor::kNone && mode < SpectralMorphProcessor::kNumModes &&
+               mode != SpectralMorphProcessor::kVocode;
       }
 
-      static bool isAllowedWarp(int mode) { return mode >= WaveWarp::kNone && mode <= WaveWarp::kPulse; }
+      // Everything but FM and RM (they need the sidechain as their modulator).
+      static bool isAllowedWarp(int mode) {
+        return mode >= WaveWarp::kNone && mode < WaveWarp::kNumModes && mode != WaveWarp::kFm && mode != WaveWarp::kRm;
+      }
 
       static int safeSpectral(float value) {
         int mode = static_cast<int>(value + 0.5f);
@@ -77,12 +81,29 @@ namespace vital {
         spectral_->plug(&engaged_out_, SpectralMorphProcessor::kEngaged);
         spectral_->plug(shuffle, SpectralMorphProcessor::kShuffle);
         spectral_->plug(dice, SpectralMorphProcessor::kDice);
+        spectral_->plug(createMonoModControl("morph_spectral_position"), SpectralMorphProcessor::kPosition);
+        spectral_->plug(createMonoModControl("morph_spectral_gain"), SpectralMorphProcessor::kGain);
+        spectral_->plug(createMonoModControl("morph_spectral_density"), SpectralMorphProcessor::kDensity);
+        spectral_->plug(createMonoModControl("morph_spectral_resonance"), SpectralMorphProcessor::kResonance);
+        spectral_->plug(createMonoModControl("morph_spectral_spread"), SpectralMorphProcessor::kSpread);
+        spectral_->plug(createMonoModControl("morph_spectral_depth"), SpectralMorphProcessor::kDepth);
+        spectral_->plug(createMonoModControl("morph_spectral_phase"), SpectralMorphProcessor::kPhase);
+        spectral_->plug(createMonoModControl("morph_spectral_table_mix"), SpectralMorphProcessor::kTableMix);
+        spectral_->plug(createMonoModControl("morph_table_position"), SpectralMorphProcessor::kTablePosition);
+        spectral_->plug(createMonoModControl("morph_table_gain"), SpectralMorphProcessor::kTableGain);
+        spectral_->plug(createMonoModControl("morph_table_resonance"), SpectralMorphProcessor::kTableResonance);
         addIdleProcessor(spectral_);
 
         warp_ = new WaveWarp(false);
         warp_->plug(&warp_in_, WaveWarp::kAudio);
         warp_->plug(&warp_mode_out_, WaveWarp::kMode);
         warp_->plug(warp_amount, WaveWarp::kAmount);
+        warp_->plug(createMonoModControl("morph_distortion_phase"), WaveWarp::kPhase);
+        warp_->plug(createMonoModControl("morph_distortion_bias"), WaveWarp::kBias);
+        warp_->plug(createMonoModControl("morph_distortion_smooth"), WaveWarp::kSmooth);
+        warp_->plug(createMonoModControl("morph_distortion_drive"), WaveWarp::kDrive);
+        warp_->plug(createBaseControl("morph_distortion_dc_filter"), WaveWarp::kDcFilter);
+        warp_->plug(createMonoModControl("morph_distortion_mix"), WaveWarp::kMix);
         addIdleProcessor(warp_);
 
         SynthModule::init();
@@ -130,6 +151,16 @@ namespace vital {
         int size = SpectralMorphProcessor::fftSizeFromIndex(scaledFftIndex(base_index));
         return size / std::max(1, getOversampleAmount());
       }
+
+      // The drawn curves (Spectral Filter, Phaser, Flanger), the wavetables of the two table modes and the Random
+      // Amplitudes seed belong to the engine, which saves them with the preset.
+      void setCurve(int which, const LineGenerator* curve) { spectral_->setCurve(which, curve); }
+      void setTables(Wavetable* warp_table, Wavetable* spectral_table) {
+        warp_->setTable(warp_table);
+        spectral_->setTable(spectral_table);
+      }
+      uint32_t seed() const { return spectral_->seed(); }
+      void setSeed(uint32_t seed) { spectral_->setSeed(seed); }
 
       void setOversampleAmount(int oversampling) override {
         int size = kMaxBufferSize * oversampling;

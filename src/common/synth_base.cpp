@@ -306,7 +306,7 @@ void SynthBase::initWavetableCreator(int index) {
   if (creator == nullptr)
     return;
 #if VITAL_FX
-  const int kind = index < 2 ? 0 : 1;
+  const int kind = vital::FxTables::kindOfSlot(index);
   std::vector<float> frames(vital::FxTables::kFrames * vital::WaveFrame::kWaveformSize);
   for (int f = 0; f < vital::FxTables::kFrames; ++f)
     vital::FxTables::fillFrame(kind, f, frames.data() + f * vital::WaveFrame::kWaveformSize);
@@ -346,8 +346,8 @@ void SynthBase::initEngine() {
     getLfoSource(i)->initTriangle();
 
 #if VITAL_FX
-  engine_->resetSpectralDrawings(0);
-  engine_->resetSpectralDrawings(1);
+  for (int lane = 0; lane < vital::SoundEngine::kNumDrawingLanes; ++lane)
+    engine_->resetSpectralDrawings(lane);
   engine_->setEffectChain(nullptr, 0);  // no effects
 #endif
 

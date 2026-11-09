@@ -46,7 +46,7 @@ namespace vital {
     // the editor can replace their contents. They exist before the graph, whose processors read them.
     for (int i = 0; i < kNumFxTables; ++i) {
       fx_tables_[i] = std::make_unique<Wavetable>(kNumOscillatorWaveFrames);
-      FxTables::fillWavetable(fx_tables_[i].get(), i < 2 ? 0 : 1);
+      FxTables::fillWavetable(fx_tables_[i].get(), FxTables::kindOfSlot(i));
     }
     init();
     bps_ = data_->controls["beats_per_minute"];
@@ -467,6 +467,19 @@ namespace vital {
     filters_module_->plug(modulation_handler_->bent_midi_output(), FiltersModule::kMidi);
     filters_bank_->setNoteOutputs(modulation_handler_->bent_midi_output(), modulation_handler_->current_midi_output());
     effect_chain_->connectMorph(fft_size_);
+
+    // The Morph effects draw their curves and read their tables from the engine, like the lanes do.
+    for (int instance = 0; instance < kMaxEffectInstances; ++instance) {
+      int lane = morphLane(instance);
+      MorphModule* morph = static_cast<MorphModule*>(effect_chain_->getEffect(constants::kMorph, instance));
+      for (int i = 0; i < kNumSpectralCurves; ++i) {
+        spectral_curves_[lane][i] = std::make_unique<LineGenerator>();
+        morph->setCurve(i, spectral_curves_[lane][i].get());
+      }
+      morph->setTables(fx_tables_[FxTables::morphSlot(instance, false)].get(),
+                       fx_tables_[FxTables::morphSlot(instance, true)].get());
+      resetSpectralDrawings(lane);
+    }
     effect_chain_->connectNote(modulation_handler_->bent_midi_output(), modulation_handler_->current_midi_output());
 
     filter_router_->setControls(filters_module_->getFilter1OnValue(), filters_module_->getFilter2OnValue(),
@@ -609,9 +622,17 @@ namespace vital {
     setRandomSeed(lane, uint32_t(SpectralMorphProcessor::kDefaultSeed));
   }
 
-  uint32_t SoundEngine::getRandomSeed(int lane) const { return spectral_[lane]->seed(); }
+  uint32_t SoundEngine::getRandomSeed(int lane) const {
+    if (lane >= 2)
+      return static_cast<MorphModule*>(effect_chain_->getEffect(constants::kMorph, lane - 2))->seed();
+    return spectral_[lane]->seed();
+  }
 
   void SoundEngine::setRandomSeed(int lane, uint32_t seed) {
+    if (lane >= 2) {
+      static_cast<MorphModule*>(effect_chain_->getEffect(constants::kMorph, lane - 2))->setSeed(seed);
+      return;
+    }
     spectral_[lane]->setSeed(seed);
     spectral_alt_[lane]->setSeed(seed);
   }
@@ -805,4 +826,8 @@ namespace vital {
   void SoundEngine::sostenutoOffRange(int sample, int from_channel, int to_channel) {
     modulation_handler_->sostenutoOffRange(sample, from_channel, to_channel);
   }
+  bool SoundEngine::isMorphInUse(int instance) const {
+    return effect_chain_ != nullptr && effect_chain_->morphInChain(instance);
+  }
+
 } // namespace vital

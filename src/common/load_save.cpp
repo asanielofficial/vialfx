@@ -17,6 +17,7 @@
 #include "load_save.h"
 #include "modulation_connection_processor.h"
 #include "sound_engine.h"
+#include "fx_tables.h"
 #include "midi_manager.h"
 #include "sample_source.h"
 #include "synth_base.h"
@@ -125,6 +126,13 @@ json LoadSave::stateToJson(SynthBase* synth, const CriticalSection& critical_sec
       WavetableCreator* wavetable_creator = synth->getWavetableCreator(i);
       if (wavetable_creator == nullptr)
         continue;
+#if VITAL_FX
+      // The tables of the Morph copies that are not in the chain are the defaults: a null keeps the preset small.
+      if (i >= vital::FxTables::kNumLaneTables && !synth->getEngine()->isMorphInUse((i - vital::FxTables::kNumLaneTables) / 2)) {
+        wavetables.push_back(nullptr);
+        continue;
+      }
+#endif
       wavetables.push_back(wavetable_creator->stateToJson());
     }
 
@@ -144,7 +152,7 @@ json LoadSave::stateToJson(SynthBase* synth, const CriticalSection& critical_sec
   // parameters: they are saved here only, so they can be neither automated nor modulated.
   {
     json lanes;
-    for (int lane = 0; lane < 2; ++lane) {
+    for (int lane = 0; lane < vital::SoundEngine::kNumDrawingLanes; ++lane) {
       json lane_data;
       json curves;
       for (int i = 0; i < vital::SoundEngine::kNumSpectralCurves; ++i)
@@ -239,10 +247,22 @@ void LoadSave::loadWavetables(SynthBase* synth, const json& wavetables) {
     WavetableCreator* wavetable_creator = synth->getWavetableCreator(i);
     if (wavetable_creator == nullptr)
       break;
-    wavetable_creator->jsonToState(wavetable);
-    wavetable_creator->render();
+    if (wavetable.is_null())
+      synth->initWavetableCreator(i);   // the default table (a Morph copy that was not in use)
+    else {
+      wavetable_creator->jsonToState(wavetable);
+      wavetable_creator->render();
+    }
     i++;
   }
+
+#if VITAL_FX
+  // Older presets have no tables for the Morph copies.
+  for (; i < vital::kNumWavetableSlots; ++i) {
+    if (synth->getWavetableCreator(i))
+      synth->initWavetableCreator(i);
+  }
+#endif
 }
 
 void LoadSave::loadLfos(SynthBase* synth, const json& lfos) {
@@ -1080,7 +1100,7 @@ bool LoadSave::jsonToState(SynthBase* synth, std::map<std::string, String>& save
 #if VITAL_FX
   {
     // Presets without drawings (older ones) get the defaults.
-    for (int lane = 0; lane < 2; ++lane) {
+    for (int lane = 0; lane < vital::SoundEngine::kNumDrawingLanes; ++lane) {
       synth->getEngine()->resetSpectralDrawings(lane);
       if (!settings.count("spectral_drawings") || !settings["spectral_drawings"].is_array() ||
           static_cast<int>(settings["spectral_drawings"].size()) <= lane)

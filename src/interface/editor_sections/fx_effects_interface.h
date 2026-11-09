@@ -41,6 +41,8 @@
 #include "phaser_section.h"
 #include "reverb_section.h"
 #include "fx_morph_section.h"
+#include "spectral_warp_editor.h"
+#include "table_settings_editor.h"
 
 #include "default_look_and_feel.h"
 #include "fonts.h"
@@ -144,9 +146,12 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
         virtual void effectMinimizeToggled(int effect_id) = 0;
         virtual void effectDuplicateRequested(int effect_id) = 0;
         virtual void effectPowerChanged(int effect_id) = 0;
+        // The effect grew or shrank (the Morph effect docks its editors below itself).
+        virtual void effectLayoutChanged(int effect_id) = 0;
     };
 
-    FxEffectSlot(int effect_id, const vital::output_map& mono_modulations) :
+    FxEffectSlot(int effect_id, const vital::output_map& mono_modulations,
+                 const vital::output_map& poly_modulations, vital::SoundEngine* engine) :
         SynthSection(fx_ui::idOf(effect_id) + "_slot"), effect_id_(effect_id), minimized_(false) {
       int type = fx_ui::typeOf(effect_id);
       int instance = fx_ui::instanceOf(effect_id);
@@ -180,15 +185,20 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
         case vital::constants::kPhaser:
           section_ = std::make_unique<PhaserSection>(title, id, mono_modulations);
           break;
-        case vital::constants::kMorph:
-          section_ = std::make_unique<FxMorphSection>(title, id);
+        case vital::constants::kMorph: {
+          auto morph = std::make_unique<FxMorphSection>(title, id, instance);
+          morph_ = morph.get();
+          section_ = std::move(morph);
           break;
+        }
         default:
           section_ = std::make_unique<ReverbSection>(title, id, mono_modulations);
           break;
       }
       section_->setName(title);
       addSubSection(section_.get());
+      if (morph_ != nullptr)
+        setupMorphAttachments(id, instance, title, mono_modulations, poly_modulations, engine);
 
       close_button_ = std::make_unique<OpenGlShapeButton>("remove");
       addAndMakeVisible(close_button_.get());
@@ -216,6 +226,40 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
         section_->activator()->getToggleStateValue().removeListener(this);
     }
 
+    // The Morph effect's editors (curve editor, table menus) dock below the effect, inside this slot, and the slot
+    // grows to hold them. The effect list gives the slot module_height for the effect itself and asks how much
+    // more it needs.
+    void setModuleHeight(int height) {
+      if (module_height_ == height)
+        return;
+      module_height_ = height;
+      if (morph_ != nullptr)
+        resized();
+    }
+
+    bool hasAttachments() const { return morph_ != nullptr && !minimized_ && anyAttachmentOpen(); }
+
+    int attachmentsHeight(int knob_section_height) const {
+      if (!hasAttachments())
+        return 0;
+      return getPadding() + static_cast<int>(attachmentHeightInKnobSections() * knob_section_height);
+    }
+
+    void setTableImportCallback(
+        std::function<bool(int, String, InputStream*, WavetableCreator::AudioFileLoadStyle)> callback) {
+      table_import_callback_ = callback;
+    }
+    void setTableEditorCallback(std::function<void(int)> callback) {
+      if (morph_ != nullptr)
+        morph_->setTableEditorCallback(callback);
+    }
+
+    // A preset was loaded: the modes under the editors may have changed, so they close.
+    void setAllValues(vital::control_map& controls) override {
+      closeAttachments(false);
+      SynthSection::setAllValues(controls);
+    }
+
     int effectId() const { return effect_id_; }
     bool isOn() const { return section_->activator() && section_->activator()->getToggleState(); }
     bool isMinimized() const { return minimized_; }
@@ -230,6 +274,8 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
         return;
 
       minimized_ = minimized;
+      if (minimized)
+        closeAttachments(false);
       section_->setVisible(!minimized);
       power_button_->setVisible(minimized);
       close_button_->setVisible(minimized);
@@ -281,7 +327,13 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
         close_button_->setBounds(getWidth() - button_size - getWidgetMargin(), y, button_size, button_size);
       }
       else {
-        section_->setBounds(getLocalBounds());
+        if (morph_ != nullptr) {
+          int module_height = anyAttachmentOpen() ? std::min(module_height_, getHeight()) : getHeight();
+          section_->setBounds(0, 0, getWidth(), module_height);
+          layoutAttachments(module_height);
+        }
+        else
+          section_->setBounds(getLocalBounds());
         // Expanded effects have no remove button (select them in the list to remove or duplicate them).
         close_button_->setVisible(false);
         section_->setHeadingTopInset(0);
@@ -333,6 +385,11 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
       if (minimized_)
         return !(dynamic_cast<Slider*>(hit) || dynamic_cast<Button*>(hit) || dynamic_cast<TextEditor*>(hit));
 
+      for (SynthSection* attachment : attachments()) {
+        if (attachment != nullptr && (hit == attachment || attachment->isParentOf(hit)))
+          return false;
+      }
+
       return !(dynamic_cast<Slider*>(hit) || dynamic_cast<Button*>(hit) || dynamic_cast<TextEditor*>(hit) ||
                (hit != this && hit != section_.get() && dynamic_cast<SynthSection*>(hit) == nullptr &&
                 dynamic_cast<OpenGlComponent*>(hit) != nullptr));
@@ -367,6 +424,162 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
       kRemove
     };
 
+    // The docked editors are about this many knob sections tall (a normal effect is two).
+    static float attachmentHeightInKnobSections() { return 3.3f; }
+
+    std::vector<SynthSection*> attachments() const {
+      return { curve_editor_.get(), spectral_table_menu_.get(), distort_table_menu_.get() };
+    }
+
+    bool anyAttachmentOpen() const {
+      for (SynthSection* attachment : attachments()) {
+        if (attachment != nullptr && attachment->isVisible())
+          return true;
+      }
+      return false;
+    }
+
+    void setupMorphAttachments(const std::string& id, int instance, const String& title,
+                               const vital::output_map& mono_modulations,
+                               const vital::output_map& poly_modulations, vital::SoundEngine* engine) {
+      if (engine == nullptr)
+        return;
+
+      curve_editor_ = std::make_unique<SpectralWarpEditor>(engine, vital::SoundEngine::morphLane(instance), id);
+      int spectral_slot = vital::FxTables::morphSlot(instance, true);
+      int distort_slot = vital::FxTables::morphSlot(instance, false);
+      std::string subtitle = title.toUpperCase().toStdString();
+      spectral_table_menu_ = std::make_unique<TableSettingsEditor>(TableSettingsEditor::kSpectral, id, spectral_slot,
+                                                                   mono_modulations, poly_modulations, subtitle);
+      distort_table_menu_ = std::make_unique<TableSettingsEditor>(TableSettingsEditor::kDistort, id, distort_slot,
+                                                                  mono_modulations, poly_modulations, subtitle);
+      spectral_table_menu_->setFrameSlider(morph_->getSpectralSlider());
+      distort_table_menu_->setFrameSlider(morph_->getDistortionSlider());
+
+      for (SynthSection* attachment : attachments()) {
+        addSubSection(attachment);
+        attachment->setVisible(false);
+      }
+      curve_editor_->setVisibilityCallback([this](bool) { attachmentVisibilityChanged(); });
+      spectral_table_menu_->setVisibilityCallback([this](bool) { attachmentVisibilityChanged(); });
+      distort_table_menu_->setVisibilityCallback([this](bool) { attachmentVisibilityChanged(); });
+      spectral_table_menu_->setImportCallback(
+          [this, spectral_slot](String name, InputStream* stream, WavetableCreator::AudioFileLoadStyle style) {
+            return table_import_callback_ ? table_import_callback_(spectral_slot, name, stream, style) : false;
+          });
+      distort_table_menu_->setImportCallback(
+          [this, distort_slot](String name, InputStream* stream, WavetableCreator::AudioFileLoadStyle style) {
+            return table_import_callback_ ? table_import_callback_(distort_slot, name, stream, style) : false;
+          });
+
+      morph_->setAttachmentCallback([this](int kind) { toggleAttachment(kind); });
+      morph_->setModesChangedCallback([this]() { refreshAttachments(); });
+    }
+
+    // The spectral side (curve editor or Spectral Table menu) takes the left, the Distort Table menu the right; one
+    // alone takes the full width.
+    void layoutAttachments(int module_height) {
+      SynthSection* left = nullptr;
+      if (curve_editor_ && curve_editor_->isVisible())
+        left = curve_editor_.get();
+      else if (spectral_table_menu_ && spectral_table_menu_->isVisible())
+        left = spectral_table_menu_.get();
+      SynthSection* right = distort_table_menu_ && distort_table_menu_->isVisible() ? distort_table_menu_.get() : nullptr;
+
+      int padding = getPadding();
+      int y = module_height + padding;
+      int height = std::max(1, getHeight() - y);
+      if (left && right) {
+        int half = (getWidth() - padding) / 2;
+        left->setBounds(0, y, half, height);
+        right->setBounds(half + padding, y, getWidth() - half - padding, height);
+      }
+      else if (left)
+        left->setBounds(0, y, getWidth(), height);
+      else if (right)
+        right->setBounds(0, y, getWidth(), height);
+    }
+
+    void attachmentVisibilityChanged() {
+      if (suppress_layout_)
+        return;
+      for (Listener* listener : listeners_)
+        listener->effectLayoutChanged(effect_id_);
+    }
+
+    // Closes every editor (when notify is true the list re-lays itself out).
+    void closeAttachments(bool notify) {
+      bool was_open = anyAttachmentOpen();
+      suppress_layout_ = true;
+      for (SynthSection* attachment : attachments()) {
+        if (attachment != nullptr && attachment->isVisible())
+          attachment->setVisible(false);
+      }
+      suppress_layout_ = false;
+      if (was_open && notify)
+        attachmentVisibilityChanged();
+    }
+
+    void toggleAttachment(int kind) {
+      if (curve_editor_ == nullptr)
+        return;
+
+      SynthSection* target = distort_table_menu_.get();
+      if (kind == FxMorphSection::kCurveEditor)
+        target = curve_editor_.get();
+      else if (kind == FxMorphSection::kSpectralTableMenu)
+        target = spectral_table_menu_.get();
+
+      if (target->isVisible()) {
+        target->setVisible(false);   // tells the list through its visibility callback
+        return;
+      }
+
+      suppress_layout_ = true;
+      if (kind == FxMorphSection::kCurveEditor) {
+        // The curve editor and the Spectral Table menu are both for the spectral side: one at a time.
+        if (spectral_table_menu_->isVisible())
+          spectral_table_menu_->setVisible(false);
+        curve_editor_->showCurve(0, morph_->curveIndex());
+      }
+      else {
+        if (kind == FxMorphSection::kSpectralTableMenu && curve_editor_->isVisible())
+          curve_editor_->setVisible(false);
+        target->setVisible(true);
+      }
+      suppress_layout_ = false;
+      attachmentVisibilityChanged();
+    }
+
+    // The modes changed: an editor whose mode is gone closes; the curve editor follows a switch between the three
+    // drawable modes.
+    void refreshAttachments() {
+      if (curve_editor_ == nullptr)
+        return;
+
+      bool changed = false;
+      suppress_layout_ = true;
+      if (curve_editor_->isVisible()) {
+        if (morph_->isDrawableMode())
+          curve_editor_->showCurve(0, morph_->curveIndex());
+        else {
+          curve_editor_->setVisible(false);
+          changed = true;
+        }
+      }
+      if (spectral_table_menu_->isVisible() && !morph_->isSpectralTableMode()) {
+        spectral_table_menu_->setVisible(false);
+        changed = true;
+      }
+      if (distort_table_menu_->isVisible() && !morph_->isWarpTableMode()) {
+        distort_table_menu_->setVisible(false);
+        changed = true;
+      }
+      suppress_layout_ = false;
+      if (changed)
+        attachmentVisibilityChanged();
+    }
+
     // A bolder remove cross than the stock exit shape.
     static Path boldExitX() {
       Path outline;
@@ -388,6 +601,13 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
     Time last_event_time_;
     Path icon_;
     std::unique_ptr<SynthSection> section_;
+    FxMorphSection* morph_ = nullptr;   // section_, when this is a Morph effect
+    std::unique_ptr<SpectralWarpEditor> curve_editor_;
+    std::unique_ptr<TableSettingsEditor> spectral_table_menu_;
+    std::unique_ptr<TableSettingsEditor> distort_table_menu_;
+    std::function<bool(int, String, InputStream*, WavetableCreator::AudioFileLoadStyle)> table_import_callback_;
+    int module_height_ = 0;
+    bool suppress_layout_ = false;
     std::unique_ptr<OpenGlShapeButton> close_button_;
     std::unique_ptr<OpenGlToggleButton> power_button_;
     std::vector<Listener*> listeners_;
@@ -872,7 +1092,8 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
         virtual void effectsMoved() = 0;
     };
 
-    EffectsInterface(const vital::output_map& mono_modulations) : SynthSection("effects") {
+    EffectsInterface(const vital::output_map& mono_modulations, const vital::output_map& poly_modulations,
+                     vital::SoundEngine* engine) : SynthSection("effects") {
       container_ = std::make_unique<EffectsContainer>("container");
 
       addAndMakeVisible(viewport_);
@@ -881,7 +1102,7 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
       viewport_.setScrollBarsShown(false, false, true, false);
 
       for (int id = 0; id < fx_ui::kPoolSize; ++id) {
-        slots_[id] = std::make_unique<FxEffectSlot>(id, mono_modulations);
+        slots_[id] = std::make_unique<FxEffectSlot>(id, mono_modulations, poly_modulations, engine);
         slots_[id]->addListener(this);
         container_->addSubSection(slots_[id].get());
         slots_[id]->setVisible(false);
@@ -1048,6 +1269,25 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
       refreshList();
     }
 
+    // A Morph effect opened or closed an editor: the slot grows or shrinks and every effect below it moves, so
+    // nothing can overlap.
+    void effectLayoutChanged(int effect_id) override {
+      ScopedLock lock(open_gl_critical_section_);
+      setEffectPositions();
+      scrollToEffect(effect_id);
+    }
+
+    void setTableImportCallback(
+        std::function<bool(int, String, InputStream*, WavetableCreator::AudioFileLoadStyle)> callback) {
+      for (auto& slot : slots_)
+        slot->setTableImportCallback(callback);
+    }
+
+    void setTableEditorCallback(std::function<void(int)> callback) {
+      for (auto& slot : slots_)
+        slot->setTableEditorCallback(callback);
+    }
+
     void setFocus() { grabKeyboardFocus(); }
 
     void setEffectPositions() {
@@ -1080,6 +1320,8 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
         slot->setMinimized(minimized);
         int height = minimized ? slot->minimizedHeight()
                                : (fx_ui::typeOf(id) == vital::constants::kMorph ? morph_height : effect_height);
+        slot->setModuleHeight(height);
+        height += slot->attachmentsHeight(knob_section_height);
         slot->setBounds(shadow_width, y, effect_width, height);
         y += height + padding;
         shown[id] = true;

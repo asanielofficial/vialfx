@@ -26,7 +26,9 @@ namespace vital {
   constexpr int kNumOscillators = 3;
   // The effect build's four wavetables: 0 input warp table, 1 sidechain warp table, 2 input spectral table,
   // 3 sidechain spectral table.
-  constexpr int kNumFxTables = 4;
+  // The Morph effect adds two more for each of its copies (kMaxEffectInstances = 8): slot 4 + 2n is the Distort Table
+  // and slot 5 + 2n the Spectral Table of copy n.
+  constexpr int kNumFxTables = 4 + 2 * 8;
 #if VITAL_FX
   constexpr int kNumWavetableSlots = kNumFxTables;
 #else

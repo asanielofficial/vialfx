@@ -27,19 +27,32 @@
 #include "synth_section.h"
 #include "synth_slider.h"
 #include "synth_strings.h"
+#include "fx_tables.h"
+
+#include <functional>
 
 // The Morph effect: the spectral morph and the distortion warp of the input lanes, as an effect. The same two big
 // knobs with their mode dropdowns and the swap button between them, without the level, pan, routing and spectrum
 // of a lane. Everything is centred in the (shorter) effect, so the panel stays small.
 //
-// Only the self-contained modes are offered: the spectral modes from None to Time Skew and Spectral Gate, and the
-// warps from None to Pulse (the others need a drawn curve, a modulator lane or a wavetable).
+// Every mode of the lanes is offered except Vocode, FM and RM (they need the sidechain lane as their modulator). The
+// drawable modes (Spectral Filter, Phaser, Flanger) get a pencil, and the table modes a cogwheel and a pencil: they
+// open their editors as attachments below the effect (the effect list makes room, see FxEffectSlot).
 class FxMorphSection : public SynthSection {
   public:
     // How tall the effect is, in knob sections (a normal effect takes two).
     static float heightInKnobSections() { return 1.45f; }
 
-    FxMorphSection(String title, const std::string& id) : SynthSection(title), id_(id) {
+    // The editors that dock below the effect.
+    enum Attachment {
+      kCurveEditor,
+      kSpectralTableMenu,
+      kDistortTableMenu,
+      kNumAttachments
+    };
+
+    FxMorphSection(String title, const std::string& id, int instance) :
+        SynthSection(title), id_(id), instance_(instance) {
       spectral_morph_ = std::make_unique<SynthSlider>(id + "_spectral_morph_amount");
       addSlider(spectral_morph_.get());
       spectral_morph_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
@@ -91,6 +104,13 @@ class FxMorphSection : public SynthSection {
       swap_button_->addListener(this);
       swap_button_->setShape(swapPath());
       swap_button_->setTooltip("Swap the order: spectral morph then distortion, or distortion then spectral morph");
+
+      // Drawable modes: a pencil opens the curve editor; Spectral Table: a cogwheel (top right) opens the settings
+      // menu and a pencil (top left) the wavetable editor; the same two for the Distort Table on the warp knob.
+      curve_button_ = makeTool("Spectral Tool", Paths::pencil());
+      spectral_edit_button_ = makeTool("Spectral Table Editor", Paths::pencil());
+      warp_tool_button_ = makeTool("Table Settings", Paths::gear());
+      warp_edit_button_ = makeTool("Table Editor", Paths::pencil());
 
       setSkinOverride(Skin::kMorph);
     }
@@ -147,16 +167,22 @@ class FxMorphSection : public SynthSection {
 
       // Random Amplitudes: the knob gives up a strip on each side (the dice and shuffle on the right, the same
       // empty strip on the left) so the knob stays above the middle of its selector.
+      int tool_size = std::max(1, static_cast<int>(knob_height * 0.24f));
+      curve_button_->setBounds(spectral_cell.getRight() - tool_size, spectral_cell.getY(), tool_size, tool_size);
+      spectral_edit_button_->setBounds(spectral_cell.getX(), spectral_cell.getY(), tool_size, tool_size);
+      warp_tool_button_->setBounds(warp_cell.getRight() - tool_size, warp_cell.getY(), tool_size, tool_size);
+      warp_edit_button_->setBounds(warp_cell.getX(), warp_cell.getY(), tool_size, tool_size);
+
       if (current_spectral_ == kRandomAmplitudes) {
         int strip = std::min(cell_width / 4, std::max(1, static_cast<int>(knob_height * 0.5f)));
         spectral_morph_->setBounds(spectral_cell.withTrimmedLeft(strip).withTrimmedRight(strip));
         int centre = spectral_morph_->getRight() + strip / 2;
-        int tool_size = std::max(1, std::min(strip - margin, static_cast<int>(knob_height * 0.22f)));
+        int dice_size = std::max(1, std::min(strip - margin, static_cast<int>(knob_height * 0.22f)));
         int bar_height = std::max(14, static_cast<int>(knob_height * 0.16f));
         int bar_width = std::max(1, strip - margin);
-        int block = tool_size + margin + bar_height;
+        int block = dice_size + margin + bar_height;
         int tool_y = spectral_cell.getY() + (knob_height - block) / 2;
-        dice_button_->setBounds(centre - tool_size / 2, tool_y, tool_size, tool_size);
+        dice_button_->setBounds(centre - dice_size / 2, tool_y, dice_size, dice_size);
         shuffle_->setBounds(centre - bar_width / 2, dice_button_->getBottom() + margin, bar_width, bar_height);
       }
       else {
@@ -201,8 +227,8 @@ class FxMorphSection : public SynthSection {
       }
       else if (clicked_button == warp_selector_.get()) {
         PopupItems options;
-        for (int mode = 0; mode < kNumWarpModes; ++mode)
-          options.addItem(mode, strings::kWarpNames[mode]);
+        for (int i = 0; i < kNumWarpModes; ++i)
+          options.addItem(warpModes()[i], strings::kWarpNames[warpModes()[i]]);
 
         Point<int> position(warp_selector_->getX(), warp_selector_->getBottom());
         showPopupSelector(this, position, options, [=](int selection) { setWarp(selection); });
@@ -212,26 +238,80 @@ class FxMorphSection : public SynthSection {
       else if (clicked_button == next_spectral_.get())
         setSpectral(stepSpectral(1));
       else if (clicked_button == prev_warp_.get())
-        setWarp((current_warp_ + kNumWarpModes - 1) % kNumWarpModes);
+        setWarp(stepWarp(-1));
       else if (clicked_button == next_warp_.get())
-        setWarp((current_warp_ + 1) % kNumWarpModes);
+        setWarp(stepWarp(1));
+      else if (clicked_button == curve_button_.get()) {
+        if (isDrawableMode() && attachment_callback_)
+          attachment_callback_(kCurveEditor);
+        else if (isSpectralTableMode() && attachment_callback_)
+          attachment_callback_(kSpectralTableMenu);
+      }
+      else if (clicked_button == spectral_edit_button_.get()) {
+        if (isSpectralTableMode() && table_editor_callback_)
+          table_editor_callback_(vital::FxTables::morphSlot(instance_, true));
+      }
+      else if (clicked_button == warp_tool_button_.get()) {
+        if (isWarpTableMode() && attachment_callback_)
+          attachment_callback_(kDistortTableMenu);
+      }
+      else if (clicked_button == warp_edit_button_.get()) {
+        if (isWarpTableMode() && table_editor_callback_)
+          table_editor_callback_(vital::FxTables::morphSlot(instance_, false));
+      }
       else if (clicked_button == dice_button_.get())
         rollDice();
       else
         SynthSection::buttonClicked(clicked_button);
     }
 
+    // The editors the effect docks below itself are owned by the slot: it is told what to open.
+    void setAttachmentCallback(std::function<void(int)> callback) { attachment_callback_ = callback; }
+    // Called with the wavetable slot to edit (the pencils of the table modes).
+    void setTableEditorCallback(std::function<void(int)> callback) { table_editor_callback_ = callback; }
+    // Called whenever the spectral or warp mode changed (the slot closes the editors that no longer apply).
+    void setModesChangedCallback(std::function<void()> callback) { modes_changed_callback_ = callback; }
+
+    SynthSlider* getSpectralSlider() { return spectral_morph_.get(); }
+    SynthSlider* getDistortionSlider() { return distortion_.get(); }
+
+    bool isDrawableMode() const {
+      return current_spectral_ >= kFirstDrawableMode && current_spectral_ < kFirstDrawableMode + 3;
+    }
+    bool isSpectralTableMode() const { return current_spectral_ == kSpectralTableMode; }
+    bool isWarpTableMode() const { return current_warp_ == kWarpTableMode; }
+    // 0 = Spectral Filter, 1 = Spectral Phaser, 2 = Spectral Flanger (when isDrawableMode()).
+    int curveIndex() const { return current_spectral_ - kFirstDrawableMode; }
+
   private:
-    // Menu order of the spectral modes (Spectral Gate is stored as 16, listed after Time Skew).
+    // Menu order of the spectral modes (Spectral Gate is stored as 16, listed after Time Skew); the stored numbers
+    // are the lanes'. Vocode (14) is not offered, and the warps leave out FM and RM (7, 8).
     enum {
-      kNumSpectralModes = 12,
-      kNumWarpModes = 7,   // None .. Pulse
-      kRandomAmplitudes = 5
+      kNumSpectralModes = 16,
+      kNumWarpModes = 8,
+      kRandomAmplitudes = 5,
+      kFirstDrawableMode = 11,   // Spectral Filter, Phaser, Flanger
+      kSpectralTableMode = 15,
+      kWarpTableMode = 9
     };
 
     static const int* spectralModes() {
-      static const int kModes[kNumSpectralModes] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 16 };
+      static const int kModes[kNumSpectralModes] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 16, 11, 12, 13, 15 };
       return kModes;
+    }
+
+    static const int* warpModes() {
+      static const int kModes[kNumWarpModes] = { 0, 1, 2, 3, 4, 5, 6, 9 };
+      return kModes;
+    }
+
+    int stepWarp(int direction) const {
+      int position = 0;
+      for (int i = 0; i < kNumWarpModes; ++i) {
+        if (warpModes()[i] == current_warp_)
+          position = i;
+      }
+      return warpModes()[(position + direction + kNumWarpModes) % kNumWarpModes];
     }
 
     static int safeSpectral(int mode) {
@@ -242,10 +322,19 @@ class FxMorphSection : public SynthSection {
       return 0;
     }
 
-    static int safeWarp(int mode) { return mode >= 0 && mode < kNumWarpModes ? mode : 0; }
+    static int safeWarp(int mode) {
+      for (int i = 0; i < kNumWarpModes; ++i) {
+        if (warpModes()[i] == mode)
+          return mode;
+      }
+      return 0;
+    }
 
     // Formant Scale, Harmonic / Inharmonic Stretch and Phase Disperse have a centred (bipolar) amount.
-    static bool isBipolarSpectral(int mode) { return mode == 1 || mode == 2 || mode == 3 || mode == 8; }
+    // The three drawable modes are centred too.
+    static bool isBipolarSpectral(int mode) {
+      return mode == 1 || mode == 2 || mode == 3 || mode == 8 || (mode >= kFirstDrawableMode && mode <= 13);
+    }
     // Sync, Formant, Bend and Squeeze.
     static bool isBipolarWarp(int mode) { return mode == 1 || mode == 2 || mode == 4 || mode == 5; }
 
@@ -265,6 +354,12 @@ class FxMorphSection : public SynthSection {
       selector->setTriggeredOnMouseDown(true);
       selector->setShape(Path(), true, true, true);
       return selector;
+    }
+
+    std::unique_ptr<OpenGlShapeButton> makeTool(const String& name, const Path& shape) {
+      auto tool = makeArrow(name, shape);
+      tool->setVisible(false);
+      return tool;
     }
 
     std::unique_ptr<OpenGlShapeButton> makeArrow(const String& name, const Path& shape) {
@@ -312,6 +407,9 @@ class FxMorphSection : public SynthSection {
     }
 
     void updateSpectralKnob() {
+      curve_button_->setVisible(isDrawableMode() || isSpectralTableMode());
+      curve_button_->setShape(isDrawableMode() ? Paths::pencil() : Paths::gear());
+      spectral_edit_button_->setVisible(isSpectralTableMode());
       bool bipolar = isBipolarSpectral(current_spectral_);
       spectral_morph_->setBipolar(bipolar);
       spectral_morph_->setDoubleClickReturnValue(true, bipolar ? 0.5f : 0.0f);
@@ -319,6 +417,8 @@ class FxMorphSection : public SynthSection {
     }
 
     void updateWarpKnob() {
+      warp_tool_button_->setVisible(isWarpTableMode());
+      warp_edit_button_->setVisible(isWarpTableMode());
       bool bipolar = isBipolarWarp(current_warp_);
       distortion_->setBipolar(bipolar);
       distortion_->setDoubleClickReturnValue(true, bipolar ? 0.5f : 0.0f);
@@ -348,6 +448,8 @@ class FxMorphSection : public SynthSection {
       SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
       if (parent && parent->getSynth())
         parent->getSynth()->valueChangedInternal(id_ + "_spectral_morph_type", current_spectral_);
+      if (modes_changed_callback_)
+        modes_changed_callback_();
     }
 
     void setWarp(int mode) {
@@ -363,6 +465,8 @@ class FxMorphSection : public SynthSection {
       SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
       if (parent && parent->getSynth())
         parent->getSynth()->valueChangedInternal(id_ + "_distortion_type", current_warp_);
+      if (modes_changed_callback_)
+        modes_changed_callback_();
     }
 
     void setWarpFirst(bool warp_first) {
@@ -391,6 +495,10 @@ class FxMorphSection : public SynthSection {
     }
 
     std::string id_;
+    int instance_ = 0;
+    std::function<void(int)> attachment_callback_;
+    std::function<void(int)> table_editor_callback_;
+    std::function<void()> modes_changed_callback_;
     int current_spectral_ = 0;
     int current_warp_ = 0;
     bool warp_first_ = false;
@@ -402,6 +510,10 @@ class FxMorphSection : public SynthSection {
     std::unique_ptr<SynthSlider> distortion_;
     std::unique_ptr<SynthSlider> shuffle_;
     std::unique_ptr<OpenGlShapeButton> dice_button_;
+    std::unique_ptr<OpenGlShapeButton> curve_button_;
+    std::unique_ptr<OpenGlShapeButton> spectral_edit_button_;
+    std::unique_ptr<OpenGlShapeButton> warp_tool_button_;
+    std::unique_ptr<OpenGlShapeButton> warp_edit_button_;
     std::unique_ptr<OpenGlShapeButton> swap_button_;
     std::unique_ptr<ShapeButton> spectral_selector_;
     std::unique_ptr<PlainTextComponent> spectral_text_;

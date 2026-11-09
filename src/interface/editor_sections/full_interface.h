@@ -207,6 +207,7 @@ class FullInterface : public SynthSection, public AuthenticationSection::Listene
     std::unique_ptr<HeaderSection> header_;
     std::unique_ptr<SynthesisInterface> synthesis_interface_;
     std::unique_ptr<FxVoiceInterface> fx_voice_interface_;
+    bool effects_hidden_by_editor_ = false;
     std::unique_ptr<MasterControlsInterface> master_controls_interface_;
     std::unique_ptr<ModulationInterface> modulation_interface_;
     std::unique_ptr<ExtraModSection> extra_mod_section_;
