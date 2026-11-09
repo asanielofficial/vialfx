@@ -1995,8 +1995,10 @@ namespace {
     {
       Rig rig;
       vital::Wavetable* table = rig.engine->getWavetable(0);
-      check(table != nullptr && rig.engine->getWavetable(3) != nullptr && rig.engine->getWavetable(4) == nullptr,
-            "the engine owns four wavetables for the table modes");
+      check(table != nullptr && rig.engine->getWavetable(3) != nullptr &&
+            rig.engine->getWavetable(vital::kNumFxTables - 1) != nullptr &&
+            rig.engine->getWavetable(vital::kNumFxTables) == nullptr,
+            "the engine owns the lane tables and two per Morph copy for the table modes");
       table->setNumFrames(2);
       vital::WaveFrame silent_frame;
       silent_frame.clear();
