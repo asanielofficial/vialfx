@@ -5,12 +5,12 @@ audio inputs (main and sidechain) that can each be warped, spectrally morphed an
 effects or straight to the output. It is built from GPLv3 synthesizer source code (see
 [NOTICE.md](NOTICE.md) for the origin of the code).
 
-> **Status:** version 1.1. VST3 builds for Linux, macOS and Windows, plus a Windows installer (.exe) and a
+> **Status:** version 1.2. VST3 and CLAP builds for Linux, macOS and Windows, plus a Windows installer (.exe) and a
 > macOS installer (.pkg), are produced by CI, and the plugin passes pluginval.
 
 ## Download
 
-The current stable version is [**VialFX 1.1**](https://github.com/asanielofficial/vialfx/releases/latest): a Windows installer (.exe), a macOS installer (.pkg) and VST3 zips for Windows, macOS and Linux.
+The current stable version is [**VialFX 1.2**](https://github.com/asanielofficial/vialfx/releases/latest): a Windows installer (.exe), a macOS installer (.pkg) and VST3 and CLAP zips for Windows, macOS and Linux.
 
 The newest `main` commit that built on all three platforms is published as the [nightly pre-release](https://github.com/asanielofficial/vialfx/releases/tag/nightly) (Linux, macOS and Windows VST3 and CLAP, plus the Windows and macOS installers, which let you choose which formats to install). These builds are unsigned and meant for testing. Every CI run also attaches its builds as artifacts.
 

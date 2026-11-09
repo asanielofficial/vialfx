@@ -1,8 +1,8 @@
 ; Inno Setup script for the VialFX installer: VST3 and CLAP are separate components, each can be switched off
 ; (built by .github/workflows/build.yml).
-; Build: ISCC /DSourceFile=C:\path\to\VialFX.vst3 /DClapFile=C:\path\to\VialFX.clap /DAppVersion=1.1 installer\windows\VialFX.iss
+; Build: ISCC /DSourceFile=C:\path\to\VialFX.vst3 /DClapFile=C:\path\to\VialFX.clap /DAppVersion=1.2 installer\windows\VialFX.iss
 #ifndef AppVersion
-  #define AppVersion "1.1"
+  #define AppVersion "1.2"
 #endif
 #ifndef SourceFile
   #define SourceFile "..\..\dist\VialFX.vst3"
