@@ -16,6 +16,8 @@
 
 #include "line_editor.h"
 
+#include <algorithm>
+
 #include "default_look_and_feel.h"
 #include "full_interface.h"
 #include "fonts.h"
@@ -98,9 +100,13 @@ LineEditor::LineEditor(LineGenerator* line_source) :
   drag_circle_.setActive(false);
   hover_circle_.setActive(false);
   setWantsKeyboardFocus(true);
+  allEditors().push_back(this);
 }
 
-LineEditor::~LineEditor() { }
+LineEditor::~LineEditor() {
+  auto& editors = allEditors();
+  editors.erase(std::remove(editors.begin(), editors.end(), this), editors.end());
+}
 
 int LineEditor::getHoverPoint(Point<float> position) {
   position.x = unpadX(position.x);

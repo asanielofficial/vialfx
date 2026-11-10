@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <functional>
+
 #include "JuceHeader.h"
 
 #include "bar_renderer.h"
@@ -202,6 +204,10 @@ class ModulationManager : public SynthSection,
     void modulationClicked(ModulationButton* source) override;
     void modulationCleared() override;
     bool hasFreeConnection();
+    // Called when a modulation source starts / stops being dragged (the targets of points appear and go).
+    std::function<void()> on_drag_started;
+    std::function<void()> on_drag_ended;
+
     void startModulationMap(ModulationButton* source, const MouseEvent& e) override;
     void modulationDragged(const MouseEvent& e) override;
     void modulationWheelMoved(const MouseEvent& e, const MouseWheelDetails& wheel) override;

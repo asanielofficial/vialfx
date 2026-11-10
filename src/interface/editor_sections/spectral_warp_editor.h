@@ -108,6 +108,7 @@ class SpectralWarpEditor : public SynthSection, public PresetSelector::Listener,
         editor->setGridSizeX(kDefaultGridSizeX);
         editor->setGridSizeY(kDefaultGridSizeY);
         editor->setLoop(false);
+        editor->setPointModCurve(owned_lane_ * vital::SoundEngine::kNumSpectralCurves + curve);
         editor->setAllowFileLoading(true);
         editor->setAllowImportExport(true);
         editor->addListener(this);

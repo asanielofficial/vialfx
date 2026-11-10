@@ -630,8 +630,10 @@ void FilterSection::bindCurves() {
     return;
 
   int lane = vital::SoundEngine::kFirstFilterLane + set;
-  for (int i = 0; i < 3; ++i)
+  for (int i = 0; i < 3; ++i) {
     curve_editors_[i]->setModel(engine->getSpectralCurve(lane, i));
+    curve_editors_[i]->setPointModCurve(lane * vital::SoundEngine::kNumSpectralCurves + i);
+  }
   filter_response_->setOtherCurves(engine->getSpectralCurve(lane, 0), engine->getSpectralCurve(lane, 1),
                                    engine->getSpectralCurve(lane, 2));
   curves_bound_ = true;

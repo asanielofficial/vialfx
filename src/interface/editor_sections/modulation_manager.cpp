@@ -680,6 +680,9 @@ void ModulationManager::startModulationMap(ModulationButton* source, const Mouse
   if (!hasFreeConnection())
     return;
   
+  if (on_drag_started)
+    on_drag_started();
+
   mouse_drag_position_ = getLocalPoint(source, e.getPosition());
   current_source_ = source;
   dragging_ = true;
@@ -945,6 +948,8 @@ void ModulationManager::endModulationMap() {
   modulation_destinations_->setVisible(false);
   drag_quad_.setThickness(0.0f, true);
   hideModulationAmountOverlay();
+  if (on_drag_ended)
+    on_drag_ended();
 }
 
 void ModulationManager::modulationLostFocus(ModulationButton* source) {

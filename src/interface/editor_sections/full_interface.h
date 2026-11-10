@@ -44,7 +44,9 @@ class HeaderSection;
 class KeyboardInterface;
 class MasterControlsInterface;
 class ModulationInterface;
+class PointModTargets;
 class ModulationManager;
+class PointModTargets;
 class PortamentoSection;
 class PresetBrowser;
 class SaveSection;
@@ -193,6 +195,7 @@ class FullInterface : public SynthSection, public AuthenticationSection::Listene
     Authentication auth_;
     std::map<std::string, SynthSlider*> slider_lookup_;
     std::map<std::string, Button*> button_lookup_;
+    std::unique_ptr<PointModTargets> point_mod_targets_;
     std::unique_ptr<ModulationManager> modulation_manager_;
     std::unique_ptr<ModulationMatrix> modulation_matrix_;
 
