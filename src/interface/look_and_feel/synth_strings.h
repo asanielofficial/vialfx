@@ -107,6 +107,15 @@ namespace strings {
     "Band Spread Flange-"
   };
 
+  const std::string kOtherFilterStyleNames[] = {
+    "Band Reject",
+    "All-Pass",
+    "Metal Comb",
+    "Metal Reverb",
+    "Disperser",
+    "Custom"
+  };
+
   const std::string kFrequencySyncNames[] = {
     "Seconds",
     "Tempo",
@@ -122,6 +131,9 @@ namespace strings {
     "Sine Fold",
     "Bit Crush",
     "Down Samp",
+    "Tube",
+    "Saturator",
+    "Overdrive",
   };
 
   const std::string kDistortionTypeNames[] = {
@@ -131,6 +143,9 @@ namespace strings {
     "Sine Fold",
     "Bit Crush",
     "Down Sample",
+    "Tube",
+    "Saturator",
+    "Overdrive",
   };
 
   const std::string kDistortionFilterOrderNames[] = {
@@ -148,6 +163,7 @@ namespace strings {
     "Formant",
     "Comb",
     "Phaser",
+    "Other",
   };
 
   const std::string kPredefinedWaveformNames[] = {

@@ -63,8 +63,15 @@ namespace vital {
       // preset; the curves are not parameters. The seed is scrambled by flipping the lane's dice switch parameter.
       // Lanes 2 .. 9 are the copies of the Morph effect (copy n is lane 2 + n).
       static constexpr int kNumSpectralCurves = 3;
-      static constexpr int kNumDrawingLanes = 2 + kMaxEffectInstances;
+      // Lanes 10 and 11 hold the three drawn curves of the Custom model of Filter 1 and 2, lanes 12 .. 19 the ones
+      // of the copies of the Filter effect.
+      static constexpr int kFirstFilterLane = 2 + kMaxEffectInstances;
+      static constexpr int kNumFilterCurveSets = 2 + kMaxEffectInstances;
+      static constexpr int kNumDrawingLanes = kFirstFilterLane + kNumFilterCurveSets;
       static int morphLane(int instance) { return 2 + instance; }
+      static int filterLane(int filter) { return kFirstFilterLane + filter; }
+      static int filterFxLane(int instance) { return kFirstFilterLane + 2 + instance; }
+      static bool isMorphLane(int lane) { return lane >= 2 && lane < kFirstFilterLane; }
       // Whether copy n of the Morph effect is in the effect chain (its tables are only saved with the preset then).
       bool isMorphInUse(int instance) const;
       LineGenerator* getSpectralCurve(int lane, int index);

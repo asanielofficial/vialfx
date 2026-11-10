@@ -22,6 +22,7 @@
 #include "dirty_filter.h"
 #include "formant_filter.h"
 #include "ladder_filter.h"
+#include "other_filter.h"
 #include "phaser_filter.h"
 #include "sallen_key_filter.h"
 
@@ -67,6 +68,8 @@ namespace vital {
         return new FormantFilter(0);
       case constants::kPhase:
         return new PhaserFilter(false);
+      case constants::kOther:
+        return new OtherFilter();
       default:
         return nullptr;
     }

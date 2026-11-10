@@ -17,6 +17,8 @@
 #include "line_generator.h"
 #include "spectral_morph_processor.h"
 #include "fx_effect_chain.h"
+#include "other_filter.h"
+#include "distortion.h"
 
 #include <algorithm>
 #include <chrono>
@@ -1128,7 +1130,7 @@ namespace {
 
   void testAllFilterModels() {
     std::printf("\n== Every filter model and style ==\n");
-    const int styles_per_model[] = { 5, 5, 5, 5, 2, 3, 6, 2 };
+    const int styles_per_model[] = { 5, 5, 5, 5, 2, 3, 6, 2, 6 };
     int combos = 0;
     int bad = 0;
     for (int model = 0; model < constants::kNumFilterModels; ++model) {
@@ -1150,6 +1152,80 @@ namespace {
       }
     }
     check(bad == 0, "all filter models/styles stay finite and bounded", fmt("%.0f combinations, %.0f bad", combos, bad));
+  }
+
+  void testOtherFilters() {
+    std::printf("\n== Other filters and the new distortions ==\n");
+    auto level = [](int style, float tone_hz, float cutoff_midi, float blend = 0.0f) {
+      Rig rig;
+      setFilter(rig, 1, true, cutoff_midi, constants::kOther, style);
+      rig.set("filter_1_blend", blend);
+      rig.set("filter_1_resonance", 0.5f);
+      rig.noteOn(60);
+      Stereo out = rig.render(kSampleRate, sine(tone_hz));
+      return out.finite() ? db(rms(out.left, kSampleRate / 2) / (kAmp / std::sqrt(2.0))) : 999.0;
+    };
+    float tone_midi = 69.0f;  // 440 Hz
+    double notch = level(OtherFilter::kBandReject, 440.0f, tone_midi);
+    double off_notch = level(OtherFilter::kBandReject, 3000.0f, tone_midi);
+    check(notch < off_notch - 12.0, "Band Reject removes its centre frequency", fmt("%.1f dB vs %.1f dB", notch, off_notch));
+    double all_pass = level(OtherFilter::kAllPass, 440.0f, tone_midi);
+    check(std::fabs(all_pass) < 1.5, "All-Pass keeps the level", fmt("%.2f dB", all_pass));
+    double disperser = level(OtherFilter::kDisperser, 1000.0f, tone_midi);
+    check(std::fabs(disperser) < 1.5, "Disperser keeps the level", fmt("%.2f dB", disperser));
+    double comb = level(OtherFilter::kMetalComb, 440.0f, tone_midi);
+    double reverb = level(OtherFilter::kMetalReverb, 440.0f, tone_midi);
+    check(comb > -40.0 && comb < 20.0, "Metal Comb makes sound and stays bounded", fmt("%.1f dB", comb));
+    check(reverb > -40.0 && reverb < 20.0, "Metal Reverb makes sound and stays bounded", fmt("%.1f dB", reverb));
+
+    // Custom: the default curves are a low pass (A), a band pass (B) and a high pass (C).
+    double low_a = level(OtherFilter::kCustom, 100.0f, 60.0f, 0.0f);
+    double high_a = level(OtherFilter::kCustom, 8000.0f, 60.0f, 0.0f);
+    double low_c = level(OtherFilter::kCustom, 100.0f, 60.0f, 2.0f);
+    double high_c = level(OtherFilter::kCustom, 8000.0f, 60.0f, 2.0f);
+    check(low_a > high_a + 12.0, "Custom curve A (low pass) passes lows and cuts highs", fmt("%.1f vs %.1f dB", low_a, high_a));
+    check(high_c > low_c + 12.0, "Custom curve C (high pass) passes highs and cuts lows", fmt("%.1f vs %.1f dB", high_c, low_c));
+
+    // Editing a drawn curve changes the sound.
+    {
+      Rig rig;
+      setFilter(rig, 1, true, 60.0f, constants::kOther, OtherFilter::kCustom);
+      rig.set("filter_1_blend", 0.0f);
+      rig.set("filter_1_resonance", 0.5f);
+      rig.noteOn(60);
+      LineGenerator* curve = rig.engine->getSpectralCurve(SoundEngine::filterLane(0), 0);
+      curve->setNumPoints(2);
+      curve->setPoint(0, { 0.0f, 1.0f });
+      curve->setPoint(1, { 1.0f, 1.0f });
+      curve->render();
+      Stereo out = rig.render(kSampleRate, sine(200.0f));
+      double flat = db(rms(out.left, kSampleRate / 2) / (kAmp / std::sqrt(2.0)));
+      check(flat < -40.0, "a curve drawn at the bottom silences the Custom filter", fmt("%.1f dB", flat));
+    }
+
+    // The Filter effect has its own curves per copy.
+    {
+      Rig rig;
+      rig.set("filter_fx_2_on", 1.0f);
+      rig.set("filter_fx_2_model", static_cast<float>(constants::kOther));
+      rig.set("filter_fx_2_style", static_cast<float>(OtherFilter::kCustom));
+      rig.set("filter_fx_2_blend", 0.0f);
+      rig.set("filter_fx_2_cutoff", 60.0f);
+      rig.set("filter_fx_2_resonance", 0.5f);
+      Stereo high = rig.render(kSampleRate, sine(8000.0f));
+      check(high.finite() && rms(high.left, kSampleRate / 2) < 0.1, "a copy of the Filter effect can be a Custom filter");
+    }
+
+    // New distortions.
+    for (int type = Distortion::kTube; type <= Distortion::kOverdrive; ++type) {
+      Rig rig;
+      rig.set("distortion_on", 1.0f);
+      rig.set("distortion_type", static_cast<float>(type));
+      rig.set("distortion_drive", 18.0f);
+      Stereo out = rig.render(kSampleRate, sine(220.0f));
+      check(out.finite() && out.peak() < 1.5f && out.peak() > 0.1f, "distortion type " + std::to_string(type) + " is bounded and audible",
+            fmt("peak %.3f", out.peak()));
+    }
   }
 
   void testEffects() {
@@ -2536,9 +2612,14 @@ namespace {
   }
 } // namespace
 
-int main() {
+int main(int argc, char** argv) {
   std::printf("VialFX engine test\n");
   try {
+    if (argc > 1 && std::string(argv[1]) == "other") {
+      testOtherFilters();
+      std::printf("\n%d checks, %d failed\n", g_checks, g_failures);
+      return g_failures;
+    }
     testPassthrough();
     testFilters();
     testRouting();
@@ -2546,6 +2627,7 @@ int main() {
     testPolyKeytracking();
     testPolyKeytrackEffects();
     testAllFilterModels();
+    testOtherFilters();
     testEffects();
     testOversampling();
     testModulation();

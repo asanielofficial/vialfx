@@ -43,6 +43,32 @@ namespace vital {
       return utils::clamp(value * drive, -1.0f, 1.0f);
     }
 
+    // Asymmetric tube stage: positive half clips like tanh, negative half rounds off
+    // with a rational curve. The mismatch adds even harmonics, like a triode.
+    force_inline poly_float tube(poly_float value, poly_float drive) {
+      poly_float x = value * drive;
+      poly_float positive = futils::tanh(x);
+      poly_float negative = x / (poly_float::abs(x) * 0.7f + 1.0f);
+      negative = utils::max(negative, -1.0f);
+      poly_mask is_positive = poly_float::greaterThanOrEqual(x, 0.0f);
+      poly_float out = utils::maskLoad(negative, positive, is_positive);
+      return out * 0.9f;
+    }
+
+    // Gentle cubic saturation with a smooth knee that reaches full scale with zero slope.
+    force_inline poly_float saturator(poly_float value, poly_float drive) {
+      poly_float x = utils::clamp(value * drive * 0.5f, -1.0f, 1.0f);
+      return (x - x * x * x * (1.0f / 3.0f)) * 1.5f;
+    }
+
+    // Exponential diode-style soft clip: sign(x) * (1 - exp(-|x|)).
+    force_inline poly_float overdrive(poly_float value, poly_float drive) {
+      poly_float x = value * drive * 1.5f;
+      poly_float magnitude = poly_float(1.0f) - futils::exp(poly_float(0.0f) - poly_float::abs(x));
+      poly_mask is_positive = poly_float::greaterThanOrEqual(x, 0.0f);
+      return utils::maskLoad(poly_float(0.0f) - magnitude, magnitude, is_positive);
+    }
+
     force_inline poly_float bitCrush(poly_float value, poly_float drive) {
       return utils::round(value / drive) * drive;
     }
@@ -89,6 +115,12 @@ namespace vital {
         return bitCrush(value, drive);
       case kDownSample:
         return bitCrush(value, poly_float(1.001f) - poly_float(kPeriodScale) / drive);
+      case kTube:
+        return tube(value, drive);
+      case kSaturator:
+        return saturator(value, drive);
+      case kOverdrive:
+        return overdrive(value, drive);
       default:
         return value;
     }
@@ -161,6 +193,15 @@ namespace vital {
         break;
       case kBitCrush:
         processTimeInvariant<bitCrush, bitCrushScale>(compact_samples, audio_out, drive_out, audio_out);
+        break;
+      case kTube:
+        processTimeInvariant<tube, driveDbScale>(compact_samples, audio_out, drive_out, audio_out);
+        break;
+      case kSaturator:
+        processTimeInvariant<saturator, driveDbScale>(compact_samples, audio_out, drive_out, audio_out);
+        break;
+      case kOverdrive:
+        processTimeInvariant<overdrive, driveDbScale>(compact_samples, audio_out, drive_out, audio_out);
         break;
       case kDownSample:
         processDownSample(compact_samples, audio_out, drive_out, audio_out);

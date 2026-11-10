@@ -186,7 +186,7 @@ namespace vital {
       ValueDetails::kLinear, false, "", "Delay 2 Keytrack Tune", nullptr },
     { "distortion_on", 0x000000, 0.0, 1.0, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Distortion Switch", strings::kOffOnNames },
-    { "distortion_type", 0x000000, 0.0, 5.0, 0.0, 0.0, 1.0,
+    { "distortion_type", 0x000000, 0.0, Distortion::kNumTypes - 1.0, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Distortion Type", strings::kDistortionTypeNames },
     { "distortion_drive", 0x000000, Distortion::kMinDrive, Distortion::kMaxDrive, 0.0, 0.0, 1.0,
       ValueDetails::kLinear, false, " dB", "Distortion Drive", nullptr },

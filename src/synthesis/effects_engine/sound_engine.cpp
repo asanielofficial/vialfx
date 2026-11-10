@@ -34,6 +34,7 @@
 #include "peak_meter.h"
 #include "operators.h"
 #include "fx_effect_chain.h"
+#include "other_filter.h"
 #include "value_switch.h"
 
 namespace vital {
@@ -48,6 +49,18 @@ namespace vital {
       fx_tables_[i] = std::make_unique<Wavetable>(kNumOscillatorWaveFrames);
       FxTables::fillWavetable(fx_tables_[i].get(), FxTables::kindOfSlot(i));
     }
+    // The drawn curves of the Custom model of the Other filters exist before the graph too: every filter finds them
+    // through the table that is current while the graph is built.
+    const LineGenerator* filter_curve_table[kNumFilterCurveSets * kNumSpectralCurves];
+    for (int set = 0; set < kNumFilterCurveSets; ++set) {
+      int lane = kFirstFilterLane + set;
+      for (int i = 0; i < kNumSpectralCurves; ++i) {
+        spectral_curves_[lane][i] = std::make_unique<LineGenerator>();
+        filter_curve_table[set * kNumSpectralCurves + i] = spectral_curves_[lane][i].get();
+      }
+      resetSpectralDrawings(lane);
+    }
+    OtherFilter::CurveScope curve_scope(filter_curve_table);
     init();
     bps_ = data_->controls["beats_per_minute"];
     modulation_processors_.reserve(kMaxModulationConnections);
@@ -604,6 +617,22 @@ namespace vital {
   void SoundEngine::resetSpectralCurve(int lane, int index) {
     LineGenerator* curve = spectral_curves_[lane][index].get();
     curve->initLinear();
+    if (lane >= kFirstFilterLane) {
+      // Custom filter: A is a low pass, B a band pass, C a high pass (a point's y is upside down: 0 = pass).
+      static const float kShapes[3][5][2] = {
+        { { 0.0f, 0.0f }, { 0.35f, 0.0f }, { 0.7f, 1.0f }, { 1.0f, 1.0f }, { 1.0f, 1.0f } },
+        { { 0.0f, 1.0f }, { 0.35f, 1.0f }, { 0.5f, 0.0f }, { 0.65f, 1.0f }, { 1.0f, 1.0f } },
+        { { 0.0f, 1.0f }, { 0.3f, 1.0f }, { 0.65f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 0.0f } } };
+      int count = index == 1 ? 5 : 4;
+      curve->setNumPoints(count);
+      for (int i = 0; i < count; ++i) {
+        curve->setPoint(i, { kShapes[index][i][0], kShapes[index][i][1] });
+        curve->setPower(i, 0.0f);
+      }
+      curve->setSmooth(true);
+      curve->render();
+      return;
+    }
     if (index != 1) {
       float level = 0.5f;
       curve->setNumPoints(2);
@@ -623,12 +652,16 @@ namespace vital {
   }
 
   uint32_t SoundEngine::getRandomSeed(int lane) const {
+    if (lane >= kFirstFilterLane)
+      return uint32_t(SpectralMorphProcessor::kDefaultSeed);
     if (lane >= 2)
       return static_cast<MorphModule*>(effect_chain_->getEffect(constants::kMorph, lane - 2))->seed();
     return spectral_[lane]->seed();
   }
 
   void SoundEngine::setRandomSeed(int lane, uint32_t seed) {
+    if (lane >= kFirstFilterLane)
+      return;
     if (lane >= 2) {
       static_cast<MorphModule*>(effect_chain_->getEffect(constants::kMorph, lane - 2))->setSeed(seed);
       return;

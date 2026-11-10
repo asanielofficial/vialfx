@@ -48,6 +48,8 @@ namespace {
         return FilterResponse::kFormant;
       case vital::constants::kDigital:
         return FilterResponse::kDigital;
+      case vital::constants::kOther:
+        return FilterResponse::kNumFilterShaders;
       default:
         VITAL_ASSERT(false);
         return FilterResponse::kNumFilterShaders;
@@ -579,12 +581,17 @@ void FilterResponse::drawFilterResponse(OpenGlWrapper& open_gl) {
   setFillCenter(findValue(Skin::kWidgetFillCenter));
 
   FilterShader shader = getShaderForModel(model, filter_state_.style);
+  bool other = model == vital::constants::kOther;
 
   if (active_) {
     if (new_response) {
-      bind(shader, open_gl.context);
-      loadShader(shader, model, 1);
-      renderLineResponse(open_gl);
+      if (other)
+        computeOtherResponse(1);
+      else {
+        bind(shader, open_gl.context);
+        loadShader(shader, model, 1);
+        renderLineResponse(open_gl);
+      }
     }
 
     setFillColors(color_fill_from, color_fill_to);
@@ -601,18 +608,49 @@ void FilterResponse::drawFilterResponse(OpenGlWrapper& open_gl) {
   color_fill_from = color_fill_to.withMultipliedAlpha(1.0f - fill_fade);
 
   if (new_response) {
-    bind(shader, open_gl.context);
-    loadShader(shader, model, 0);
-    renderLineResponse(open_gl);
+    if (other)
+      computeOtherResponse(0);
+    else {
+      bind(shader, open_gl.context);
+      loadShader(shader, model, 0);
+      renderLineResponse(open_gl);
+    }
   }
 
   setFillColors(color_fill_from, color_fill_to);
   setColor(color_line);
   OpenGlLineRenderer::render(open_gl, animate_);
 
-  unbind(shader, open_gl.context);
+  if (!other)
+    unbind(shader, open_gl.context);
   glDisable(GL_BLEND);
   checkGlError();
+}
+
+// The Other filters have no response shader: their curve is computed here (the x axis and the dB range are the
+// ones the shaders use: MIDI note 8 to 137, -30 dB to +20 dB).
+void FilterResponse::computeOtherResponse(int index) {
+  constexpr float kMinNote = 8.0f, kMaxNote = 137.0f, kMinDb = -30.0f, kMaxDb = 20.0f;
+  float width = getWidth();
+  float y_adjust = getHeight() / 2.0f;
+  float cutoff = filter_state_.midi_cutoff[index];
+  float resonance = filter_state_.resonance_percent[index];
+  float blend = filter_state_.pass_blend[index];
+  float mix = mix_[index];
+
+  for (int i = 0; i < kResolution; ++i) {
+    float percent = i / (kResolution - 1.0f);
+    float note = kMinNote + percent * (kMaxNote - kMinNote);
+    float frequency = vital::utils::midiNoteToFrequency(note);
+    float db = vital::OtherFilter::responseDb(filter_state_.style, frequency, cutoff, resonance, blend,
+                                              other_curves_);
+    float magnitude = std::pow(10.0f, db / 20.0f);
+    magnitude = mix * magnitude + (1.0f - mix);
+    db = 20.0f * std::log10(std::max(magnitude, 1e-4f));
+    float y = vital::utils::clamp(2.0f * (db - kMinDb) / (kMaxDb - kMinDb) - 1.0f, -1.0f, 1.0f);
+    setXAt(i, width * percent);
+    setYAt(i, y_adjust * (1.0f - y));
+  }
 }
 
 void FilterResponse::renderLineResponse(OpenGlWrapper& open_gl) {

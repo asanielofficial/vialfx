@@ -48,6 +48,9 @@ namespace vital {
         kSinFold,
         kBitCrush,
         kDownSample,
+        kTube,
+        kSaturator,
+        kOverdrive,
         kNumTypes
       };
 

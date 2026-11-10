@@ -25,6 +25,7 @@
 #include "dirty_filter.h"
 #include "formant_filter.h"
 #include "ladder_filter.h"
+#include "other_filter.h"
 #include "phaser_filter.h"
 #include "sallen_key_filter.h"
 #include "synth_types.h"
@@ -81,6 +82,12 @@ class FilterResponse : public OpenGlLineRenderer {
 
     void setActive(bool active) { active_ = active; }
     void setModel(vital::constants::FilterModel model) { filter_model_ = model; }
+    // The three drawn curves of the Custom model of the Other filters (they are only read).
+    void setOtherCurves(const LineGenerator* a, const LineGenerator* b, const LineGenerator* c) {
+      other_curves_[0] = a;
+      other_curves_[1] = b;
+      other_curves_[2] = c;
+    }
     void setStyle(int style) { filter_state_.style = style; }
 
   private:
@@ -113,6 +120,7 @@ class FilterResponse : public OpenGlLineRenderer {
                                       vital::poly_float default_value);
 
     bool setupFilterState(vital::constants::FilterModel model);
+    void computeOtherResponse(int index);
     bool isStereoState();
     void loadShader(FilterShader shader, vital::constants::FilterModel model, int index);
     void bind(FilterShader shader, OpenGLContext& open_gl_context);
@@ -146,6 +154,7 @@ class FilterResponse : public OpenGlLineRenderer {
     int last_filter_style_;
     vital::constants::FilterModel last_filter_model_;
     vital::constants::FilterModel filter_model_;
+    const LineGenerator* other_curves_[3] = { nullptr, nullptr, nullptr };
     vital::SynthFilter::FilterState filter_state_;
     vital::poly_float mix_;
 

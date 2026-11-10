@@ -19,6 +19,10 @@
 #include "skin.h"
 #include "digital_svf.h"
 #include "filter_response.h"
+#include "line_generator.h"
+#include "other_filter.h"
+#include "sound_engine.h"
+#include "spectral_warp_editor.h"
 #include "preset_selector.h"
 #include "fonts.h"
 #include "synth_button.h"
@@ -50,6 +54,8 @@ namespace {
         return 6;
       case vital::constants::kPhase:
         return 2;
+      case vital::constants::kOther:
+        return vital::OtherFilter::kNumOtherStyles;
       default:
         return 0;
     }
@@ -79,6 +85,8 @@ namespace {
           return "AOIE";
       case vital::constants::kComb:
         return strings::kCombStyleNames[style];
+      case vital::constants::kOther:
+        return strings::kOtherFilterStyleNames[style];
       case vital::constants::kPhase:
         if (style)
           return "Negative";
@@ -184,6 +192,26 @@ FilterSection::FilterSection(String name, String suffix) :
 
   filter_label_2_ = std::make_unique<PlainTextComponent>("label2", "KEY TRK");
   addOpenGlComponent(filter_label_2_.get());
+
+  placeholder_curve_ = std::make_unique<LineGenerator>();
+  static const char* kCurveNames[3] = { "A", "B", "C" };
+  for (int i = 0; i < 3; ++i) {
+    curve_editors_[i] = std::make_unique<SpectralCurveEditor>(placeholder_curve_.get());
+    curve_editors_[i]->setGridSizeX(8);
+    curve_editors_[i]->setGridSizeY(4);
+    curve_editors_[i]->setLoop(false);
+    addOpenGlComponent(curve_editors_[i].get());
+    addOpenGlComponent(curve_editors_[i]->getTextEditorComponent());
+    curve_editors_[i]->setVisible(false);
+
+    curve_buttons_[i] = std::make_unique<OpenGlToggleButton>(kCurveNames[i]);
+    addAndMakeVisible(curve_buttons_[i].get());
+    addOpenGlComponent(curve_buttons_[i]->getGlComponent());
+    curve_buttons_[i]->addListener(this);
+    curve_buttons_[i]->setText(kCurveNames[i]);
+    curve_buttons_[i]->setLookAndFeel(TextLookAndFeel::instance());
+    curve_buttons_[i]->setVisible(false);
+  }
 
   formant_x_->setVisible(false);
   formant_y_->setVisible(false);
@@ -415,6 +443,15 @@ void FilterSection::resized() {
   formant_spread_->setBounds(keytrack_->getBounds());
   blend_transpose_->setBounds(drive_->getBounds());
 
+  Rectangle<int> editor_bounds = filter_response_->getBounds();
+  int button_size = std::max(14, static_cast<int>(18 * size_ratio_));
+  for (int i = 0; i < 3; ++i) {
+    curve_editors_[i]->setSizeRatio(size_ratio_);
+    curve_editors_[i]->setBounds(editor_bounds);
+    curve_buttons_[i]->setBounds(editor_bounds.getX() + getWidgetMargin() + i * (button_size + 2),
+                                 editor_bounds.getY() + 2, button_size, button_size);
+  }
+
   filter_label_1_->setFontType(PlainTextComponent::kRegular);
   filter_label_2_->setFontType(PlainTextComponent::kRegular);
   float label_height = findValue(Skin::kLabelHeight);
@@ -430,6 +467,14 @@ void FilterSection::resized() {
 }
 
 void FilterSection::buttonClicked(Button* clicked_button) {
+  for (int i = 0; i < 3; ++i) {
+    if (clicked_button == curve_buttons_[i].get()) {
+      shown_curve_ = i;
+      showCurveEditor();
+      return;
+    }
+  }
+
   if (clicked_button == filter_input_.get()) {
     if (filter_input_->getToggleState()) {
       for (Listener* listener : listeners_)
@@ -564,6 +609,46 @@ void FilterSection::setSampleInput(bool input) {
   sample_input_->setToggleState(input, dontSendNotification);
 }
 
+void FilterSection::parentHierarchyChanged() {
+  SynthSection::parentHierarchyChanged();
+  bindCurves();
+}
+
+// Points the three curve editors (and the response display) at this filter's drawn curves in the engine.
+void FilterSection::bindCurves() {
+  if (curves_bound_ || model_name_.empty())
+    return;
+
+  SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
+  if (parent == nullptr || parent->getSynth() == nullptr)
+    return;
+
+  std::string prefix = model_name_.substr(0, model_name_.size() - std::string("_model").size());
+  int set = vital::OtherFilter::curveSetForPrefix(prefix);
+  vital::SoundEngine* engine = parent->getSynth()->getEngine();
+  if (set < 0 || engine == nullptr)
+    return;
+
+  int lane = vital::SoundEngine::kFirstFilterLane + set;
+  for (int i = 0; i < 3; ++i)
+    curve_editors_[i]->setModel(engine->getSpectralCurve(lane, i));
+  filter_response_->setOtherCurves(engine->getSpectralCurve(lane, 0), engine->getSpectralCurve(lane, 1),
+                                   engine->getSpectralCurve(lane, 2));
+  curves_bound_ = true;
+}
+
+void FilterSection::showCurveEditor() {
+  bool custom = current_model_ == vital::constants::kOther && current_style_ == vital::OtherFilter::kCustom;
+  for (int i = 0; i < 3; ++i) {
+    curve_editors_[i]->setVisible(custom && i == shown_curve_);
+    curve_editors_[i]->getTextEditorComponent()->setVisible(false);
+    curve_buttons_[i]->setVisible(custom);
+    curve_buttons_[i]->getGlComponent()->setVisible(custom);
+    curve_buttons_[i]->setToggleState(i == shown_curve_, dontSendNotification);
+  }
+  filter_response_->setVisible(!custom);
+}
+
 void FilterSection::showModelKnobs() {
   vital::constants::FilterModel model = static_cast<vital::constants::FilterModel>(current_model_);
   filter_response_->setModel(model);
@@ -584,6 +669,18 @@ void FilterSection::showModelKnobs() {
   keytrack_->setVisible(!formant);
   blend_->setVisible(!formant || vocal_tract);
   drive_->setVisible(!formant && !comb);
+
+  if (model == vital::constants::kOther) {
+    // Drive is the stage count of the Disperser; blend is the damping / size / morph of Comb, Reverb and Custom.
+    bool disperser = current_style_ == vital::OtherFilter::kDisperser;
+    bool blends = current_style_ == vital::OtherFilter::kMetalComb ||
+                  current_style_ == vital::OtherFilter::kMetalReverb || current_style_ == vital::OtherFilter::kCustom;
+    drive_->setVisible(disperser);
+    blend_->setVisible(blends);
+  }
+
+  bindCurves();
+  showCurveEditor();
 }
 
 void FilterSection::setFilterText() {
@@ -601,6 +698,8 @@ void FilterSection::setLabelText() {
     filter_label_2_->setText("KEY TRK");
     if (current_model_ == vital::constants::kComb)
       filter_label_1_->setText("CUT");
+    else if (current_model_ == vital::constants::kOther)
+      filter_label_1_->setText("STAGES");
     else
       filter_label_1_->setText("DRIVE");
   }
@@ -626,6 +725,8 @@ void FilterSection::setActive(bool active) {
 }
 
 Path FilterSection::getLeftMorphPath() {
+  if (current_model_ == vital::constants::kOther)
+    return current_style_ == vital::OtherFilter::kCustom ? Paths::lowPass() : Paths::narrowBand();
   if (current_model_ == vital::constants::kPhase)
     return Paths::phaser1();
   if (current_model_ == vital::constants::kFormant)
@@ -639,6 +740,8 @@ Path FilterSection::getLeftMorphPath() {
 }
 
 Path FilterSection::getRightMorphPath() {
+  if (current_model_ == vital::constants::kOther)
+    return current_style_ == vital::OtherFilter::kCustom ? Paths::highPass() : Paths::wideBand();
   if (current_model_ == vital::constants::kPhase)
     return Paths::phaser3();
   if (current_model_ == vital::constants::kFormant)

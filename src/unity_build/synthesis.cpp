@@ -30,6 +30,7 @@
 #include "iir_halfband_decimator.cpp"
 #include "sallen_key_filter.cpp"
 #include "phaser_filter.cpp"
+#include "other_filter.cpp"
 #include "ladder_filter.cpp"
 #include "synth_oscillator.cpp"
 #include "sample_source.cpp"
