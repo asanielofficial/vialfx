@@ -104,6 +104,7 @@ class ModulationButton : public PlainShapeComponent {
     SynthGuiInterface* parent_;
     std::vector<Listener*> listeners_;
     MouseState mouse_state_;
+    bool dragging_out_ = false;
     bool selected_;
     bool connect_right_;
     bool draw_border_;

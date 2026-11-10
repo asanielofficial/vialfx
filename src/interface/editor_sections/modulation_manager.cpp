@@ -1047,7 +1047,9 @@ void ModulationManager::drawCurrentModulator(OpenGlWrapper& open_gl) {
 void ModulationManager::drawDraggingModulation(OpenGlWrapper& open_gl) {
   static constexpr float kRadiusWidthRatio = 0.022f;
   static constexpr float kThicknessWidthRatio = 0.003f;
-  if (current_source_ == nullptr || temporarily_set_destination_ || temporarily_set_hover_slider_)
+  // Never leave the drag circle on screen once the mouse is up.
+  if (current_source_ == nullptr || temporarily_set_destination_ || temporarily_set_hover_slider_ ||
+      !Desktop::getInstance().getMainMouseSource().isDragging())
     return;
 
   vital::poly_float mod_percent = modulation_source_readouts_[current_source_->getName().toStdString()]->value();

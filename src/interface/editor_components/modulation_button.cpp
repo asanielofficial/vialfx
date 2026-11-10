@@ -237,14 +237,18 @@ void ModulationButton::mouseDrag(const MouseEvent& e) {
   if (e.mods.isRightButtonDown())
     return;
 
-  if (!getLocalBounds().contains(e.getPosition()) && mouse_state_ != kDraggingOut) {
+  // mouseEnter / mouseExit can arrive in the middle of a drag and change mouse_state_, so the drag is tracked
+  // separately: otherwise the release is missed and the drag circle stays on screen.
+  if (!getLocalBounds().contains(e.getPosition()) && !dragging_out_) {
     for (Listener* listener : listeners_)
       listener->startModulationMap(this, e);
+    dragging_out_ = true;
     mouse_state_ = kDraggingOut;
     setMouseCursor(MouseCursor::DraggingHandCursor);
   }
 
-  if (mouse_state_ == kDraggingOut) {
+  if (dragging_out_) {
+    mouse_state_ = kDraggingOut;
     for (Listener* listener : listeners_)
       listener->modulationDragged(e);
   }
@@ -253,7 +257,8 @@ void ModulationButton::mouseDrag(const MouseEvent& e) {
 }
 
 void ModulationButton::mouseUp(const MouseEvent& e) {
-  if (!e.mods.isRightButtonDown() && mouse_state_ == kDraggingOut) {
+  if (dragging_out_) {
+    dragging_out_ = false;
     for (Listener* listener : listeners_)
       listener->endModulationMap();
   }
@@ -267,7 +272,8 @@ void ModulationButton::mouseUp(const MouseEvent& e) {
 }
 
 void ModulationButton::mouseEnter(const MouseEvent& e) {
-  mouse_state_ = kHover;
+  if (!dragging_out_)
+    mouse_state_ = kHover;
   drag_drop_color_ = findColour(Skin::kLightenScreen, true);
   show_drag_drop_ = parent_->getSynth()->getSourceConnections(getName().toStdString()).empty();
   setActive(show_drag_drop_);
@@ -275,7 +281,8 @@ void ModulationButton::mouseEnter(const MouseEvent& e) {
 }
 
 void ModulationButton::mouseExit(const MouseEvent& e) {
-  mouse_state_ = kNone;
+  if (!dragging_out_)
+    mouse_state_ = kNone;
   show_drag_drop_ = false;
 }
 
@@ -285,6 +292,12 @@ void ModulationButton::mouseWheelMove(const MouseEvent& e, const MouseWheelDetai
 }
 
 void ModulationButton::focusLost(FocusChangeType cause) {
+  // Losing focus (a popup, the host) ends a drag that never got its mouse release.
+  if (dragging_out_) {
+    dragging_out_ = false;
+    for (Listener* listener : listeners_)
+      listener->endModulationMap();
+  }
   for (Listener* listener : listeners_)
     listener->modulationLostFocus(this);
 }

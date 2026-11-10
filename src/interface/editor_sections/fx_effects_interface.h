@@ -728,6 +728,7 @@ class FxEffectRow : public SynthSection {
     }
 
     int effectId() const { return effect_id_; }
+    bool isMinimized() const { return minimized_; }
     void setDragging(bool dragging) { dragging_ = dragging; redraw(); }
     void setSelection(bool selecting, bool selected) {
       if (selecting_ == selecting && selected_ == selected)
@@ -822,6 +823,7 @@ class FxEffectList : public SynthSection, public ScrollBar::Listener {
         virtual void effectSelected(int effect_id) = 0;
         virtual void effectsDuplicateRequested(const std::vector<int>& effect_ids) = 0;
         virtual void effectsRemoveRequested(const std::vector<int>& effect_ids) = 0;
+        virtual void effectMinimizeToggled(int effect_id) = 0;
     };
 
     FxEffectList() : SynthSection("effect_chain"), dragged_(-1), mouse_down_y_(0), dragged_start_y_(0), moved_(false) {
@@ -1058,15 +1060,32 @@ class FxEffectList : public SynthSection, public ScrollBar::Listener {
 
     void rowMouseDown(const MouseEvent& e) {
       moved_ = false;
-      if (selecting_) {
-        // No dragging while selecting: a click toggles the row.
+      if (e.mods.isPopupMenu()) {
+        // Right click: the same menu as right clicking the effect itself.
         dragged_ = -1;
-        select_down_ = rowAt(e.y);
+        select_down_ = -1;
+        if (!selecting_)
+          showRowMenu(rowAt(e.y), getLocalPoint(container_.get(), e.getPosition()));
         return;
       }
-      dragged_ = rowAt(e.y);
-      if (dragged_ < 0)
+      int hit = rowAt(e.y);
+      if (selecting_ || hit < 0) {
+        // Selecting: a click toggles the row and dragging over more rows paints the same choice onto them. Pressing
+        // the empty space below the rows starts selecting too, so a drag from there sweeps up a group.
+        dragged_ = -1;
+        if (order_.empty())
+          return;
+        if (!selecting_) {
+          setSelecting(true);
+          select_button_->setToggleState(true, dontSendNotification);
+        }
+        select_base_ = selected_;
+        select_anchor_ = hit >= 0 ? hit : clampedRowAt(e.y);
+        select_paint_ = hit >= 0 ? !isSelected(order_[hit]) : true;
+        paintSelection(select_anchor_);
         return;
+      }
+      dragged_ = hit;
 
       mouse_down_y_ = e.y;
       dragged_start_y_ = rows_[dragged_]->getY();
@@ -1074,7 +1093,56 @@ class FxEffectList : public SynthSection, public ScrollBar::Listener {
       rows_[dragged_]->toFront(false);
     }
 
+    void showRowMenu(int index, Point<int> position) {
+      if (index < 0 || index >= static_cast<int>(order_.size()))
+        return;
+
+      int id = order_[index];
+      bool minimized = rows_[index]->isMinimized();
+      PopupItems options;
+      options.addItem(1, "Duplicate");
+      options.addItem(2, minimized ? "Expand" : "Minimize");
+      options.addItem(-1, "");
+      options.addItem(3, "Remove");
+      showPopupSelector(this, position, options, [this, id](int selection) {
+        for (Listener* listener : listeners_) {
+          if (selection == 1)
+            listener->effectsDuplicateRequested({ id });
+          else if (selection == 2)
+            listener->effectMinimizeToggled(id);
+          else if (selection == 3)
+            listener->effectsRemoveRequested({ id });
+        }
+      });
+    }
+
+    int clampedRowAt(int y) const {
+      int last = static_cast<int>(order_.size()) - 1;
+      return std::max(0, std::min(last, static_cast<int>(y / rowPitch())));
+    }
+
+    // The rows from the anchor to `current` take the painted state; the rest keep what they had before the drag.
+    void paintSelection(int current) {
+      int low = std::min(select_anchor_, current);
+      int high = std::max(select_anchor_, current);
+      selected_ = select_base_;
+      for (int i = low; i <= high; ++i) {
+        int id = order_[i];
+        auto found = std::find(selected_.begin(), selected_.end(), id);
+        if (select_paint_ && found == selected_.end())
+          selected_.push_back(id);
+        else if (!select_paint_ && found != selected_.end())
+          selected_.erase(found);
+      }
+      for (int i = 0; i < static_cast<int>(order_.size()); ++i)
+        rows_[i]->setSelection(true, isSelected(order_[i]));
+    }
+
     void rowMouseDrag(const MouseEvent& e) {
+      if (select_anchor_ >= 0 && !order_.empty()) {
+        paintSelection(clampedRowAt(e.y));
+        return;
+      }
       if (dragged_ < 0)
         return;
 
@@ -1106,20 +1174,12 @@ class FxEffectList : public SynthSection, public ScrollBar::Listener {
     }
 
     void rowMouseUp(const MouseEvent& e) {
-      if (selecting_) {
-        int index = rowAt(e.y);
-        if (index >= 0 && index == select_down_) {
-          int id = order_[index];
-          auto found = std::find(selected_.begin(), selected_.end(), id);
-          if (found == selected_.end())
-            selected_.push_back(id);
-          else
-            selected_.erase(found);
-          rows_[index]->setSelection(true, isSelected(id));
-        }
-        select_down_ = -1;
+      if (select_anchor_ >= 0) {
+        select_anchor_ = -1;
         return;
       }
+      if (selecting_)
+        return;
       if (dragged_ < 0)
         return;
 
@@ -1155,6 +1215,9 @@ class FxEffectList : public SynthSection, public ScrollBar::Listener {
     bool moved_;
     bool selecting_ = false;
     int select_down_ = -1;
+    int select_anchor_ = -1;       // the row a selecting drag started on
+    bool select_paint_ = true;     // what the drag paints onto the rows it crosses: selected or not
+    std::vector<int> select_base_; // the selection before the drag
     std::vector<int> selected_;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FxEffectList)
 };
