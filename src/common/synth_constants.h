@@ -126,6 +126,11 @@ namespace vital {
       kPhaser,
       kReverb,
       kMorph,
+      kPitchShifter,
+      kUtility,
+      kFreqShifter,
+      kVibrato,
+      kTremolo,
       kNumEffects
     };
 

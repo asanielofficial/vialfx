@@ -169,7 +169,12 @@ namespace strings {
     "flanger",
     "phaser",
     "reverb",
-    "morph"
+    "morph",
+    "pitch_shifter",
+    "utility",
+    "freq_shifter",
+    "vibrato",
+    "tremolo"
   };
 
   const std::string kSyncedFrequencyNames[] = {
@@ -282,6 +287,11 @@ namespace strings {
     "PHASER",
     "REVERB",
     "MORPH",
+    "PITCH SHIFTER",
+    "UTILITY",
+    "FREQ SHIFTER",
+    "VIBRATO",
+    "TREMOLO",
   };
 
   const std::string kDestinationMenuNames[vital::constants::kNumSourceDestinations + vital::constants::kNumEffects] = {
@@ -300,6 +310,40 @@ namespace strings {
     "Phaser",
     "Reverb",
     "Morph",
+    "Pitch Shifter",
+    "Utility",
+    "Freq Shifter",
+    "Vibrato",
+    "Tremolo",
+  };
+
+  const std::string kRateUnitNames[] = {
+    "Hz", "Tempo"
+  };
+
+  const std::string kVibratoModNames[] = {
+    "Sine", "Triangle", "Saw Up", "Saw Down", "Square", "Random"
+  };
+
+  const std::string kFreqShifterUnitNames[] = {
+    "Hertz", "Seconds", "Tempo", "Tempo Dotted", "Tempo Triplets", "Keytrack"
+  };
+
+  const std::string kFreqShifterQualityNames[] = {
+    "Rough", "Normal", "Better", "Excellent"
+  };
+
+  const std::string kPitchShifterModeNames[] = {
+    "GRANULAR",
+    "MB-GRANULAR",
+    "RETRO",
+    "SPECTRAL"
+  };
+
+  const std::string kPitchShifterCompensationNames[] = {
+    "OFF",
+    "LOW",
+    "HIGH"
   };
 
   const std::string kPhaseDistortionNames[] = {

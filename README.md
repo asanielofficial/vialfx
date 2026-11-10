@@ -167,6 +167,7 @@ resized.
   including section overrides of that colour. Up to 24 glowing colours are used at once. Glow can be set per
   bin as well, and knobs also get a halo for the Rotary Arc colour.
 - **Gradients:** any colour can be turned into a gradient with the GRADIENT button: the colour is the first stop, with one or two more stops and an angle. Pixels drawn in that colour take their colour from the gradient across the window (global colours) or across the bin's sections (bin overrides). Gradients apply instantly and are saved in the skin.
+- **More effects from the Vial bundle:** Pitch Shifter (granular, multiband granular, retro and spectral engines with formant control), Utility (gain, pan, width, Haas, mono bass, phase invert, DC filter and a level meter), Freq Shifter, Vibrato and Tremolo join the effects rack, each usable as many times as you like.
 - **Bevels:** the BEVEL button next to GRADIENT lights the rim of everything drawn in that colour like raised (or, with a negative depth, pressed-in) glass. SIZE sets the rim width, DEPTH how strongly it is lit, GLOSS adds a curved glassy sheen across each section for aero / glossy looks, and LIGHT sets where the light comes from. It works with or without a gradient on the same colour, applies instantly and is saved in the skin.
 - **Smooth editing:** colour and value edits are applied at a limited rate so the plugin window stays smooth
   while you drag; glow changes apply instantly.

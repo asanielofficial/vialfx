@@ -32,3 +32,8 @@
 #include "phaser_section.cpp"
 #include "compressor_section.cpp"
 #include "reverb_section.cpp"
+#include "pitch_shifter_section.cpp"
+#include "utility_section.cpp"
+#include "freq_shifter_section.cpp"
+#include "vibrato_section.cpp"
+#include "tremolo_section.cpp"

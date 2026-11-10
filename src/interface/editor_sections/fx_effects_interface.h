@@ -41,6 +41,11 @@
 #include "phaser_section.h"
 #include "reverb_section.h"
 #include "fx_morph_section.h"
+#include "freq_shifter_section.h"
+#include "pitch_shifter_section.h"
+#include "tremolo_section.h"
+#include "utility_section.h"
+#include "vibrato_section.h"
 #include "spectral_warp_editor.h"
 #include "table_settings_editor.h"
 
@@ -69,13 +74,15 @@ namespace fx_ui {
 
   inline std::string typeTitle(int type) {
     static const char* kTitles[kNumTypes] = { "CHORUS", "COMPRESSOR", "DELAY", "DISTORTION", "EQ", "FILTER",
-                                              "FLANGER", "PHASER", "REVERB", "MORPH" };
+                                              "FLANGER", "PHASER", "REVERB", "MORPH", "PITCH SHIFTER", "UTILITY",
+                                              "FREQ SHIFTER", "VIBRATO", "TREMOLO" };
     return kTitles[type];
   }
 
   inline std::string typeMenuName(int type) {
     static const char* kNames[kNumTypes] = { "Chorus", "Compressor", "Delay", "Distortion", "EQ", "Filter",
-                                             "Flanger", "Phaser", "Reverb", "Morph" };
+                                             "Flanger", "Phaser", "Reverb", "Morph", "Pitch Shifter", "Utility",
+                                             "Freq Shifter", "Vibrato", "Tremolo" };
     return kNames[type];
   }
 
@@ -92,6 +99,63 @@ namespace fx_ui {
     return path;
   }
 
+  // Two arrows, one up and one down: the pitch moving both ways.
+  inline Path pitchShifterIcon() {
+    Path path;
+    path.addTriangle(0.3f, 0.05f, 0.05f, 0.45f, 0.55f, 0.45f);
+    path.addTriangle(0.7f, 0.95f, 0.45f, 0.55f, 0.95f, 0.55f);
+    return path;
+  }
+
+  // Three faders.
+  inline Path utilityIcon() {
+    Path path;
+    path.addRoundedRectangle(0.14f, 0.05f, 0.12f, 0.9f, 0.05f);
+    path.addRoundedRectangle(0.44f, 0.05f, 0.12f, 0.9f, 0.05f);
+    path.addRoundedRectangle(0.74f, 0.05f, 0.12f, 0.9f, 0.05f);
+    path.setUsingNonZeroWinding(false);
+    path.addEllipse(0.07f, 0.2f, 0.26f, 0.2f);
+    path.addEllipse(0.37f, 0.55f, 0.26f, 0.2f);
+    path.addEllipse(0.67f, 0.3f, 0.26f, 0.2f);
+    return path;
+  }
+
+  // A line of bars shifted to the right: every frequency moved by the same amount.
+  inline Path freqShifterIcon() {
+    Path path;
+    for (int i = 0; i < 4; ++i) {
+      path.addRectangle(0.05f + 0.1f * i, 0.55f - 0.12f * i, 0.07f, 0.4f + 0.12f * i);
+      path.addRectangle(0.5f + 0.1f * i, 0.55f - 0.12f * i, 0.07f, 0.4f + 0.12f * i);
+    }
+    return path;
+  }
+
+  // A wave drawn as a thick line.
+  inline Path vibratoIcon() {
+    Path wave;
+    wave.startNewSubPath(0.0f, 0.5f);
+    for (int i = 1; i <= 24; ++i) {
+      float x = i / 24.0f;
+      wave.lineTo(x, 0.5f - 0.35f * std::sin(x * 4.0f * MathConstants<float>::pi));
+    }
+    Path path;
+    PathStrokeType(0.12f).createStrokedPath(path, wave);
+    return path;
+  }
+
+  // A wave whose height rises and falls: the volume swelling.
+  inline Path tremoloIcon() {
+    Path path;
+    path.startNewSubPath(0.0f, 0.5f);
+    for (int i = 0; i <= 24; ++i) {
+      float x = i / 24.0f;
+      path.lineTo(x, 0.5f - (0.15f + 0.3f * std::sin(x * MathConstants<float>::pi)) * std::sin(x * 8.0f * MathConstants<float>::pi));
+    }
+    Path stroked;
+    PathStrokeType(0.1f).createStrokedPath(stroked, path);
+    return stroked;
+  }
+
   inline Path typeIcon(int type) {
     switch (type) {
       case vital::constants::kChorus: return Paths::chorus();
@@ -104,6 +168,11 @@ namespace fx_ui {
       case vital::constants::kPhaser: return Paths::phaser();
       case vital::constants::kReverb: return Paths::reverb();
       case vital::constants::kMorph: return morphIcon();
+      case vital::constants::kPitchShifter: return pitchShifterIcon();
+      case vital::constants::kUtility: return utilityIcon();
+      case vital::constants::kFreqShifter: return freqShifterIcon();
+      case vital::constants::kVibrato: return vibratoIcon();
+      case vital::constants::kTremolo: return tremoloIcon();
       default: return Path();
     }
   }
@@ -191,6 +260,21 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
           section_ = std::move(morph);
           break;
         }
+        case vital::constants::kPitchShifter:
+          section_ = std::make_unique<PitchShifterSection>(title, id);
+          break;
+        case vital::constants::kUtility:
+          section_ = std::make_unique<UtilitySection>(title, id);
+          break;
+        case vital::constants::kFreqShifter:
+          section_ = std::make_unique<FreqShifterSection>(title, id);
+          break;
+        case vital::constants::kVibrato:
+          section_ = std::make_unique<VibratoSection>(title, id);
+          break;
+        case vital::constants::kTremolo:
+          section_ = std::make_unique<TremoloSection>(title, id);
+          break;
         default:
           section_ = std::make_unique<ReverbSection>(title, id, mono_modulations);
           break;
@@ -1292,6 +1376,8 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
 
     void setFocus() { grabKeyboardFocus(); }
 
+    // Tremolo and Vibrato have unit selectors under the knobs.
+    static constexpr int kUnitSelectorExtraHeightValue = 44;
     void setEffectPositions() {
       if (getWidth() <= 0 || getHeight() <= 0)
         return;
@@ -1320,8 +1406,12 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
         bool minimized = fx_ui::entryMinimized(entry);
         slot->setVisible(true);
         slot->setMinimized(minimized);
+        int type = fx_ui::typeOf(id);
         int height = minimized ? slot->minimizedHeight()
-                               : (fx_ui::typeOf(id) == vital::constants::kMorph ? morph_height : effect_height);
+                               : (type == vital::constants::kMorph ? morph_height
+                                  : (type == vital::constants::kTremolo || type == vital::constants::kVibrato)
+                                      ? effect_height + static_cast<int>(kUnitSelectorExtraHeightValue * getSizeRatio())
+                                      : effect_height);
         slot->setModuleHeight(height);
         height += slot->attachmentsHeight(knob_section_height);
         slot->setBounds(shadow_width, y, effect_width, height);

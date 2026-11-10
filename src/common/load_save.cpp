@@ -1125,14 +1125,16 @@ bool LoadSave::jsonToState(SynthBase* synth, std::map<std::string, String>& save
       }
     }
     else {
-      int order[vital::constants::kNumEffects];
-      for (int i = 0; i < vital::constants::kNumEffects; ++i)
+      // Those presets only know the nine effects up to the Reverb (the order was a permutation of those).
+      constexpr int kLegacyEffects = vital::constants::kMorph;
+      int order[kLegacyEffects];
+      for (int i = 0; i < kLegacyEffects; ++i)
         order[i] = i;
       if (settings.count("effect_chain_order") && settings["effect_chain_order"].is_number()) {
         float float_order = settings["effect_chain_order"];
-        vital::utils::decodeFloatToOrder(order, float_order, vital::constants::kNumEffects);
+        vital::utils::decodeFloatToOrder(order, float_order, kLegacyEffects);
       }
-      for (int i = 0; i < vital::constants::kNumEffects; ++i) {
+      for (int i = 0; i < kLegacyEffects; ++i) {
         std::string on_name = strings::kEffectOrder[order[i]] + "_on";
         if (settings.count(on_name) && settings[on_name].is_number() && settings[on_name].get<float>() > 0.5f)
           chain.push_back(1 + order[i] * vital::kMaxEffectInstances);

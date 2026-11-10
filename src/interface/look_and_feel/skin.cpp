@@ -48,6 +48,11 @@ namespace {
     "Phaser",
     "Reverb",
     "Morph",
+    "Pitch Shifter",
+    "Utility",
+    "Freq Shifter",
+    "Vibrato",
+    "Tremolo",
     "Modulation Drag Drop",
     "Modulation Matrix",
     "Preset Browser",
@@ -693,6 +698,11 @@ namespace {
       { "Phaser", Skin::kPhaser },
       { "Reverb", Skin::kReverb },
       { "Morph", Skin::kMorph },
+      { "Pitch Shifter", Skin::kPitchShifter },
+      { "Utility", Skin::kUtility },
+      { "Freq Shifter", Skin::kFreqShifter },
+      { "Vibrato", Skin::kVibrato },
+      { "Tremolo", Skin::kTremolo },
     };
     return modules;
   }
