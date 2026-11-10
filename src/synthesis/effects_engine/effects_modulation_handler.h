@@ -60,6 +60,8 @@ namespace vital {
       Output* note_retrigger() { return &note_retriggered_; }
 
       Output* midi_offset_output() { return midi_offset_output_; }
+      // The value (0 to 1, signed by the modulation) of point modulation slot k.
+      Output* pointModOutput(int slot) { return point_mod_outputs_[slot]; }
       Output* bent_midi_output() { return bent_midi_output_; }
       Output* current_midi_output() { return current_midi_output_; }
 
@@ -73,6 +75,7 @@ namespace vital {
       Output* beats_per_second_;
 
       Processor* note_from_reference_;
+      Output* point_mod_outputs_[32] = { nullptr };
       Output* midi_offset_output_;
       Output* bent_midi_output_;
       Output* current_midi_output_;

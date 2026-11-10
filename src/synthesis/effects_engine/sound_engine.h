@@ -75,6 +75,20 @@ namespace vital {
       // Whether copy n of the Morph effect is in the effect chain (its tables are only saved with the preset then).
       bool isMorphInUse(int instance) const;
       LineGenerator* getSpectralCurve(int lane, int index);
+
+      // Modulation of the points of drawn lines. Every spectral curve and every LFO shape has an id; a point's x or
+      // y is bound to one of the kNumPointMods slots (a control named pointmod_<slot + 1> of the modulation matrix).
+      static constexpr int kNumPointMods = 32;  // = LineGenerator::kMaxPointSlots
+      static constexpr int kNumPointModCurves = kNumDrawingLanes * kNumSpectralCurves + kNumLfos;
+      LineGenerator* getPointModCurve(int curve_id);
+      // Binds a point's axis to a free slot (or returns the slot it already has); -1 when none is left.
+      int bindPointMod(int curve_id, int point, int axis);
+      // Binds to a given slot (loading a preset); false if the slot is taken or the point does not exist.
+      bool bindPointModToSlot(int slot, int curve_id, int point, int axis);
+      void unbindPointMod(int slot);
+      void unbindAllPointMods();
+      int pointModCurve(int slot) const { return point_mod_curve_[slot]; }
+      static std::string pointModName(int slot) { return "pointmod_" + std::to_string(slot + 1); }
       void resetSpectralCurve(int lane, int index);
       void resetSpectralDrawings(int lane);
       void setRandomSeed(int lane, uint32_t seed);
@@ -139,6 +153,11 @@ namespace vital {
       void checkOversampling();
 
     private:
+      void applyPointModulation();
+      int point_mod_curve_[kNumPointMods];
+      bool point_mod_dirty_[kNumPointModCurves] = {};
+      bool had_point_modulation_ = false;
+
       EffectsModulationHandler* modulation_handler_;
       Upsampler* audio_input_;
       Upsampler* sidechain_input_;

@@ -107,11 +107,33 @@ class LineGenerator {
 
     int getRenderCount() const { return render_count_; }
 
+    // Modulation of points: a point's x and y can each be bound to a slot (0 .. kMaxPointSlots - 1) whose value is
+    // added to the point when the line is rendered. The points the editor shows and saves stay the unmodulated ones.
+    static constexpr int kMaxPointSlots = 32;
+    enum PointAxis { kAxisX, kAxisY, kNumAxes };
+
+    int pointSlot(int index, int axis) const { return axis == kAxisX ? slot_x_[index] : slot_y_[index]; }
+    void setPointSlot(int index, int axis, int slot) { (axis == kAxisX ? slot_x_[index] : slot_y_[index]) = slot; }
+    bool hasSlot(int slot) const;
+    // Which point and axis a slot is bound to; false if it is not bound on this line.
+    bool findSlot(int slot, int& index, int& axis) const;
+    void clearPointModulation();
+    bool hasPointModulation() const { return mod_active_; }
+    // Applies the slot values (one per slot) and renders when any of them changed. Returns true if it rendered.
+    bool applySlotValues(const float* slot_values);
+
   protected:
+    void resetModulationState();
+
     std::string name_;
     std::string last_browsed_file_;
     std::pair<float, float> points_[kMaxPoints];
     float powers_[kMaxPoints];
+    float mod_x_[kMaxPoints];
+    float mod_y_[kMaxPoints];
+    int slot_x_[kMaxPoints];
+    int slot_y_[kMaxPoints];
+    bool mod_active_ = false;
     int num_points_;
     int resolution_;
 

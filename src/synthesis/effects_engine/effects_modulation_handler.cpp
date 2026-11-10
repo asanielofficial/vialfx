@@ -51,6 +51,10 @@ namespace vital {
     for (int i = 0; i < kNumMacros; ++i)
       macros[i] = createMonoModControl("macro_control_" + std::to_string(i + 1));
 
+    // Point modulation: the slots that points of drawn lines (LFO shapes, curves) are bound to.
+    for (int i = 0; i < 32; ++i)
+      point_mod_outputs_[i] = createMonoModControl("pointmod_" + std::to_string(i + 1));
+
     for (int i = 0; i < vital::kMaxModulationConnections; ++i) {
       ModulationConnectionProcessor* processor = modulation_bank_.atIndex(i)->modulation_processor.get();
 

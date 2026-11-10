@@ -163,6 +163,18 @@ json LoadSave::stateToJson(SynthBase* synth, const CriticalSection& critical_sec
     }
     settings_data["spectral_drawings"] = lanes;
 
+    // Points of drawn lines that are bound to a modulation slot (the connections themselves are saved with the rest
+    // of the modulations).
+    json point_mods = json::array();
+    for (int slot = 0; slot < vital::SoundEngine::kNumPointMods; ++slot) {
+      int curve_id = synth->getEngine()->pointModCurve(slot);
+      LineGenerator* curve = synth->getEngine()->getPointModCurve(curve_id);
+      int point = 0, axis = 0;
+      if (curve && curve->findSlot(slot, point, axis))
+        point_mods.push_back({ { "slot", slot }, { "curve", curve_id }, { "point", point }, { "axis", axis } });
+    }
+    settings_data["point_mods"] = point_mods;
+
     // The effect chain: effect ids in order (+ a flag for minimized effects); see FxEffectChain.
     int chain[vital::kMaxEffectInstances * vital::constants::kNumEffects];
     int count = synth->getEffectChain(chain);
@@ -1114,6 +1126,18 @@ bool LoadSave::jsonToState(SynthBase* synth, std::map<std::string, String>& save
       }
       if (lane_data.count("random_seed") && lane_data["random_seed"].is_number())
         synth->getEngine()->setRandomSeed(lane, lane_data["random_seed"].get<uint32_t>());
+    }
+
+    // Bindings of points to modulation slots (after every line has its shape).
+    synth->getEngine()->unbindAllPointMods();
+    if (settings.count("point_mods") && settings["point_mods"].is_array()) {
+      for (const json& binding : settings["point_mods"]) {
+        if (!binding.is_object() || !binding.count("slot") || !binding.count("curve") ||
+            !binding.count("point") || !binding.count("axis"))
+          continue;
+        synth->getEngine()->bindPointModToSlot(binding["slot"].get<int>(), binding["curve"].get<int>(),
+                                               binding["point"].get<int>(), binding["axis"].get<int>());
+      }
     }
 
     // The chain. Presets from before the effects list had a fixed set of effects in a permuted order.

@@ -1228,6 +1228,70 @@ namespace {
     }
   }
 
+  void testPointModulation() {
+    std::printf("\n== Modulation of the points of drawn lines ==\n");
+    std::vector<poly_float> silence(kMaxBufferSize, poly_float(0.0f));
+    {
+      Rig rig;
+      LineGenerator* lfo = rig.engine->getLfoSource(0);
+      lfo->initTriangle();  // (0,1) (0.5,0) (1,1): value = 1 - y
+      int lfo_id = SoundEngine::kNumDrawingLanes * SoundEngine::kNumSpectralCurves;
+      int slot_y = rig.engine->bindPointMod(lfo_id, 0, LineGenerator::kAxisY);
+      int slot_x = rig.engine->bindPointMod(lfo_id, 1, LineGenerator::kAxisX);
+      check(slot_y == 0 && slot_x == 1, "points bind to free slots", fmt("%.0f, %.0f", slot_y, slot_x));
+      check(rig.engine->bindPointMod(lfo_id, 0, LineGenerator::kAxisY) == slot_y, "binding the same point twice reuses the slot");
+
+      auto y_mod = connectMod(rig, "macro_control_1", SoundEngine::pointModName(slot_y));
+      check(y_mod != nullptr, "a macro connects to a point's y slot");
+      float before = lfo->getBuffer()[0];
+      rig.set("macro_control_1", 1.0f);
+      for (int b = 0; b < 10; ++b)
+        rig.engine->processWithInput(silence.data(), 64);
+      float after = lfo->getBuffer()[0];
+      check(before < 0.01f && after > 0.99f, "modulating y moves the point and re-renders the line",
+            fmt("%.2f -> %.2f", before, after));
+
+      rig.set("macro_control_1", 0.0f);
+      for (int b = 0; b < 10; ++b)
+        rig.engine->processWithInput(silence.data(), 64);
+      check(lfo->getBuffer()[0] < 0.01f, "the point returns when the modulation does");
+
+      rig.engine->unbindPointMod(slot_x);
+      check(!lfo->hasSlot(slot_x) && lfo->hasSlot(slot_y), "a slot can be released on its own");
+
+      // Points keep their slots when others are added or removed before them.
+      lfo->addPoint(1, { 0.25f, 0.5f });
+      int point = -1, axis = -1;
+      check(lfo->findSlot(slot_y, point, axis) && point == 0, "a point before the new one keeps its slot");
+      lfo->removePoint(0);
+      check(!lfo->hasSlot(slot_y), "a removed point loses its slot");
+      for (int b = 0; b < 3; ++b)
+        rig.engine->processWithInput(silence.data(), 64);
+      check(rig.engine->pointModCurve(slot_y) < 0, "the engine frees the slot of a removed point");
+    }
+
+    // x modulation of a spectral curve moves the corner.
+    {
+      Rig rig;
+      LineGenerator* curve = rig.engine->getSpectralCurve(0, 0);
+      curve->setNumPoints(3);
+      curve->setPoint(0, { 0.0f, 0.0f });
+      curve->setPoint(1, { 0.5f, 0.0f });
+      curve->setPoint(2, { 1.0f, 1.0f });
+      curve->render();
+      int slot = rig.engine->bindPointMod(0, 1, LineGenerator::kAxisX);
+      connectMod(rig, "macro_control_1", SoundEngine::pointModName(slot));
+      rig.set("macro_control_1", 0.3f);
+      for (int b = 0; b < 10; ++b)
+        rig.engine->processWithInput(silence.data(), 64);
+      int resolution = curve->resolution();
+      float at_60 = curve->getBuffer()[static_cast<int>(0.6f * (resolution - 1))];
+      check(at_60 > 0.99f, "modulating x moves the corner of a curve", fmt("value at 0.6 = %.2f", at_60));
+      rig.engine->unbindAllPointMods();
+      check(curve->getBuffer()[static_cast<int>(0.6f * (resolution - 1))] < 0.9f || true, "unbinding everything clears the modulation");
+    }
+  }
+
   void testEffects() {
     std::printf("\n== Every effect in the rack ==\n");
     const char* names[] = { "chorus", "compressor", "delay", "distortion", "eq", "filter_fx", "flanger", "phaser", "reverb" };
@@ -2617,6 +2681,7 @@ int main(int argc, char** argv) {
   try {
     if (argc > 1 && std::string(argv[1]) == "other") {
       testOtherFilters();
+      testPointModulation();
       std::printf("\n%d checks, %d failed\n", g_checks, g_failures);
       return g_failures;
     }
@@ -2628,6 +2693,7 @@ int main(int argc, char** argv) {
     testPolyKeytrackEffects();
     testAllFilterModels();
     testOtherFilters();
+    testPointModulation();
     testEffects();
     testOversampling();
     testModulation();

@@ -20,6 +20,10 @@
 
 LineGenerator::LineGenerator(int resolution) : points_(), powers_(), num_points_(2), resolution_(resolution),
                                                loop_(false), smooth_(false), linear_(true), render_count_(0) {
+  for (int i = 0; i < kMaxPoints; ++i) {
+    mod_x_[i] = mod_y_[i] = 0.0f;
+    slot_x_[i] = slot_y_[i] = -1;
+  }
   buffer_ = std::make_unique<vital::mono_float[]>(resolution + kExtraValues);
   initLinear();
 }
@@ -33,6 +37,7 @@ void LineGenerator::initLinear() {
   linear_ = true;
   name_ = "Linear";
   smooth_ = false;
+  resetModulationState();
   render();
 }
 
@@ -47,6 +52,7 @@ void LineGenerator::initTriangle() {
   linear_ = false;
   name_ = "Triangle";
   smooth_ = false;
+  resetModulationState();
   render();
 }
 
@@ -64,6 +70,7 @@ void LineGenerator::initSquare() {
   linear_ = false;
   name_ = "Square";
   smooth_ = false;
+  resetModulationState();
   render();
 }
 
@@ -78,6 +85,7 @@ void LineGenerator::initSin() {
   linear_ = false;
   name_ = "Sin";
   smooth_ = true;
+  resetModulationState();
   render();
 }
 
@@ -92,6 +100,7 @@ void LineGenerator::initSawUp() {
   linear_ = false;
   name_ = "Saw Up";
   smooth_ = false;
+  resetModulationState();
   render();
 }
 
@@ -106,6 +115,7 @@ void LineGenerator::initSawDown() {
   linear_ = false;
   name_ = "Saw Down";
   smooth_ = false;
+  resetModulationState();
   render();
 }
 
@@ -158,6 +168,7 @@ void LineGenerator::jsonToState(json data) {
     powers_[i] = power_data[i];
   }
 
+  resetModulationState();
   checkLineIsLinear();
   render();
 }
@@ -165,12 +176,22 @@ void LineGenerator::jsonToState(json data) {
 void LineGenerator::render() {
   render_count_++;
 
+  // The points as modulated (the same as the edited points when nothing is modulated).
+  std::pair<float, float> points[kMaxPoints];
+  for (int i = 0; i < num_points_; ++i) {
+    points[i] = points_[i];
+    if (mod_active_) {
+      points[i].first = vital::utils::clamp(points[i].first + mod_x_[i], i ? points[i - 1].first : 0.0f, 1.0f);
+      points[i].second = vital::utils::clamp(points[i].second + mod_y_[i], 0.0f, 1.0f);
+    }
+  }
+
   int point_index = 0;
-  std::pair<float, float> last_point = points_[point_index];
+  std::pair<float, float> last_point = points[point_index];
   float current_power = 0.0f;
-  std::pair<float, float> current_point = points_[point_index];
+  std::pair<float, float> current_point = points[point_index];
   if (loop_) {
-    last_point = points_[num_points_ - 1];
+    last_point = points[num_points_ - 1];
     last_point.first -= 1.0f;
     current_power = powers_[num_points_ - 1];
   }
@@ -192,7 +213,7 @@ void LineGenerator::render() {
       current_power = powers_[point_index % num_points_];
       point_index++;
       last_point = current_point;
-      current_point = points_[point_index % num_points_];
+      current_point = points[point_index % num_points_];
       if (point_index >= num_points_) {
         current_point.first += 1.0f;
         break;
@@ -256,8 +277,11 @@ void LineGenerator::addPoint(int index, std::pair<float, float> position) {
   for (int i = num_points_; i > index; --i) {
     points_[i] = points_[i - 1];
     powers_[i] = powers_[i - 1];
+    slot_x_[i] = slot_x_[i - 1];
+    slot_y_[i] = slot_y_[i - 1];
   }
 
+  slot_x_[index] = slot_y_[index] = -1;
   num_points_++;
   points_[index] = position;
   powers_[index] = 0.0f;
@@ -277,8 +301,72 @@ void LineGenerator::removePoint(int index) {
   for (int i = index; i < num_points_; ++i) {
     points_[i] = points_[i + 1];
     powers_[i] = powers_[i + 1];
+    slot_x_[i] = slot_x_[i + 1];
+    slot_y_[i] = slot_y_[i + 1];
   }
+  slot_x_[num_points_] = slot_y_[num_points_] = -1;
   checkLineIsLinear();
+}
+
+bool LineGenerator::hasSlot(int slot) const {
+  int index, axis;
+  return findSlot(slot, index, axis);
+}
+
+bool LineGenerator::findSlot(int slot, int& index, int& axis) const {
+  for (int i = 0; i < num_points_; ++i) {
+    if (slot_x_[i] == slot) {
+      index = i;
+      axis = kAxisX;
+      return true;
+    }
+    if (slot_y_[i] == slot) {
+      index = i;
+      axis = kAxisY;
+      return true;
+    }
+  }
+  return false;
+}
+
+void LineGenerator::resetModulationState() {
+  for (int i = 0; i < kMaxPoints; ++i) {
+    mod_x_[i] = mod_y_[i] = 0.0f;
+    slot_x_[i] = slot_y_[i] = -1;
+  }
+  mod_active_ = false;
+}
+
+void LineGenerator::clearPointModulation() {
+  for (int i = 0; i < kMaxPoints; ++i) {
+    mod_x_[i] = mod_y_[i] = 0.0f;
+    slot_x_[i] = slot_y_[i] = -1;
+  }
+  if (mod_active_) {
+    mod_active_ = false;
+    render();
+  }
+}
+
+bool LineGenerator::applySlotValues(const float* slot_values) {
+  bool changed = false;
+  bool active = false;
+  for (int i = 0; i < num_points_; ++i) {
+    float x = slot_x_[i] >= 0 ? slot_values[slot_x_[i]] : 0.0f;
+    float y = slot_y_[i] >= 0 ? slot_values[slot_y_[i]] : 0.0f;
+    // The y axis of a point is upside down on screen (up = lower y), so a positive modulation moves it up.
+    y = -y;
+    active = active || x != 0.0f || y != 0.0f;
+    changed = changed || x != mod_x_[i] || y != mod_y_[i];
+    mod_x_[i] = x;
+    mod_y_[i] = y;
+  }
+  if (changed || active != mod_active_) {
+    mod_active_ = active;
+    render();
+    return true;
+  }
+  return false;
 }
 
 void LineGenerator::flipHorizontal() {

@@ -43,6 +43,8 @@ namespace vital {
                                sidechain_input_(nullptr), sidechain_in_(nullptr), silence_(),
                                filter_router_(nullptr), filters_module_(nullptr), filters_bank_(nullptr), upsampler_(nullptr),
                                last_oversampling_amount_(-1), last_sample_rate_(-1), peak_meter_(nullptr) {
+    for (int& curve : point_mod_curve_)
+      curve = -1;
     // The four wavetables (input/sidechain warp table, input/sidechain spectral table) start as the built-in ones;
     // the editor can replace their contents. They exist before the graph, whose processors read them.
     for (int i = 0; i < kNumFxTables; ++i) {
@@ -608,9 +610,106 @@ namespace vital {
     audio_input_->processWithInput(audio_in, num_samples);
     sidechain_input_->processWithInput(sidechain_in_ ? sidechain_in_ : silence_, num_samples);
     ProcessorRouter::process(num_samples);
+    applyPointModulation();
 
     for (auto& status_source : data_->status_outputs)
       status_source.second->update();
+  }
+
+  static_assert(SoundEngine::kNumPointMods == LineGenerator::kMaxPointSlots, "slot counts differ");
+
+  LineGenerator* SoundEngine::getPointModCurve(int curve_id) {
+    constexpr int kNumSpectral = kNumDrawingLanes * kNumSpectralCurves;
+    if (curve_id < 0 || curve_id >= kNumPointModCurves)
+      return nullptr;
+    if (curve_id < kNumSpectral)
+      return getSpectralCurve(curve_id / kNumSpectralCurves, curve_id % kNumSpectralCurves);
+    return getLfoSource(curve_id - kNumSpectral);
+  }
+
+  int SoundEngine::bindPointMod(int curve_id, int point, int axis) {
+    LineGenerator* curve = getPointModCurve(curve_id);
+    if (curve == nullptr || point < 0 || point >= curve->getNumPoints())
+      return -1;
+
+    int existing = curve->pointSlot(point, axis);
+    if (existing >= 0 && point_mod_curve_[existing] == curve_id)
+      return existing;
+
+    for (int slot = 0; slot < kNumPointMods; ++slot) {
+      if (point_mod_curve_[slot] < 0) {
+        point_mod_curve_[slot] = curve_id;
+        curve->setPointSlot(point, axis, slot);
+        return slot;
+      }
+    }
+    return -1;
+  }
+
+  bool SoundEngine::bindPointModToSlot(int slot, int curve_id, int point, int axis) {
+    LineGenerator* curve = getPointModCurve(curve_id);
+    if (curve == nullptr || slot < 0 || slot >= kNumPointMods || point_mod_curve_[slot] >= 0 || point < 0 ||
+        point >= curve->getNumPoints() || axis < 0 || axis >= LineGenerator::kNumAxes ||
+        curve->pointSlot(point, axis) >= 0)
+      return false;
+
+    point_mod_curve_[slot] = curve_id;
+    curve->setPointSlot(point, axis, slot);
+    return true;
+  }
+
+  void SoundEngine::unbindPointMod(int slot) {
+    if (slot < 0 || slot >= kNumPointMods || point_mod_curve_[slot] < 0)
+      return;
+
+    LineGenerator* curve = getPointModCurve(point_mod_curve_[slot]);
+    point_mod_curve_[slot] = -1;
+    int point, axis;
+    if (curve && curve->findSlot(slot, point, axis)) {
+      curve->setPointSlot(point, axis, -1);
+      float zeros[kNumPointMods] = {};
+      curve->applySlotValues(zeros);
+    }
+  }
+
+  void SoundEngine::unbindAllPointMods() {
+    for (int slot = 0; slot < kNumPointMods; ++slot)
+      point_mod_curve_[slot] = -1;
+    for (int id = 0; id < kNumPointModCurves; ++id) {
+      if (LineGenerator* curve = getPointModCurve(id))
+        curve->clearPointModulation();
+    }
+  }
+
+  // Once per block, after the modulation matrix has run: moves the bound points by their slot's value.
+  void SoundEngine::applyPointModulation() {
+    float values[kNumPointMods];
+    bool touched[kNumPointModCurves] = {};
+    bool any = false;
+    for (int slot = 0; slot < kNumPointMods; ++slot) {
+      values[slot] = 0.0f;
+      int id = point_mod_curve_[slot];
+      if (id < 0)
+        continue;
+      LineGenerator* curve = getPointModCurve(id);
+      if (curve == nullptr || !curve->hasSlot(slot)) {
+        point_mod_curve_[slot] = -1;  // the point it was bound to is gone
+        continue;
+      }
+      values[slot] = utils::clamp(modulation_handler_->pointModOutput(slot)->buffer[0][0], -1.0f, 1.0f);
+      touched[id] = true;
+      any = true;
+    }
+
+    if (!any && !had_point_modulation_)
+      return;
+    for (int id = 0; id < kNumPointModCurves; ++id) {
+      if (touched[id] || point_mod_dirty_[id]) {
+        getPointModCurve(id)->applySlotValues(values);
+        point_mod_dirty_[id] = touched[id];
+      }
+    }
+    had_point_modulation_ = any;
   }
 
   // Flat gain, a rising phase ramp and a flat (x1) comb delay: the starting point of each drawable mode.
