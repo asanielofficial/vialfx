@@ -452,7 +452,7 @@ namespace vital {
   }
 
   // A chain of first-order all-passes: phase dispersion without changing the magnitude. The blend knob is the stage
-  // count (1 to 64); cutoff is the centre of the dispersion and resonance pinches the stages in towards it (none = spread over six octaves).
+  // count (1 to 256); cutoff is the centre of the dispersion and resonance pinches the stages in towards it (none = spread over eight octaves).
   void OtherFilter::processDisperser(const poly_float* audio_in, int num_samples) {
     poly_float* out = output()->buffer;
     const poly_float* midi = filter_state_.midi_cutoff_buffer;

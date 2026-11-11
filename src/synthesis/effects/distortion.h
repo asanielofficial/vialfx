@@ -25,6 +25,7 @@ namespace vital {
     public:
       static constexpr mono_float kMaxDrive = 30.0f;
       static constexpr mono_float kMinDrive = -30.0f;
+      static constexpr int kMaxStages = 8;
       static constexpr float kPeriodScale = 1.0f / 88200.0f;
       static constexpr mono_float kMinDistortionMult = 32.0f / INT_MAX;
 
@@ -32,6 +33,7 @@ namespace vital {
         kAudio,
         kType,
         kDrive,
+        kStages,
         kNumInputs
       };
 
@@ -82,7 +84,7 @@ namespace vital {
         return driveDbScale(input_drive);
       }
 
-      static poly_float getDrivenValue(int type, poly_float value, poly_float drive);
+      static poly_float getDrivenValue(int type, poly_float value, poly_float drive, int stages = 1);
 
       Distortion();
       virtual ~Distortion() { }
@@ -98,6 +100,10 @@ namespace vital {
       template<poly_float(*distort)(poly_float, poly_float), poly_float(*scale)(poly_float)>
       void processTimeInvariant(int num_samples, const poly_float* audio_in, const poly_float* drive, 
                                 poly_float* audio_out);
+
+      template<poly_float(*distort)(poly_float, poly_float), poly_float(*scale)(poly_float)>
+      void processStaged(int num_samples, const poly_float* audio_in, const poly_float* drive,
+                         poly_float* audio_out, int stages);
 
       void processDownSample(int num_samples, const poly_float* audio_in, const poly_float* drive,
                              poly_float* audio_out);

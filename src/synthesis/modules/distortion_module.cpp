@@ -38,6 +38,7 @@ namespace vital {
 
     distortion_->plug(distortion_type, Distortion::kType);
     distortion_->plug(distortion_drive, Distortion::kDrive);
+    distortion_->plug(createBaseControl("distortion_stages"), Distortion::kStages);
 
     filter_order_ = createBaseControl("distortion_filter_order");
     Output* midi_cutoff = createMonoModControl("distortion_filter_cutoff", true, true);

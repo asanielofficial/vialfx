@@ -1228,6 +1228,37 @@ namespace {
     }
   }
 
+  void testOverdriveStages() {
+    std::printf("\n== Overdrive stages ==\n");
+    float one_stage = 0.0f, three_stages = 0.0f;
+    for (int stages : { 1, 3 }) {
+      Rig rig;
+      rig.set("distortion_on", 1.0f);
+      rig.set("distortion_type", static_cast<float>(Distortion::kOverdrive));
+      rig.set("distortion_drive", 6.0f);
+      rig.set("distortion_stages", static_cast<float>(stages));
+      Stereo out = rig.render(kSampleRate, sine(220.0f));
+      check(out.finite() && out.peak() < 1.5f, "overdrive with " + std::to_string(stages) + " stages is bounded");
+      (stages == 1 ? one_stage : three_stages) = static_cast<float>(rms(out.left, kSampleRate / 2));
+    }
+    check(three_stages > one_stage * 1.05f, "more stages push the overdrive harder", fmt("%.3f vs %.3f", three_stages, one_stage));
+  }
+
+  void testDisperserStages() {
+    std::printf("\n== Disperser range ==\n");
+    check(OtherFilter::stagesForAmount(1.0f) == OtherFilter::kMaxStages && OtherFilter::kMaxStages >= 256,
+          "the disperser stacks up to 256 stages");
+    Rig rig;
+    rig.set("filter_fx_on", 1.0f);
+    rig.set("filter_fx_model", static_cast<float>(constants::kOther));
+    rig.set("filter_fx_style", static_cast<float>(OtherFilter::kDisperser));
+    rig.set("filter_fx_blend", 2.0f);
+    rig.set("filter_fx_resonance", 1.0f);
+    rig.set("filter_fx_cutoff", 60.0f);
+    Stereo out = rig.render(kSampleRate, sine(300.0f));
+    check(out.finite() && out.peak() < 2.0f, "256 stacked stages stay stable");
+  }
+
   void testPointModulation() {
     std::printf("\n== Modulation of the points of drawn lines ==\n");
     std::vector<poly_float> silence(kMaxBufferSize, poly_float(0.0f));
@@ -2681,6 +2712,8 @@ int main(int argc, char** argv) {
   try {
     if (argc > 1 && std::string(argv[1]) == "other") {
       testOtherFilters();
+      testOverdriveStages();
+      testDisperserStages();
       testPointModulation();
       std::printf("\n%d checks, %d failed\n", g_checks, g_failures);
       return g_failures;
@@ -2693,6 +2726,8 @@ int main(int argc, char** argv) {
     testPolyKeytrackEffects();
     testAllFilterModels();
     testOtherFilters();
+    testOverdriveStages();
+    testDisperserStages();
     testPointModulation();
     testEffects();
     testOversampling();

@@ -107,6 +107,7 @@ class DistortionFilterResponse : public OpenGlLineRenderer {
 class DistortionSection : public SynthSection {
   public:
     static constexpr int kViewerResolution = 124;
+    static constexpr float kStagesScale = 0.66f;
 
     DistortionSection(String name, const std::string& id, const vital::output_map& mono_modulations);
     virtual ~DistortionSection();
@@ -120,11 +121,14 @@ class DistortionSection : public SynthSection {
     void setFilterActive(bool active);
 
   private:
+    bool hasStages() const;
+
     std::string id_;
     std::unique_ptr<SynthButton> on_;
     std::unique_ptr<TextSelector> type_;
     std::unique_ptr<TextSelector> filter_order_;
     std::unique_ptr<SynthSlider> drive_;
+    std::unique_ptr<SynthSlider> stages_;
     std::unique_ptr<SynthSlider> mix_;
     std::unique_ptr<SynthSlider> filter_cutoff_;
     std::unique_ptr<SynthSlider> filter_resonance_;

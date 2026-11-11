@@ -18,6 +18,7 @@
 
 #include "synth_constants.h"
 
+#include <algorithm>
 #include <climits>
 
 namespace vital {
@@ -101,7 +102,20 @@ namespace vital {
     }
   } // namespace
 
-  poly_float Distortion::getDrivenValue(int type, poly_float value, poly_float drive) {
+  // Overdrive with several gain stages in a row, each one clipping what the one before it left.
+  template<poly_float(*distort)(poly_float, poly_float), poly_float(*scale)(poly_float)>
+  void Distortion::processStaged(int num_samples, const poly_float* audio_in, const poly_float* drive,
+                                 poly_float* audio_out, int stages) {
+    for (int i = 0; i < num_samples; ++i) {
+      poly_float current_drive = scale(drive[i]);
+      poly_float sample = audio_in[i];
+      for (int stage = 0; stage < stages; ++stage)
+        sample = distort(sample, current_drive);
+      audio_out[i] = sample;
+    }
+  }
+
+  poly_float Distortion::getDrivenValue(int type, poly_float value, poly_float drive, int stages) {
     switch(type) {
       case kSoftClip:
         return softClip(value, drive);
@@ -119,8 +133,11 @@ namespace vital {
         return tube(value, drive);
       case kSaturator:
         return saturator(value, drive);
-      case kOverdrive:
-        return overdrive(value, drive);
+      case kOverdrive: {
+        for (int stage = 0; stage < std::max(1, stages); ++stage)
+          value = overdrive(value, drive);
+        return value;
+      }
       default:
         return value;
     }
@@ -201,7 +218,8 @@ namespace vital {
         processTimeInvariant<saturator, driveDbScale>(compact_samples, audio_out, drive_out, audio_out);
         break;
       case kOverdrive:
-        processTimeInvariant<overdrive, driveDbScale>(compact_samples, audio_out, drive_out, audio_out);
+        processStaged<overdrive, driveDbScale>(compact_samples, audio_out, drive_out, audio_out,
+                                               std::max(1, std::min(kMaxStages, static_cast<int>(input(kStages)->at(0)[0] + 0.5f))));
         break;
       case kDownSample:
         processDownSample(compact_samples, audio_out, drive_out, audio_out);

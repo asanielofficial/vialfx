@@ -32,7 +32,7 @@ class DistortionViewer : public OpenGlLineRenderer {
     static constexpr float kDrawPercent = 0.9f;
 
     DistortionViewer(const std::string& id, int resolution, const vital::output_map& mono_modulations) :
-        OpenGlLineRenderer(resolution), type_slider_(nullptr), drive_slider_(nullptr) {
+        OpenGlLineRenderer(resolution), type_slider_(nullptr), drive_slider_(nullptr), stages_slider_(nullptr) {
       drive_ = mono_modulations.at(id + "_drive");
       active_ = true;
       setFill(true);
@@ -47,6 +47,7 @@ class DistortionViewer : public OpenGlLineRenderer {
 
     void drawDistortion(OpenGlWrapper& open_gl, bool animate, int index) {
       vital::poly_float drive = vital::Distortion::getDriveValue(type_slider_->getValue(), getDrive());
+      int stages = stages_slider_ ? static_cast<int>(stages_slider_->getValue() + 0.5) : 1;
 
       float width = getWidth();
       float height = getHeight();
@@ -56,7 +57,7 @@ class DistortionViewer : public OpenGlLineRenderer {
         float t = i / (num_points - 1.0f);
         float val = 2.0f * t - 1.0f;
         setXAt(i, t * width);
-        float result = kDrawPercent * vital::Distortion::getDrivenValue(type_slider_->getValue(), val, drive)[index];
+        float result = kDrawPercent * vital::Distortion::getDrivenValue(type_slider_->getValue(), val, drive, stages)[index];
         setYAt(i, (1.0f - result) * y_scale);
       }
 
@@ -103,6 +104,7 @@ class DistortionViewer : public OpenGlLineRenderer {
 
     void setTypeSlider(Slider* slider) { type_slider_ = slider; }
     void setDriveSlider(Slider* slider) { drive_slider_ = slider; }
+    void setStagesSlider(Slider* slider) { stages_slider_ = slider; }
     void setActive(bool active) { active_ = active; }
 
   private:
@@ -112,6 +114,7 @@ class DistortionViewer : public OpenGlLineRenderer {
     vital::Output* drive_;
     Slider* type_slider_;
     Slider* drive_slider_;
+    Slider* stages_slider_;
 };
 
 DistortionFilterResponse::DistortionFilterResponse(const std::string& id, const vital::output_map& mono_modulations) :
@@ -361,6 +364,12 @@ DistortionSection::DistortionSection(String name, const std::string& id, const v
   drive_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   distortion_viewer_->setDriveSlider(drive_.get());
 
+  // Only the Overdrive has stages: a small knob next to the drive.
+  stages_ = std::make_unique<SynthSlider>(id_ + "_stages");
+  addSlider(stages_.get());
+  stages_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
+  distortion_viewer_->setStagesSlider(stages_.get());
+
   mix_ = std::make_unique<SynthSlider>(id_ + "_mix");
   addSlider(mix_.get());
   mix_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
@@ -386,6 +395,20 @@ void DistortionSection::paintBackground(Graphics& g) {
   drawTextComponentBackground(g, type_->getBounds(), true);
   drawTextComponentBackground(g, filter_order_->getBounds(), true);
   drawLabelForComponent(g, TRANS("DRIVE"), drive_.get());
+  if (hasStages()) {
+    // The stages label and its container are two thirds of the size of the others.
+    Rectangle<int> bounds = stages_->getBounds();
+    int background_height = static_cast<int>(findValue(Skin::kLabelBackgroundHeight) * kStagesScale);
+    int background_y = bounds.getBottom() - background_height + static_cast<int>(findValue(Skin::kLabelOffset) * kStagesScale);
+    g.setColour(findColour(Skin::kLabelBackground, true));
+    g.fillRoundedRectangle(Rectangle<float>(bounds.getX(), background_y, bounds.getWidth(), background_height),
+                           findValue(Skin::kLabelBackgroundRounding) * kStagesScale);
+    g.setColour(findColour(Skin::kBodyText, true));
+    g.setFont(getLabelFont().withHeight(getLabelFont().getHeight() * kStagesScale));
+    g.drawText(TRANS("STAGES"), bounds.getX(), background_y, bounds.getWidth(), background_height,
+               Justification::centred, false);
+    setLabelFont(g);
+  }
   drawLabelForComponent(g, TRANS("MIX"), mix_.get());
   drawLabelForComponent(g, TRANS("CUTOFF"), filter_cutoff_.get());
   drawLabelForComponent(g, TRANS("RESONANCE"), filter_resonance_.get());
@@ -418,8 +441,25 @@ void DistortionSection::resized() {
   int filter_y = getHeight() - response_height - widget_margin;
   filter_response_->setBounds(widget_x, filter_y, widget_width, response_height);
 
-  placeKnobsInArea(Rectangle<int>(knobs_area.getX(), 0, knobs_area.getWidth(), section_height),
-                   { drive_.get(), mix_.get() });
+  Rectangle<int> top_row(knobs_area.getX(), 0, knobs_area.getWidth(), section_height);
+  if (hasStages()) {
+    // drive, a smaller stages knob centred to its right, then mix
+    float unit = (top_row.getWidth() - 4.0f * widget_margin) / (2.0f + kStagesScale);
+    int height = top_row.getHeight() - widget_margin;
+    int stages_height = static_cast<int>(height * kStagesScale);
+    int x = top_row.getX() + widget_margin;
+    drive_->setBounds(x, 0, static_cast<int>(unit), height);
+    x += static_cast<int>(unit) + widget_margin;
+    stages_->setBounds(x, (height - stages_height) / 2, static_cast<int>(unit * kStagesScale), stages_height);
+    x += static_cast<int>(unit * kStagesScale) + widget_margin;
+    mix_->setBounds(x, 0, std::max(1, top_row.getRight() - widget_margin - x), height);
+    stages_->setVisible(true);
+  }
+  else {
+    placeKnobsInArea(top_row, { drive_.get(), mix_.get() });
+    stages_->setBounds(0, 0, 0, 0);
+    stages_->setVisible(false);
+  }
 
   placeKnobsInArea(Rectangle<int>(knobs_area.getX(), knob_y2, knobs_area.getWidth(), section_height),
                    { filter_cutoff_.get(), filter_resonance_.get(), filter_blend_.get() });
@@ -437,6 +477,10 @@ void DistortionSection::setActive(bool active) {
 void DistortionSection::sliderValueChanged(Slider* changed_slider) {
   if (changed_slider == filter_order_.get())
     setFilterActive(filter_order_->getValue() != 0.0f && isActive());
+  else if (changed_slider == type_.get() && hasStages() != stages_->isVisible()) {
+    resized();
+    repaintBackground();
+  }
 
   SynthSection::sliderValueChanged(changed_slider);
 }
@@ -444,6 +488,12 @@ void DistortionSection::sliderValueChanged(Slider* changed_slider) {
 void DistortionSection::setAllValues(vital::control_map& controls) {
   SynthSection::setAllValues(controls);
   setFilterActive(filter_order_->getValue() != 0.0f && isActive());
+  resized();
+  repaintBackground();
+}
+
+bool DistortionSection::hasStages() const {
+  return static_cast<int>(type_->getValue()) == vital::Distortion::kOverdrive;
 }
 
 void DistortionSection::setFilterActive(bool active) {

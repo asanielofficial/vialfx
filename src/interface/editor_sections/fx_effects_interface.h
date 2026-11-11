@@ -1630,7 +1630,64 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
         if (controls.count(target))
           setControl(target, control.second->value());
       }
+      copyModulations(from, to, controls);
       syncActive(to);
+    }
+
+    // The copy gets the same modulation mappings as the original: every source that drives one of its knobs drives
+    // the same knob of the copy, with the same amount, polarity, stereo, bypass and curve.
+    void copyModulations(int from, int to, const vital::control_map& controls) {
+      int type = fx_ui::typeOf(from), instance = fx_ui::instanceOf(from);
+      std::string from_prefix = fx_ui::idOf(from) + "_", to_prefix = fx_ui::idOf(to) + "_";
+      SynthGuiInterface* parent = gui();
+      if (parent == nullptr)
+        return;
+
+      SynthBase* synth = parent->getSynth();
+      struct Mapping { std::string source, from, to; int index; };
+      std::vector<Mapping> mappings;
+      for (vital::ModulationConnection* connection : synth->getModulationConnections()) {
+        const std::string& destination = connection->destination_name;
+        if (destination.empty() || !fx_ui::belongsTo(destination, type, instance) ||
+            destination.compare(0, from_prefix.size(), from_prefix) != 0)
+          continue;
+
+        std::string target = to_prefix + destination.substr(from_prefix.size());
+        if (controls.count(target) == 0)
+          continue;
+        mappings.push_back({ connection->source_name, destination, target,
+                             connection->modulation_processor->index() });
+      }
+
+      // Whatever the copy was modulated by before is replaced.
+      for (vital::ModulationConnection* connection : synth->getModulationConnections()) {
+        if (!connection->destination_name.empty() && connection->destination_name.compare(0, to_prefix.size(), to_prefix) == 0 &&
+            fx_ui::belongsTo(connection->destination_name, fx_ui::typeOf(to), fx_ui::instanceOf(to)))
+          parent->disconnectModulation(connection->source_name, connection->destination_name);
+      }
+
+      for (const Mapping& mapping : mappings) {
+        parent->connectModulation(mapping.source, mapping.to);
+        int new_index = synth->getConnectionIndex(mapping.source, mapping.to);
+        if (new_index < 0)
+          continue;
+
+        std::string old_number = std::to_string(mapping.index + 1);
+        std::string new_number = std::to_string(new_index + 1);
+        auto value_of = [&](const std::string& suffix) {
+          auto found = controls.find("modulation_" + old_number + "_" + suffix);
+          return found == controls.end() ? 0.0f : static_cast<float>(found->second->value());
+        };
+        parent->setModulationValues(mapping.source, mapping.to, value_of("amount"), value_of("bipolar") != 0.0f,
+                                    value_of("stereo") != 0.0f, value_of("bypass") != 0.0f);
+        setControl("modulation_" + new_number + "_power", value_of("power"));
+
+        vital::ModulationConnection* from_connection = synth->getModulationBank().atIndex(mapping.index);
+        vital::ModulationConnection* to_connection = synth->getModulationBank().atIndex(new_index);
+        to_connection->modulation_processor->lineMapGenerator()->jsonToState(
+            from_connection->modulation_processor->lineMapGenerator()->stateToJson());
+      }
+      parent->notifyModulationsChanged();
     }
 
     void loadChainFromSynth() {

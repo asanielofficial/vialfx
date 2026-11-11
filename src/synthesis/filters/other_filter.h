@@ -28,7 +28,7 @@ namespace vital {
         kNumOtherStyles
       };
 
-      static constexpr int kMaxStages = 64;
+      static constexpr int kMaxStages = 256;
       static constexpr int kCombDelaySize = 8192;
       static constexpr int kNumCombs = 4;
       static constexpr int kReverbAllpassSize = 2048;
@@ -38,15 +38,16 @@ namespace vital {
 
       // The number of disperser stages for the blend knob (0..1 of its range).
       static int stagesForAmount(float amount) {
-        return 1 + static_cast<int>(std::round(std::min(1.0f, std::max(0.0f, amount)) * (kMaxStages - 1)));
+        float a = std::min(1.0f, std::max(0.0f, amount));
+        return 1 + static_cast<int>(std::round(std::pow(a, 1.5f) * (kMaxStages - 1)));
       }
 
-      // Frequency ratio of a disperser stage: stages are spread evenly (in octaves) around the cutoff, over six
+      // Frequency ratio of a disperser stage: stages are spread evenly (in octaves) around the cutoff, over eight
       // octaves with no resonance down to all on the cutoff with full resonance.
       static float disperserRatio(int stage, int stages, float resonance) {
         if (stages <= 1)
           return 1.0f;
-        float range = 6.0f * (1.0f - std::min(1.0f, std::max(0.0f, resonance)));
+        float range = 8.0f * std::pow(1.0f - std::min(1.0f, std::max(0.0f, resonance)), 2.5f);
         return std::pow(2.0f, (static_cast<float>(stage) / (stages - 1) - 0.5f) * range);
       }
 
