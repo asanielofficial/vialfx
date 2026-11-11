@@ -291,7 +291,7 @@ namespace vital {
     int sections = all_pass ? 2 : 3;
 
     for (int start = 0; start < num_samples; start += kSubBlock) {
-      int count = std::min(kSubBlock, num_samples - start);
+      int count = std::min(static_cast<int>(kSubBlock), num_samples - start);
       poly_float midi_now = midi[start];
       float lanes[3][5][kLanes];
       for (int lane = 0; lane < kLanes; ++lane) {
@@ -340,7 +340,7 @@ namespace vital {
     const int mask = kCombDelaySize - 1;
 
     for (int start = 0; start < num_samples; start += kSubBlock) {
-      int count = std::min(kSubBlock, num_samples - start);
+      int count = std::min(static_cast<int>(kSubBlock), num_samples - start);
       poly_float midi_now = midi[start];
       float delays[kNumCombs][kLanes];
       for (int lane = 0; lane < kLanes; ++lane) {
@@ -397,7 +397,7 @@ namespace vital {
     poly_float output_gain = poly_float(0.4f * std::sqrt(1.0f - feedback_amount * feedback_amount));
 
     for (int start = 0; start < num_samples; start += kSubBlock) {
-      int count = std::min(kSubBlock, num_samples - start);
+      int count = std::min(static_cast<int>(kSubBlock), num_samples - start);
       float size_step = (target_size - reverb_size_) * (1.0f / ((num_samples + kSubBlock - 1) / kSubBlock));
       reverb_size_ += size_step;
 

@@ -219,7 +219,7 @@ namespace vital {
         break;
       case kOverdrive:
         processStaged<overdrive, driveDbScale>(compact_samples, audio_out, drive_out, audio_out,
-                                               std::max(1, std::min(kMaxStages, static_cast<int>(input(kStages)->at(0)[0] + 0.5f))));
+                                               std::max(1, std::min(static_cast<int>(kMaxStages), static_cast<int>(input(kStages)->at(0)[0] + 0.5f))));
         break;
       case kDownSample:
         processDownSample(compact_samples, audio_out, drive_out, audio_out);
