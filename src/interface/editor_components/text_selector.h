@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <functional>
+
 #include "JuceHeader.h"
 #include "synth_slider.h"
 
@@ -28,6 +30,9 @@ class TextSelector : public SynthSlider {
     bool shouldShowPopup() override { return false; }
 
     void setLongStringLookup(const std::string* lookup) { long_lookup_ = lookup; }
+
+    // Called when the entry that is already selected is picked again (the slider itself does not notify then).
+    std::function<void(int)> on_reselected;
 
   protected:
     const std::string* long_lookup_;

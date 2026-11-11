@@ -12,7 +12,6 @@ namespace vital {
 
   namespace {
     constexpr float kOtherTwoPi = 6.283185307179586f;
-    constexpr float kCombRatios[OtherFilter::kNumCombs] = { 1.0f, 1.4142136f, 1.7320508f, 2.2360680f };
     constexpr float kReverbMs[OtherFilter::kNumCombs] = { 4.7f, 6.9f, 10.1f, 13.3f };
     constexpr float kReverbAllpassMs[2] = { 1.9f, 3.1f };
     constexpr float kBandLowHz = 30.0f;
@@ -20,6 +19,52 @@ namespace vital {
     constexpr float kCurveLowHz = 20.0f;
     constexpr float kCurveHighHz = 20000.0f;
     constexpr float kOtherMinDb = -60.0f;
+
+    struct Coef { float b0, b1, b2, a1, a2; };
+
+    Coef notchCoef(float w0, float q) {
+      float cosw = std::cos(w0), alpha = std::sin(w0) / (2.0f * q), a0 = 1.0f + alpha;
+      return { 1.0f / a0, -2.0f * cosw / a0, 1.0f / a0, -2.0f * cosw / a0, (1.0f - alpha) / a0 };
+    }
+
+    Coef peakCoef(float w0, float q, float gain_db) {
+      float amplitude = std::pow(10.0f, gain_db / 40.0f);
+      float cosw = std::cos(w0), alpha = std::sin(w0) / (2.0f * q), a0 = 1.0f + alpha / amplitude;
+      return { (1.0f + alpha * amplitude) / a0, -2.0f * cosw / a0, (1.0f - alpha * amplitude) / a0,
+               -2.0f * cosw / a0, (1.0f - alpha / amplitude) / a0 };
+    }
+
+    Coef allpassCoef(float w0, float q) {
+      float cosw = std::cos(w0), alpha = std::sin(w0) / (2.0f * q), a0 = 1.0f + alpha;
+      return { (1.0f - alpha) / a0, -2.0f * cosw / a0, (1.0f + alpha) / a0, -2.0f * cosw / a0, (1.0f - alpha) / a0 };
+    }
+
+    float coefMagnitude(const Coef& c, float w) {
+      float cw = std::cos(w), c2w = std::cos(2.0f * w), sw = std::sin(w), s2w = std::sin(2.0f * w);
+      float nr = c.b0 + c.b1 * cw + c.b2 * c2w, ni = -(c.b1 * sw + c.b2 * s2w);
+      float dr = 1.0f + c.a1 * cw + c.a2 * c2w, di = -(c.a1 * sw + c.a2 * s2w);
+      return std::sqrt((nr * nr + ni * ni) / std::max(1e-12f, dr * dr + di * di));
+    }
+
+    // Band Reject: a notch whose width is the blend knob, flanked by two peaks (resonance) that sit just outside
+    // the valley, like a phaser with the middle notch taken out.
+    struct RejectShape { float q, offset_octaves, peak_db; };
+    RejectShape rejectShape(float blend, float resonance) {
+      float width = std::min(1.0f, std::max(0.0f, blend * 0.5f));
+      float q = 0.7f * std::pow(30.0f, 1.0f - width);
+      return { q, std::min(1.2f, 0.9f / q + 0.2f), std::min(1.0f, std::max(0.0f, resonance)) * 18.0f };
+    }
+
+    // Metal Comb: blend goes from a plain comb (0) through the metallic spacing (1) to a very inharmonic one (2).
+    float combRatio(int comb, float blend) {
+      static const float kPlain[4] = { 1.0f, 1.003f, 0.997f, 1.006f };
+      static const float kMetal[4] = { 1.0f, 1.4142136f, 1.7320508f, 2.2360680f };
+      static const float kWild[4] = { 1.0f, 1.618034f, 2.414214f, 3.732051f };
+      blend = std::min(2.0f, std::max(0.0f, blend));
+      if (blend < 1.0f)
+        return kPlain[comb] + (kMetal[comb] - kPlain[comb]) * blend;
+      return kMetal[comb] + (kWild[comb] - kMetal[comb]) * (blend - 1.0f);
+    }
 
     force_inline float otherClamp(float v, float lo, float hi) { return std::min(hi, std::max(lo, v)); }
 
@@ -46,6 +91,34 @@ namespace vital {
     return kOtherMinDb * (1.0f - otherClamp(level, 0.0f, 1.0f)) * depth;
   }
 
+  // All-Pass and Disperser do not change the level, so their display shows the phase turn instead: 0 (no turn) at
+  // the bottom to 1 (the full turn of every stage) at the top.
+  float OtherFilter::responsePhase(int style, float frequency, float midi_cutoff, float resonance, float blend,
+                                   float sample_rate) {
+    resonance = otherClamp(resonance, 0.0f, 1.0f);
+    float cutoff = otherClamp(utils::midiNoteToFrequency(midi_cutoff), 10.0f, 0.45f * sample_rate);
+    float w = kOtherTwoPi * std::min(frequency, 0.499f * sample_rate) / sample_rate;
+    float warped = std::tan(w * 0.5f);
+
+    if (style == kAllPass) {
+      float q = 0.5f * std::pow(40.0f, resonance);
+      float omega = warped / std::tan(kOtherTwoPi * cutoff / sample_rate * 0.5f);
+      float turn = 2.0f * std::atan2(omega / q, 1.0f - omega * omega);  // 0 .. 2 pi per section
+      return otherClamp(turn / kOtherTwoPi, 0.0f, 1.0f);
+    }
+
+    int stages = stagesForAmount(otherClamp(blend, 0.0f, 2.0f) * 0.5f);
+    float spread = resonance * 2.0f;
+    float total = 0.0f;
+    for (int stage = 0; stage < stages; ++stage) {
+      float ratio = std::pow(2.0f, spread * stage / std::max(1, stages - 1));
+      float stage_cutoff = otherClamp(cutoff * ratio, 10.0f, 0.45f * sample_rate);
+      float omega = warped / std::tan(kOtherTwoPi * stage_cutoff / sample_rate * 0.5f);
+      total += 2.0f * std::atan(omega);  // 0 .. pi per stage
+    }
+    return otherClamp(total / (stages * 3.14159265f), 0.0f, 1.0f);
+  }
+
   float OtherFilter::responseDb(int style, float frequency, float midi_cutoff, float resonance, float blend,
                                 const LineGenerator* const* curves, float sample_rate) {
     resonance = otherClamp(resonance, 0.0f, 1.0f);
@@ -54,16 +127,13 @@ namespace vital {
 
     switch (style) {
       case kBandReject: {
-        float q = 0.5f * std::pow(40.0f, resonance);
-        float w0 = kOtherTwoPi * cutoff / sample_rate;
-        float alpha = std::sin(w0) / (2.0f * q);
-        float cosw0 = std::cos(w0);
-        // |b(e^jw)| / |a(e^jw)| for b = [1, -2cos, 1], a = [1 + alpha, -2cos, 1 - alpha]
-        float cw = std::cos(w), c2w = std::cos(2.0f * w), sw = std::sin(w), s2w = std::sin(2.0f * w);
-        float nr = 1.0f - 2.0f * cosw0 * cw + c2w, ni = 2.0f * cosw0 * sw - s2w;
-        float dr = (1.0f + alpha) - 2.0f * cosw0 * cw + (1.0f - alpha) * c2w;
-        float di = 2.0f * cosw0 * sw - (1.0f - alpha) * s2w;
-        float magnitude = std::sqrt((nr * nr + ni * ni) / std::max(1e-12f, dr * dr + di * di));
+        RejectShape shape = rejectShape(blend, resonance);
+        float flank = std::pow(2.0f, shape.offset_octaves);
+        float low = otherClamp(cutoff / flank, 10.0f, 0.45f * sample_rate);
+        float high = otherClamp(cutoff * flank, 10.0f, 0.45f * sample_rate);
+        float magnitude = coefMagnitude(notchCoef(kOtherTwoPi * cutoff / sample_rate, shape.q), w) *
+                          coefMagnitude(peakCoef(kOtherTwoPi * low / sample_rate, 2.5f, shape.peak_db), w) *
+                          coefMagnitude(peakCoef(kOtherTwoPi * high / sample_rate, 2.5f, shape.peak_db), w);
         return 20.0f * std::log10(std::max(magnitude, 1e-4f));
       }
       case kMetalComb:
@@ -72,7 +142,7 @@ namespace vital {
         float base = style == kMetalComb ? sample_rate / std::max(12.0f, cutoff) : 0.0f;
         float real = 0.0f, imag = 0.0f;
         for (int c = 0; c < kNumCombs; ++c) {
-          float delay = style == kMetalComb ? base * kCombRatios[c]
+          float delay = style == kMetalComb ? base * combRatio(c, blend)
                                             : kReverbMs[c] * 0.001f * sample_rate * std::pow(2.0f, blend - 1.0f);
           float g = (c & 1) ? -feedback : feedback;
           float angle = -w * delay;
@@ -184,42 +254,45 @@ namespace vital {
     poly_float* out = output()->buffer;
     const poly_float* midi = filter_state_.midi_cutoff_buffer;
     float nyquist_limit = 0.45f * sample_rate_cache_;
+    RejectShape shape = rejectShape(filter_state_.pass_blend[0], filter_state_.resonance_percent[0]);
+    float flank = std::pow(2.0f, shape.offset_octaves);
+    int sections = all_pass ? 2 : 3;
 
     for (int start = 0; start < num_samples; start += kSubBlock) {
       int count = std::min(kSubBlock, num_samples - start);
       poly_float midi_now = midi[start];
-      float b0[kLanes], b1[kLanes], b2[kLanes], a1[kLanes], a2[kLanes];
+      float lanes[3][5][kLanes];
       for (int lane = 0; lane < kLanes; ++lane) {
         float frequency = otherClamp(utils::midiNoteToFrequency(midi_now[lane]), 10.0f, nyquist_limit);
-        float q = 0.5f * std::pow(40.0f, otherClamp(filter_state_.resonance_percent[lane], 0.0f, 1.0f));
         float w0 = kOtherTwoPi * frequency / sample_rate_cache_;
-        float cosw = std::cos(w0);
-        float alpha = std::sin(w0) / (2.0f * q);
-        float a0 = 1.0f + alpha;
+        Coef coefs[3];
         if (all_pass) {
-          b0[lane] = (1.0f - alpha) / a0;
-          b1[lane] = -2.0f * cosw / a0;
-          b2[lane] = (1.0f + alpha) / a0;
+          float q = 0.5f * std::pow(40.0f, otherClamp(filter_state_.resonance_percent[lane], 0.0f, 1.0f));
+          coefs[0] = coefs[1] = allpassCoef(w0, q);
         }
         else {
-          b0[lane] = 1.0f / a0;
-          b1[lane] = -2.0f * cosw / a0;
-          b2[lane] = 1.0f / a0;
+          float low = otherClamp(frequency / flank, 10.0f, nyquist_limit);
+          float high = otherClamp(frequency * flank, 10.0f, nyquist_limit);
+          coefs[0] = notchCoef(w0, shape.q);
+          coefs[1] = peakCoef(kOtherTwoPi * low / sample_rate_cache_, 2.5f, shape.peak_db);
+          coefs[2] = peakCoef(kOtherTwoPi * high / sample_rate_cache_, 2.5f, shape.peak_db);
         }
-        a1[lane] = -2.0f * cosw / a0;
-        a2[lane] = (1.0f - alpha) / a0;
+        for (int s = 0; s < sections; ++s) {
+          lanes[s][0][lane] = coefs[s].b0; lanes[s][1][lane] = coefs[s].b1; lanes[s][2][lane] = coefs[s].b2;
+          lanes[s][3][lane] = coefs[s].a1; lanes[s][4][lane] = coefs[s].a2;
+        }
       }
 
-      for (int s = 0; s < (all_pass ? 2 : 1); ++s) {
-        biquads_[s].b0 = fromLanes(b0); biquads_[s].b1 = fromLanes(b1); biquads_[s].b2 = fromLanes(b2);
-        biquads_[s].a1 = fromLanes(a1); biquads_[s].a2 = fromLanes(a2);
+      for (int s = 0; s < sections; ++s) {
+        biquads_[s].b0 = fromLanes(lanes[s][0]); biquads_[s].b1 = fromLanes(lanes[s][1]);
+        biquads_[s].b2 = fromLanes(lanes[s][2]); biquads_[s].a1 = fromLanes(lanes[s][3]);
+        biquads_[s].a2 = fromLanes(lanes[s][4]);
       }
 
       for (int i = start; i < start + count; ++i) {
         poly_float sample = audio_in[i];
-        sample = tickBiquad(biquads_[0], sample);
-        if (all_pass)
-          sample = tickBiquad(biquads_[1], sample);
+        for (int s = 0; s < sections; ++s)
+          sample = tickBiquad(biquads_[s], sample);
         out[i] = sample;
       }
     }
@@ -242,11 +315,11 @@ namespace vital {
         float frequency = otherClamp(utils::midiNoteToFrequency(midi_now[lane]), 12.0f, 0.45f * sample_rate_cache_);
         float base = sample_rate_cache_ / frequency;
         for (int c = 0; c < kNumCombs; ++c)
-          delays[c][lane] = otherClamp(base * kCombRatios[c], 2.0f, kCombDelaySize - 4.0f);
+          delays[c][lane] = otherClamp(base * combRatio(c, filter_state_.pass_blend[0]), 2.0f, kCombDelaySize - 4.0f);
       }
 
       float feedback_amount = 0.2f + 0.76f * otherClamp(filter_state_.resonance_percent[0], 0.0f, 1.0f);
-      float damping = 0.1f + 0.8f * otherClamp(filter_state_.pass_blend[0] * 0.5f, 0.0f, 1.0f);
+      float damping = 0.3f;
       poly_float feedback = poly_float(feedback_amount);
       poly_float lp_keep = poly_float(damping);
       poly_float lp_new = poly_float(1.0f - damping);
@@ -308,7 +381,9 @@ namespace vital {
       float damp_lanes[kLanes];
       poly_float midi_now = midi[start];
       for (int lane = 0; lane < kLanes; ++lane) {
-        float frequency = otherClamp(utils::midiNoteToFrequency(midi_now[lane]), 20.0f, 0.45f * sample_rate_cache_);
+        // The cutoff is the tone of the tail: the damping filter sits four octaves above it.
+        float frequency = otherClamp(utils::midiNoteToFrequency(midi_now[lane]) * 16.0f, 100.0f,
+                                     0.45f * sample_rate_cache_);
         damp_lanes[lane] = std::exp(-kOtherTwoPi * frequency / sample_rate_cache_);
       }
       poly_float lp_keep = fromLanes(damp_lanes);
@@ -345,12 +420,12 @@ namespace vital {
     }
   }
 
-  // A chain of first-order all-passes: phase dispersion without changing the magnitude. The drive knob is the stage
+  // A chain of first-order all-passes: phase dispersion without changing the magnitude. The blend knob is the stage
   // count (1 to 64); cutoff is where the phase turns, resonance spreads the stages apart (up to two octaves).
   void OtherFilter::processDisperser(const poly_float* audio_in, int num_samples) {
     poly_float* out = output()->buffer;
     const poly_float* midi = filter_state_.midi_cutoff_buffer;
-    int stages = stagesForAmount(filter_state_.drive_percent[0]);
+    int stages = stagesForAmount(filter_state_.pass_blend[0] * 0.5f);
     float spread = otherClamp(filter_state_.resonance_percent[0], 0.0f, 1.0f) * 2.0f;
     float nyquist_limit = 0.45f * sample_rate_cache_;
 

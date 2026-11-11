@@ -80,6 +80,8 @@ class FilterSection : public SynthSection, public PresetSelector::Listener {
     void bindCurves();
     void showCurveEditor();
     void parentHierarchyChanged() override;
+    void sliderValueChanged(Slider* moved_slider) override;
+    int editedCurve() const;
     void setFilterText();
     void setLabelText();
     void notifyFilterChange();
@@ -123,8 +125,7 @@ class FilterSection : public SynthSection, public PresetSelector::Listener {
     // The Custom model of the Other filters: three drawn response curves (A, B, C) over the response display.
     std::unique_ptr<LineGenerator> placeholder_curve_;
     std::unique_ptr<SpectralCurveEditor> curve_editors_[3];
-    std::unique_ptr<OpenGlToggleButton> curve_buttons_[3];
-    int shown_curve_ = 0;
+    std::unique_ptr<OpenGlShapeButton> edit_curve_button_;
     bool curves_bound_ = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FilterSection)

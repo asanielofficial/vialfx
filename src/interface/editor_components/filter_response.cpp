@@ -642,6 +642,12 @@ void FilterResponse::computeOtherResponse(int index) {
     float percent = i / (kResolution - 1.0f);
     float note = kMinNote + percent * (kMaxNote - kMinNote);
     float frequency = vital::utils::midiNoteToFrequency(note);
+    if (filter_state_.style == vital::OtherFilter::kAllPass || filter_state_.style == vital::OtherFilter::kDisperser) {
+      float phase = vital::OtherFilter::responsePhase(filter_state_.style, frequency, cutoff, resonance, blend);
+      setXAt(i, width * percent);
+      setYAt(i, y_adjust * (1.0f - (2.0f * phase - 1.0f)));
+      continue;
+    }
     float db = vital::OtherFilter::responseDb(filter_state_.style, frequency, cutoff, resonance, blend,
                                               other_curves_);
     float magnitude = std::pow(10.0f, db / 20.0f);

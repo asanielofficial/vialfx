@@ -555,6 +555,11 @@ class DisplaySettings : public SynthSection {
       skin_->setRange(0.0, skins_.size() + 1, 1);
       skin_->setValue(skin_value_, dontSendNotification);
       skin_->setScrollEnabled(false);
+      // Once a custom skin is loaded 'Custom' is already selected: picking it again must open the chooser too.
+      skin_->on_reselected = [this](int value) {
+        if (value == skins_.size() + 1)
+          loadCustomSkin();
+      };
       addSlider(skin_.get());
       skin_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
       skin_->setLookAndFeel(TextLookAndFeel::instance());
@@ -607,6 +612,18 @@ class DisplaySettings : public SynthSection {
       full_interface->reloadSkin(skin);
     }
 
+    void loadCustomSkin() {
+      FileChooser open_box("Open Skin", File(), String(vital::kSkinExtensionsList));
+      if (open_box.browseForFileToOpen()) {
+        File skin_file = open_box.getResult();
+        skin_file.copyFileTo(LoadSave::getDefaultSkin());
+        Skin skin;
+
+        skin.loadFromFile(skin_file);
+        loadSkin(skin);
+      }
+    }
+
     void sliderValueChanged(Slider* changed_slider) override {
       if (changed_slider == frequency_display_.get()) {
         setDisplayValue(Skin::kFrequencyDisplay, frequency_display_->getValue());
@@ -622,17 +639,8 @@ class DisplaySettings : public SynthSection {
           skin.loadDefaultSkin();
           loadSkin(skin);
         }
-        else if (skin_->getValue() == skins_.size() + 1) {
-          FileChooser open_box("Open Skin", File(), String(vital::kSkinExtensionsList));
-          if (open_box.browseForFileToOpen()) {
-            File skin_file = open_box.getResult();
-            skin_file.copyFileTo(LoadSave::getDefaultSkin());
-            Skin skin;
-
-            skin.loadFromFile(skin_file);
-            loadSkin(skin);
-          }
-        }
+        else if (skin_->getValue() == skins_.size() + 1)
+          loadCustomSkin();
         else {
           Skin skin;
           File skin_file = skins_[skin_->getValue() - 1];

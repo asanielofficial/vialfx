@@ -34,7 +34,7 @@ namespace vital {
       static constexpr int kSubBlock = 32;
       static constexpr int kLanes = static_cast<int>(poly_float::kSize);
 
-      // The number of disperser stages for the drive knob (a 0..1 amount).
+      // The number of disperser stages for the blend knob (0..1 of its range).
       static int stagesForAmount(float amount) {
         return 1 + static_cast<int>(std::round(std::min(1.0f, std::max(0.0f, amount)) * (kMaxStages - 1)));
       }
@@ -69,6 +69,10 @@ namespace vital {
       // The magnitude (in dB) the filter has at a frequency, for the response display. Disperser and All-Pass are flat.
       static float responseDb(int style, float frequency, float midi_cutoff, float resonance, float blend,
                               const LineGenerator* const* curves, float sample_rate = 44100.0f);
+
+      // Phase turn (0..1) for the display of All-Pass and Disperser.
+      static float responsePhase(int style, float frequency, float midi_cutoff, float resonance, float blend,
+                                 float sample_rate = 44100.0f);
 
       // The drawn response of the Custom model, in dB, at a frequency (before the cascade of bands realises it).
       static float customTargetDb(const LineGenerator* const* curves, float morph, float shift_octaves, float depth,
@@ -117,7 +121,7 @@ namespace vital {
       int last_style_;
       mono_float sample_rate_cache_;
 
-      Biquad biquads_[2];
+      Biquad biquads_[3];
 
       std::vector<poly_float> comb_buffer_[kNumCombs];
       poly_float comb_damp_[kNumCombs];

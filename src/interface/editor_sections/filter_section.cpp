@@ -194,7 +194,6 @@ FilterSection::FilterSection(String name, String suffix) :
   addOpenGlComponent(filter_label_2_.get());
 
   placeholder_curve_ = std::make_unique<LineGenerator>();
-  static const char* kCurveNames[3] = { "A", "B", "C" };
   for (int i = 0; i < 3; ++i) {
     curve_editors_[i] = std::make_unique<SpectralCurveEditor>(placeholder_curve_.get());
     curve_editors_[i]->setGridSizeX(8);
@@ -203,15 +202,17 @@ FilterSection::FilterSection(String name, String suffix) :
     addOpenGlComponent(curve_editors_[i].get());
     addOpenGlComponent(curve_editors_[i]->getTextEditorComponent());
     curve_editors_[i]->setVisible(false);
-
-    curve_buttons_[i] = std::make_unique<OpenGlToggleButton>(kCurveNames[i]);
-    addAndMakeVisible(curve_buttons_[i].get());
-    addOpenGlComponent(curve_buttons_[i]->getGlComponent());
-    curve_buttons_[i]->addListener(this);
-    curve_buttons_[i]->setText(kCurveNames[i]);
-    curve_buttons_[i]->setLookAndFeel(TextLookAndFeel::instance());
-    curve_buttons_[i]->setVisible(false);
   }
+
+  // The three frames of the Custom model are the three positions of the blend slider (left, middle, right). The
+  // pencil edits the frame the blend slider is closest to.
+  edit_curve_button_ = std::make_unique<OpenGlShapeButton>("Edit Custom Filter");
+  addAndMakeVisible(edit_curve_button_.get());
+  addOpenGlComponent(edit_curve_button_->getGlComponent());
+  edit_curve_button_->addListener(this);
+  edit_curve_button_->setClickingTogglesState(true);
+  edit_curve_button_->setShape(Paths::pencil());
+  edit_curve_button_->setVisible(false);
 
   formant_x_->setVisible(false);
   formant_y_->setVisible(false);
@@ -444,13 +445,13 @@ void FilterSection::resized() {
   blend_transpose_->setBounds(drive_->getBounds());
 
   Rectangle<int> editor_bounds = filter_response_->getBounds();
-  int button_size = std::max(14, static_cast<int>(18 * size_ratio_));
   for (int i = 0; i < 3; ++i) {
     curve_editors_[i]->setSizeRatio(size_ratio_);
     curve_editors_[i]->setBounds(editor_bounds);
-    curve_buttons_[i]->setBounds(editor_bounds.getX() + getWidgetMargin() + i * (button_size + 2),
-                                 editor_bounds.getY() + 2, button_size, button_size);
   }
+  int button_size = std::max(14, static_cast<int>(20 * size_ratio_));
+  edit_curve_button_->setBounds(editor_bounds.getRight() - button_size - getWidgetMargin(),
+                                editor_bounds.getY() + getWidgetMargin(), button_size, button_size);
 
   filter_label_1_->setFontType(PlainTextComponent::kRegular);
   filter_label_2_->setFontType(PlainTextComponent::kRegular);
@@ -467,12 +468,9 @@ void FilterSection::resized() {
 }
 
 void FilterSection::buttonClicked(Button* clicked_button) {
-  for (int i = 0; i < 3; ++i) {
-    if (clicked_button == curve_buttons_[i].get()) {
-      shown_curve_ = i;
-      showCurveEditor();
-      return;
-    }
+  if (clicked_button == edit_curve_button_.get()) {
+    showCurveEditor();
+    return;
   }
 
   if (clicked_button == filter_input_.get()) {
@@ -639,16 +637,28 @@ void FilterSection::bindCurves() {
   curves_bound_ = true;
 }
 
+int FilterSection::editedCurve() const {
+  return std::max(0, std::min(2, static_cast<int>(std::round(blend_->getValue()))));
+}
+
+void FilterSection::sliderValueChanged(Slider* moved_slider) {
+  SynthSection::sliderValueChanged(moved_slider);
+  if (moved_slider == blend_.get())
+    showCurveEditor();
+}
+
+// Custom filter: the display shows the response, or (pencil on) the drawn frame closest to the blend slider.
 void FilterSection::showCurveEditor() {
   bool custom = current_model_ == vital::constants::kOther && current_style_ == vital::OtherFilter::kCustom;
+  bool editing = custom && edit_curve_button_->getToggleState();
+  int frame = editedCurve();
   for (int i = 0; i < 3; ++i) {
-    curve_editors_[i]->setVisible(custom && i == shown_curve_);
+    curve_editors_[i]->setVisible(editing && i == frame);
     curve_editors_[i]->getTextEditorComponent()->setVisible(false);
-    curve_buttons_[i]->setVisible(custom);
-    curve_buttons_[i]->getGlComponent()->setVisible(custom);
-    curve_buttons_[i]->setToggleState(i == shown_curve_, dontSendNotification);
   }
-  filter_response_->setVisible(!custom);
+  edit_curve_button_->setVisible(custom);
+  edit_curve_button_->getGlComponent()->setVisible(custom);
+  filter_response_->setVisible(!editing);
 }
 
 void FilterSection::showModelKnobs() {
@@ -673,13 +683,21 @@ void FilterSection::showModelKnobs() {
   drive_->setVisible(!formant && !comb);
 
   if (model == vital::constants::kOther) {
-    // Drive is the stage count of the Disperser; blend is the damping / size / morph of Comb, Reverb and Custom.
-    bool disperser = current_style_ == vital::OtherFilter::kDisperser;
-    bool blends = current_style_ == vital::OtherFilter::kMetalComb ||
-                  current_style_ == vital::OtherFilter::kMetalReverb || current_style_ == vital::OtherFilter::kCustom;
-    drive_->setVisible(disperser);
-    blend_->setVisible(blends);
+    // The blend slider is the width of Band Reject, the stage count of the Disperser, the spacing of the Metal Comb,
+    // the size of the Metal Reverb and the frame of the Custom filter. All-Pass has none, and none use drive.
+    drive_->setVisible(false);
+    blend_->setVisible(current_style_ != vital::OtherFilter::kAllPass);
+    switch (current_style_) {
+      case vital::OtherFilter::kBandReject: blend_->setPopupPrefix("Width: "); break;
+      case vital::OtherFilter::kMetalComb: blend_->setPopupPrefix("Spacing: "); break;
+      case vital::OtherFilter::kMetalReverb: blend_->setPopupPrefix("Size: "); break;
+      case vital::OtherFilter::kDisperser: blend_->setPopupPrefix("Stages: "); break;
+      case vital::OtherFilter::kCustom: blend_->setPopupPrefix("Frame: "); break;
+      default: break;
+    }
   }
+  else
+    blend_->setPopupPrefix("Blend: ");
 
   bindCurves();
   showCurveEditor();
@@ -701,7 +719,7 @@ void FilterSection::setLabelText() {
     if (current_model_ == vital::constants::kComb)
       filter_label_1_->setText("CUT");
     else if (current_model_ == vital::constants::kOther)
-      filter_label_1_->setText("STAGES");
+      filter_label_1_->setText("");
     else
       filter_label_1_->setText("DRIVE");
   }
