@@ -51,8 +51,8 @@ namespace vital {
     struct RejectShape { float q, offset_octaves, peak_db; };
     RejectShape rejectShape(float blend, float resonance) {
       float width = std::min(1.0f, std::max(0.0f, blend * 0.5f));
-      float q = 0.7f * std::pow(30.0f, 1.0f - width);
-      return { q, std::min(1.2f, 0.9f / q + 0.2f), std::min(1.0f, std::max(0.0f, resonance)) * 18.0f };
+      float q = 0.25f * std::pow(120.0f, 1.0f - width);  // a narrow notch up to a very wide valley
+      return { q, std::min(3.0f, 0.9f / q + 0.2f), std::min(1.0f, std::max(0.0f, resonance)) * 18.0f };
     }
 
     // Metal Comb: blend goes from a plain comb (0) through the metallic spacing (1) to a very inharmonic one (2).
@@ -64,6 +64,11 @@ namespace vital {
       if (blend < 1.0f)
         return kPlain[comb] + (kMetal[comb] - kPlain[comb]) * blend;
       return kMetal[comb] + (kWild[comb] - kMetal[comb]) * (blend - 1.0f);
+    }
+
+    // The reverb's tail is darkened by a one-pole low pass two octaves above the cutoff.
+    float reverbDampHz(float midi_cutoff, float sample_rate) {
+      return std::min(0.45f * sample_rate, std::max(100.0f, utils::midiNoteToFrequency(midi_cutoff) * 4.0f));
     }
 
     force_inline float otherClamp(float v, float lo, float hi) { return std::min(hi, std::max(lo, v)); }
@@ -142,12 +147,24 @@ namespace vital {
         float feedback = style == kMetalComb ? 0.2f + 0.76f * resonance : 0.6f + 0.385f * resonance;
         float base = style == kMetalComb ? sample_rate / std::max(12.0f, cutoff) : 0.0f;
         float real = 0.0f, imag = 0.0f;
+        // The reverb's damping filter sits in the feedback loop, so the cutoff shapes the tail's tone.
+        float damp_r = 1.0f, damp_i = 0.0f;
+        if (style == kMetalReverb) {
+          float keep = std::exp(-kOtherTwoPi * reverbDampHz(midi_cutoff, sample_rate) / sample_rate);
+          float dr = 1.0f - keep * std::cos(w), di = keep * std::sin(w);
+          float norm = std::max(1e-9f, dr * dr + di * di);
+          damp_r = (1.0f - keep) * dr / norm;
+          damp_i = -(1.0f - keep) * di / norm;
+        }
         for (int c = 0; c < kNumCombs; ++c) {
           float delay = style == kMetalComb ? base * combRatio(c, blend)
                                             : kReverbMs[c] * 0.001f * sample_rate * std::pow(2.0f, blend - 1.0f);
           float g = (c & 1) ? -feedback : feedback;
           float angle = -w * delay;
-          float dr = 1.0f - g * std::cos(angle), di = -g * std::sin(angle);
+          // 1 / (1 - g * H * e^(-jwD)), with H = 1 for the comb
+          float lr = std::cos(angle) * damp_r - std::sin(angle) * damp_i;
+          float li = std::cos(angle) * damp_i + std::sin(angle) * damp_r;
+          float dr = 1.0f - g * lr, di = -g * li;
           float norm = std::max(1e-9f, dr * dr + di * di);
           real += dr / norm;
           imag += -di / norm;
@@ -396,9 +413,8 @@ namespace vital {
       float damp_lanes[kLanes];
       poly_float midi_now = midi[start];
       for (int lane = 0; lane < kLanes; ++lane) {
-        // The cutoff is the tone of the tail: the damping filter sits four octaves above it.
-        float frequency = otherClamp(utils::midiNoteToFrequency(midi_now[lane]) * 16.0f, 100.0f,
-                                     0.45f * sample_rate_cache_);
+        // The cutoff is the tone of the tail.
+        float frequency = reverbDampHz(midi_now[lane], sample_rate_cache_);
         damp_lanes[lane] = std::exp(-kOtherTwoPi * frequency / sample_rate_cache_);
       }
       poly_float lp_keep = fromLanes(damp_lanes);
