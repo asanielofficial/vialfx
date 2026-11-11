@@ -705,6 +705,8 @@ void FilterSection::showModelKnobs() {
 
   bindCurves();
   showCurveEditor();
+  // The knob shadows (the dark circles) are painted into the background, so redo it when knobs come or go.
+  repaintBackground();
 }
 
 void FilterSection::setFilterText() {
