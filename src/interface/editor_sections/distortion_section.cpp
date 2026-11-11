@@ -374,6 +374,8 @@ DistortionSection::DistortionSection(String name, const std::string& id, const v
   addSlider(stages_.get());
   stages_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
   stages_->setKnobSizeScale(0.6f);
+  stages_->setRange(1.0, 8.0, 1.0);  // whole stages; a modulation still moves it continuously and the engine rounds
+  stages_->setMaxDecimalPlaces(0);
   distortion_viewer_->setStagesSlider(stages_.get());
 
   mix_ = std::make_unique<SynthSlider>(id_ + "_mix");
@@ -414,6 +416,19 @@ void DistortionSection::paintBackground(Graphics& g) {
     g.drawText(TRANS("STAGES"), bounds.getX(), background_y, bounds.getWidth(), background_height,
                Justification::centred, false);
     setLabelFont(g);
+
+    // One tick for each of the eight stages around the knob.
+    float center_x = bounds.getCentreX();
+    float center_y = bounds.getCentreY() + findValue(Skin::kKnobOffset);
+    float radius = stages_->getKnobSizeScale() * findValue(Skin::kKnobArcSize) * 0.5f + 3.0f * size_ratio_;
+    float tick_length = 2.5f * size_ratio_;
+    g.setColour(findColour(Skin::kBodyText, true).withAlpha(0.6f));
+    for (int i = 0; i < 8; ++i) {
+      float angle = -SynthSlider::kRotaryAngle + 2.0f * SynthSlider::kRotaryAngle * i / 7.0f;
+      float dx = std::sin(angle), dy = -std::cos(angle);
+      g.drawLine(center_x + dx * radius, center_y + dy * radius,
+                 center_x + dx * (radius + tick_length), center_y + dy * (radius + tick_length), 1.0f);
+    }
   }
   drawLabelForComponent(g, TRANS("MIX"), mix_.get());
   drawLabelForComponent(g, TRANS("CUTOFF"), filter_cutoff_.get());
