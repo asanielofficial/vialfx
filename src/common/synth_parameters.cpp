@@ -201,7 +201,7 @@ namespace vital {
     { "distortion_filter_blend", 0x000000, 0.0, 2.0, 0.0, 0.0, 1.0,
       ValueDetails::kLinear, false, "", "Distortion Filter Blend", nullptr },
     { "distortion_stages", 0x000000, 1.0, 8.0, 1.0, 0.0, 1.0,
-      ValueDetails::kIndexed, false, "", "Distortion Stages", nullptr },
+      ValueDetails::kLinear, false, "", "Distortion Stages", nullptr },
     { "legato", 0x000000, 0.0, 1.0, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Legato", strings::kOffOnNames },
     { "macro_control_1", 0x000000, 0.0, 1.0, 0.0, 0.0, 1.0,

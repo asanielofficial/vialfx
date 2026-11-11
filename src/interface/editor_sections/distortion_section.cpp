@@ -34,6 +34,7 @@ class DistortionViewer : public OpenGlLineRenderer {
     DistortionViewer(const std::string& id, int resolution, const vital::output_map& mono_modulations) :
         OpenGlLineRenderer(resolution), type_slider_(nullptr), drive_slider_(nullptr), stages_slider_(nullptr) {
       drive_ = mono_modulations.at(id + "_drive");
+      stages_ = mono_modulations.at(id + "_stages");
       active_ = true;
       setFill(true);
       setFillCenter(0.0f);
@@ -47,7 +48,10 @@ class DistortionViewer : public OpenGlLineRenderer {
 
     void drawDistortion(OpenGlWrapper& open_gl, bool animate, int index) {
       vital::poly_float drive = vital::Distortion::getDriveValue(type_slider_->getValue(), getDrive());
-      int stages = stages_slider_ ? static_cast<int>(stages_slider_->getValue() + 0.5) : 1;
+      float stages_value = stages_slider_ ? stages_slider_->getValue() : 1.0f;
+      if (stages_ && stages_->owner->enabled())
+        stages_value = stages_->trigger_value[index];
+      int stages = static_cast<int>(stages_value + 0.5f);
 
       float width = getWidth();
       float height = getHeight();
@@ -112,6 +116,7 @@ class DistortionViewer : public OpenGlLineRenderer {
     Point<int> last_mouse_position_;
 
     vital::Output* drive_;
+    vital::Output* stages_;
     Slider* type_slider_;
     Slider* drive_slider_;
     Slider* stages_slider_;
@@ -368,6 +373,7 @@ DistortionSection::DistortionSection(String name, const std::string& id, const v
   stages_ = std::make_unique<SynthSlider>(id_ + "_stages");
   addSlider(stages_.get());
   stages_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
+  stages_->setKnobSizeScale(0.6f);
   distortion_viewer_->setStagesSlider(stages_.get());
 
   mix_ = std::make_unique<SynthSlider>(id_ + "_mix");
@@ -446,11 +452,10 @@ void DistortionSection::resized() {
     // drive, a smaller stages knob centred to its right, then mix
     float unit = (top_row.getWidth() - 4.0f * widget_margin) / (2.0f + kStagesScale);
     int height = top_row.getHeight() - widget_margin;
-    int stages_height = static_cast<int>(height * kStagesScale);
     int x = top_row.getX() + widget_margin;
     drive_->setBounds(x, 0, static_cast<int>(unit), height);
     x += static_cast<int>(unit) + widget_margin;
-    stages_->setBounds(x, (height - stages_height) / 2, static_cast<int>(unit * kStagesScale), stages_height);
+    stages_->setBounds(x, 0, static_cast<int>(unit * kStagesScale), height);
     x += static_cast<int>(unit * kStagesScale) + widget_margin;
     mix_->setBounds(x, 0, std::max(1, top_row.getRight() - widget_margin - x), height);
     stages_->setVisible(true);
