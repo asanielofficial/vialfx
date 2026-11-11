@@ -107,7 +107,7 @@ jobs:
           git -C clap-ext submodule update -q --init --depth 1 --recursive
           cmake -S effects/clap -B clap-build -DCMAKE_BUILD_TYPE=Release \
             -DPATH_TO_CLAP_EXTENSIONS="$PWD/clap-ext" \
-            -DVIALFX_SHARED_LIB="$PWD/effects/builds/linux_vst/build/VialFX.a" -DVIALFX_VERSION=1.2 2>&1 | tail -30
+            -DVIALFX_SHARED_LIB="$PWD/effects/builds/linux_vst/build/VialFX.a" -DVIALFX_VERSION=1.3 2>&1 | tail -30
           cmake --build clap-build --target VialFX_CLAP -j"$(nproc)" 2>&1 | tail -60
           mkdir -p dist-clap
           cp clap-build/VialFX_artefacts/Release/VialFX.clap dist-clap/
@@ -222,7 +222,7 @@ jobs:
           git -C clap-ext checkout -q FETCH_HEAD
           git -C clap-ext submodule update -q --init --depth 1 --recursive
           cmake -S effects\clap -B clap-build -G "Visual Studio 17 2022" -A x64 `
-            "-DPATH_TO_CLAP_EXTENSIONS=$PWD\clap-ext" "-DVIALFX_SHARED_LIB=$PWD\effects\builds\vs17\x64\Release\Shared Code\VialFX.lib" -DVIALFX_VERSION=1.2
+            "-DPATH_TO_CLAP_EXTENSIONS=$PWD\clap-ext" "-DVIALFX_SHARED_LIB=$PWD\effects\builds\vs17\x64\Release\Shared Code\VialFX.lib" -DVIALFX_VERSION=1.3
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build clap-build --config Release --target VialFX_CLAP -- /m /nologo "/flp:logfile=clap.log;verbosity=minimal"
           $code = $LASTEXITCODE
@@ -248,7 +248,7 @@ jobs:
           choco install innosetup -y --no-progress
           New-Item -ItemType Directory installers | Out-Null
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          & $iscc "/DSourceFile=$PWD\dist\VialFX.vst3" "/DClapFile=$PWD\dist-clap\VialFX.clap" "/DAppVersion=1.2" "/O$PWD\installers" installer\windows\VialFX.iss
+          & $iscc "/DSourceFile=$PWD\dist\VialFX.vst3" "/DClapFile=$PWD\dist-clap\VialFX.clap" "/DAppVersion=1.3" "/O$PWD\installers" installer\windows\VialFX.iss
           if ($LASTEXITCODE -ne 0) { Write-Host "::error::Inno Setup failed"; exit 1 }
           Get-ChildItem installers | Format-Table Name, Length
 
@@ -374,7 +374,7 @@ jobs:
           LIB=$(find effects/builds/osx/build -name "libVialFX.a" | head -1)
           echo "shared code library: $LIB"
           cmake -S effects/clap -B clap-build -G Xcode -DCMAKE_BUILD_TYPE=Release \
-            -DPATH_TO_CLAP_EXTENSIONS="$PWD/clap-ext" -DVIALFX_SHARED_LIB="$PWD/$LIB" -DVIALFX_VERSION=1.2 \
+            -DPATH_TO_CLAP_EXTENSIONS="$PWD/clap-ext" -DVIALFX_SHARED_LIB="$PWD/$LIB" -DVIALFX_VERSION=1.3 \
             -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED=NO 2>&1 | tail -30
           set +e
           cmake --build clap-build --config Release --target VialFX_CLAP > clap.log 2>&1
@@ -402,11 +402,11 @@ jobs:
           mkdir -p pkgroot-vst3 pkgroot-clap pkgs installers
           cp -R dist/VialFX.vst3 pkgroot-vst3/VialFX.vst3
           cp -R dist-clap/VialFX.clap pkgroot-clap/VialFX.clap
-          pkgbuild --root pkgroot-vst3 --identifier com.vialfx.vst3 --version 1.2 \
+          pkgbuild --root pkgroot-vst3 --identifier com.vialfx.vst3 --version 1.3 \
             --install-location /Library/Audio/Plug-Ins/VST3 pkgs/vst3.pkg
-          pkgbuild --root pkgroot-clap --identifier com.vialfx.clap --version 1.2 \
+          pkgbuild --root pkgroot-clap --identifier com.vialfx.clap --version 1.3 \
             --install-location /Library/Audio/Plug-Ins/CLAP pkgs/clap.pkg
-          productbuild --distribution installer/macos/distribution.xml --package-path pkgs installers/VialFX-1.2-macOS.pkg
+          productbuild --distribution installer/macos/distribution.xml --package-path pkgs installers/VialFX-1.3-macOS.pkg
           ls -l installers
 
       - uses: actions/upload-artifact@v4

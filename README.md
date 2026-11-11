@@ -1,16 +1,16 @@
 # VialFX
 
-VialFX is an audio effect plugin: two modelled filters, a rack of nine effects, LFOs and envelopes, and two
+VialFX is an audio effect plugin: two modelled filters, a rack of fifteen effects, LFOs and envelopes, and two
 audio inputs (main and sidechain) that can each be warped, spectrally morphed and routed to the filters, the
 effects or straight to the output. It is built from GPLv3 synthesizer source code (see
 [NOTICE.md](NOTICE.md) for the origin of the code).
 
-> **Status:** version 1.2. VST3 and CLAP builds for Linux, macOS and Windows, plus a Windows installer (.exe) and a
+> **Status:** version 1.3. VST3 and CLAP builds for Linux, macOS and Windows, plus a Windows installer (.exe) and a
 > macOS installer (.pkg), are produced by CI, and the plugin passes pluginval.
 
 ## Download
 
-The current stable version is [**VialFX 1.2**](https://github.com/asanielofficial/vialfx/releases/latest): a Windows installer (.exe), a macOS installer (.pkg) and VST3 and CLAP zips for Windows, macOS and Linux.
+The current stable version is [**VialFX 1.3**](https://github.com/asanielofficial/vialfx/releases/latest): a Windows installer (.exe), a macOS installer (.pkg) and VST3 and CLAP zips for Windows, macOS and Linux.
 
 The newest `main` commit that built on all three platforms is published as the [nightly pre-release](https://github.com/asanielofficial/vialfx/releases/tag/nightly) (Linux, macOS and Windows VST3 and CLAP, plus the Windows and macOS installers, which let you choose which formats to install). These builds are unsigned and meant for testing. Every CI run also attaches its builds as artifacts.
 
@@ -109,14 +109,40 @@ target). The stage is a Hann-windowed overlap-add FFT (75% overlap) between the 
 ### Filters
 
 - Two filters with the full set of filter models, in parallel or serial (FIL1/FIL2 buttons).
+- **Other filters** are a filter category in Filter 1, Filter 2 and every Filter effect copy. Cutoff, resonance,
+  drive and the blend slider are reused by each style:
+  - **Band Reject:** a notch whose width is the blend slider (from narrow to a very wide valley). Resonance lifts
+    the two peaks beside the valley, like a phaser without the middle notches.
+  - **All-Pass:** a resonant second-order phase shifter. The display shows its phase.
+  - **Metal Comb:** a comb with inharmonic spacing. The blend slider goes from a plain comb through metallic to
+    very inharmonic spacing; cutoff is the pitch, resonance the feedback.
+  - **Metal Reverb:** a small reverb tuned to inharmonic delay times. Blend is the size, resonance the decay and
+    cutoff the tone of the tail, which also shows in the display.
+  - **Disperser:** a chain of all-pass stages. The blend slider sets the number of stages (1 to 256). Cutoff is the
+    centre, and resonance pinches the stages in towards it (none = spread over eight octaves, full = all on the
+    cutoff for a sharp, classic disperser peak). The display shows the group delay.
+  - **Custom:** three response curves A, B and C that you draw. The three positions of the blend slider are the
+    three frames, and the pencil button in the top right of the display switches to editing the frame. Cutoff shifts
+    the curves and resonance sets their depth. Each Filter effect copy has its own curves.
+  - Drive soft-clips the input ahead of every Other filter.
 - **Key tracking** is polyphonic: Filter FX, Delay, Chorus, Flanger and Phaser run a parallel copy per held
   note and crossfade their average. It is gated on the keytrack sync mode or a non-zero keytrack amount, and
   falls back to the last played note otherwise. The effects have transpose sliders for it.
 
 ### Effects rack
 
+- **Fifteen effect types:** Chorus, Compressor, Delay, Distortion, EQ, Filter, Flanger, Morph, Phaser and Reverb, plus
+  **Pitch Shifter** (granular, multiband granular, retro and spectral engines with formant control), **Utility** (gain,
+  pan, width, Haas, mono bass, phase invert, DC filter and a level meter), **Freq Shifter**, **Vibrato** and
+  **Tremolo**. Each can be added as many times as you like (up to 8 copies).
+- **New distortions:** Tube (asymmetric, even harmonics), Saturator (smooth cubic) and Overdrive (exponential soft
+  clip). Overdrive has a **Stages** knob (1 to 8, with eight ticks around it) that runs the signal through that many
+  clipping stages in a row; it can be modulated.
+- **Duplicate keeps modulation:** a duplicated effect copies the knob positions and also every modulation mapping
+  (source, amount, polarity, stereo, bypass and mapping curve) from LFOs, macros, randoms and envelopes.
+
 - The effects tab starts blank. **ADD EFFECT** (top of the left panel) adds a Chorus, Compressor, Delay,
-  Distortion, EQ, Filter, Flanger, Phaser, Reverb or Morph (the spectral morph and distortion warp of the input panels as an effect) to the end of the chain. The same effect can be added
+  Distortion, EQ, Filter, Flanger, Phaser, Reverb, Pitch Shifter, Utility, Freq Shifter, Vibrato, Tremolo or Morph (the spectral morph and distortion warp of the input panels as an effect) to the end of the chain. The same effect can be added
   several times (up to 8 copies of each type); every copy is a full set of automatable, modulatable
   parameters named e.g. `chorus_2_dry_wet`.
 - Rows in the left panel can be dragged to reorder the chain, and clicking one scrolls to that effect. Both
@@ -134,6 +160,10 @@ target). The stage is a Hann-windowed overlap-add FFT (75% overlap) between the 
 - The full matrix is wired: LFOs, envelopes, randoms, macros and MIDI sources (note, velocity, aftertouch,
   slide, lift, mod wheel, pitch wheel) can drive lane level and pan, filter parameters and effect parameters.
   The table and morph controls show modulation rings and meters, including when docked.
+
+- **Modulate the points of drawn lines.** Drag a modulation source over an LFO shape or a spectral curve and every
+  point shows an X and a Y target. Drop on one like on a knob and set the amount with the usual ring. Modulated
+  points get a ring that follows where the modulation moves them. Up to 32 point targets per preset.
 
 ### Presets and oversampling
 
@@ -167,10 +197,6 @@ resized.
   including section overrides of that colour. Up to 24 glowing colours are used at once. Glow can be set per
   bin as well, and knobs also get a halo for the Rotary Arc colour.
 - **Gradients:** any colour can be turned into a gradient with the GRADIENT button: the colour is the first stop, with one or two more stops and an angle. Pixels drawn in that colour take their colour from the gradient across the window (global colours) or across the bin's sections (bin overrides). Gradients apply instantly and are saved in the skin.
-- **More effects from the Vial bundle:** Pitch Shifter (granular, multiband granular, retro and spectral engines with formant control), Utility (gain, pan, width, Haas, mono bass, phase invert, DC filter and a level meter), Freq Shifter, Vibrato and Tremolo join the effects rack, each usable as many times as you like.
-- **Modulate the points of drawn lines:** drag a modulation source over an LFO shape or a spectral curve and every point shows an X and a Y target; drop on one like on a knob and set the amount with the usual ring. Up to 32 point targets per preset.
-- **New distortions:** Tube (asymmetric, even harmonics), Saturator (smooth cubic) and Overdrive (exponential soft clip) in the Distortion effect.
-- **Other filters:** a new filter category with Band Reject, All-Pass, Metal Comb, Metal Reverb, Disperser (the drive knob sets 1-64 stages) and Custom (draw three response curves A/B/C and morph between them with the blend knob), in Filter 1, Filter 2 and every Filter effect.
 - **Bevels:** the BEVEL button next to GRADIENT lights the rim of everything drawn in that colour like raised (or, with a negative depth, pressed-in) glass. SIZE sets the rim width, DEPTH how strongly it is lit, GLOSS adds a curved glassy sheen across each section for aero / glossy looks, and LIGHT sets where the light comes from. It works with or without a gradient on the same colour, applies instantly and is saved in the skin.
 - **Smooth editing:** colour and value edits are applied at a limited rate so the plugin window stays smooth
   while you drag; glow changes apply instantly.
