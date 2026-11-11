@@ -90,6 +90,7 @@ class LineEditor : public OpenGlLineRenderer, public TextEditor::Listener {
       position_circle_.setBounds(getLocalBounds());
       point_circles_.setBounds(getLocalBounds());
       power_circles_.setBounds(getLocalBounds());
+      mod_circles_.setBounds(getLocalBounds());
       resetPositions();
     }
 
@@ -246,6 +247,7 @@ class LineEditor : public OpenGlLineRenderer, public TextEditor::Listener {
     OpenGlQuad position_circle_;
     OpenGlMultiQuad point_circles_;
     OpenGlMultiQuad power_circles_;
+    OpenGlMultiQuad mod_circles_;  // rings on the points that have a modulation, at their modulated position
     std::unique_ptr<OpenGlTextEditor> value_entry_;
     bool entering_phase_;
     int entering_index_;

@@ -107,16 +107,17 @@ namespace vital {
       return otherClamp(turn / kOtherTwoPi, 0.0f, 1.0f);
     }
 
+    // Disperser: the display is the group delay (how long each frequency is held back), which is where the stages
+    // show up. Pinched stages stack into one tall peak at the cutoff; spread stages make a low, wide plateau.
     int stages = stagesForAmount(otherClamp(blend, 0.0f, 2.0f) * 0.5f);
-    float spread = resonance * 2.0f;
     float total = 0.0f;
     for (int stage = 0; stage < stages; ++stage) {
-      float ratio = std::pow(2.0f, spread * stage / std::max(1, stages - 1));
-      float stage_cutoff = otherClamp(cutoff * ratio, 10.0f, 0.45f * sample_rate);
+      float stage_cutoff = otherClamp(cutoff * disperserRatio(stage, stages, resonance), 10.0f,
+                                      0.45f * sample_rate);
       float omega = warped / std::tan(kOtherTwoPi * stage_cutoff / sample_rate * 0.5f);
-      total += 2.0f * std::atan(omega);  // 0 .. pi per stage
+      total += 2.0f * omega / (1.0f + omega * omega);  // d(phase)/d(ln f), 1 at the stage frequency
     }
-    return otherClamp(total / (stages * 3.14159265f), 0.0f, 1.0f);
+    return otherClamp(std::pow(total / stages, 0.7f), 0.0f, 1.0f);
   }
 
   float OtherFilter::responseDb(int style, float frequency, float midi_cutoff, float resonance, float blend,
@@ -238,6 +239,20 @@ namespace vital {
     poly_mask reset_mask = getResetMask(kReset);
     if (reset_mask.anyMask())
       reset(reset_mask);
+
+    // Drive: soft-clips the input ahead of the filter (with a little makeup so it saturates rather than just gets louder).
+    poly_float drive = filter_state_.drive;
+    float max_drive = 1.0f, makeup_lanes[kLanes];
+    for (int lane = 0; lane < kLanes; ++lane) {
+      max_drive = std::max(max_drive, drive[lane]);
+      makeup_lanes[lane] = 1.0f / std::sqrt(std::max(1.0f, drive[lane]));
+    }
+    if (max_drive > 1.001f) {
+      poly_float makeup = fromLanes(makeup_lanes);
+      for (int i = 0; i < num_samples; ++i)
+        driven_[i] = futils::tanh(audio_in[i] * drive) * makeup;
+      audio_in = driven_;
+    }
 
     switch (style) {
       case kBandReject: processBiquads(audio_in, num_samples, false); break;
@@ -421,19 +436,18 @@ namespace vital {
   }
 
   // A chain of first-order all-passes: phase dispersion without changing the magnitude. The blend knob is the stage
-  // count (1 to 64); cutoff is where the phase turns, resonance spreads the stages apart (up to two octaves).
+  // count (1 to 64); cutoff is the centre of the dispersion and resonance pinches the stages in towards it (none = spread over six octaves).
   void OtherFilter::processDisperser(const poly_float* audio_in, int num_samples) {
     poly_float* out = output()->buffer;
     const poly_float* midi = filter_state_.midi_cutoff_buffer;
     int stages = stagesForAmount(filter_state_.pass_blend[0] * 0.5f);
-    float spread = otherClamp(filter_state_.resonance_percent[0], 0.0f, 1.0f) * 2.0f;
     float nyquist_limit = 0.45f * sample_rate_cache_;
 
     for (int start = 0; start < num_samples; start += kSubBlock * 2) {
       int count = std::min(kSubBlock * 2, num_samples - start);
       poly_float midi_now = midi[start];
       for (int stage = 0; stage < stages; ++stage) {
-        float ratio = std::pow(2.0f, spread * stage / std::max(1, stages - 1));
+        float ratio = disperserRatio(stage, stages, filter_state_.resonance_percent[0]);
         float coefficients[kLanes];
         for (int lane = 0; lane < kLanes; ++lane) {
           float frequency = otherClamp(utils::midiNoteToFrequency(midi_now[lane]) * ratio, 10.0f, nyquist_limit);

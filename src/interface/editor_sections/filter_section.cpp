@@ -449,9 +449,12 @@ void FilterSection::resized() {
     curve_editors_[i]->setSizeRatio(size_ratio_);
     curve_editors_[i]->setBounds(editor_bounds);
   }
-  int button_size = std::max(14, static_cast<int>(20 * size_ratio_));
-  edit_curve_button_->setBounds(editor_bounds.getRight() - button_size - getWidgetMargin(),
-                                editor_bounds.getY() + getWidgetMargin(), button_size, button_size);
+  // The blend and resonance bars overlap the display edges, so the pencil sits inside them and stays on top.
+  int button_size = std::max(24, static_cast<int>(30 * size_ratio_));
+  int button_inset = 2 * getSliderOverlapWithSpace() + getWidgetMargin();
+  edit_curve_button_->setBounds(editor_bounds.getRight() - button_size - button_inset,
+                                editor_bounds.getY() + button_inset, button_size, button_size);
+  edit_curve_button_->toFront(false);
 
   filter_label_1_->setFontType(PlainTextComponent::kRegular);
   filter_label_2_->setFontType(PlainTextComponent::kRegular);
@@ -659,6 +662,7 @@ void FilterSection::showCurveEditor() {
   edit_curve_button_->setVisible(custom);
   edit_curve_button_->getGlComponent()->setVisible(custom);
   filter_response_->setVisible(!editing);
+  edit_curve_button_->toFront(false);
 }
 
 void FilterSection::showModelKnobs() {
@@ -684,8 +688,8 @@ void FilterSection::showModelKnobs() {
 
   if (model == vital::constants::kOther) {
     // The blend slider is the width of Band Reject, the stage count of the Disperser, the spacing of the Metal Comb,
-    // the size of the Metal Reverb and the frame of the Custom filter. All-Pass has none, and none use drive.
-    drive_->setVisible(false);
+    // the size of the Metal Reverb and the frame of the Custom filter. All-Pass has none. Drive works on all of them.
+    drive_->setVisible(true);
     blend_->setVisible(current_style_ != vital::OtherFilter::kAllPass);
     switch (current_style_) {
       case vital::OtherFilter::kBandReject: blend_->setPopupPrefix("Width: "); break;
@@ -718,8 +722,6 @@ void FilterSection::setLabelText() {
     filter_label_2_->setText("KEY TRK");
     if (current_model_ == vital::constants::kComb)
       filter_label_1_->setText("CUT");
-    else if (current_model_ == vital::constants::kOther)
-      filter_label_1_->setText("");
     else
       filter_label_1_->setText("DRIVE");
   }

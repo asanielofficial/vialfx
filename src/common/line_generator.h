@@ -115,6 +115,8 @@ class LineGenerator {
     int pointSlot(int index, int axis) const { return axis == kAxisX ? slot_x_[index] : slot_y_[index]; }
     void setPointSlot(int index, int axis, int slot) { (axis == kAxisX ? slot_x_[index] : slot_y_[index]) = slot; }
     bool hasSlot(int slot) const;
+    // How far the modulation currently moves a point (in point coordinates).
+    float modOffset(int index, int axis) const { return axis == kAxisX ? mod_x_[index] : mod_y_[index]; }
     // Which point and axis a slot is bound to; false if it is not bound on this line.
     bool findSlot(int slot, int& index, int& axis) const;
     void clearPointModulation();

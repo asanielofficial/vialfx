@@ -6,6 +6,8 @@
 #include "processor.h"
 #include "synth_filter.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <string>
 #include <vector>
@@ -37,6 +39,15 @@ namespace vital {
       // The number of disperser stages for the blend knob (0..1 of its range).
       static int stagesForAmount(float amount) {
         return 1 + static_cast<int>(std::round(std::min(1.0f, std::max(0.0f, amount)) * (kMaxStages - 1)));
+      }
+
+      // Frequency ratio of a disperser stage: stages are spread evenly (in octaves) around the cutoff, over six
+      // octaves with no resonance down to all on the cutoff with full resonance.
+      static float disperserRatio(int stage, int stages, float resonance) {
+        if (stages <= 1)
+          return 1.0f;
+        float range = 6.0f * (1.0f - std::min(1.0f, std::max(0.0f, resonance)));
+        return std::pow(2.0f, (static_cast<float>(stage) / (stages - 1) - 0.5f) * range);
       }
 
       // While a scope is alive, filters made on this thread find their curves in the table (set * 3 + curve).
@@ -118,6 +129,7 @@ namespace vital {
       void processCustom(const poly_float* audio_in, int num_samples);
       void updateCustomCoefficients(float morph, float shift_octaves, float depth);
 
+      poly_float driven_[kMaxBufferSize];
       int last_style_;
       mono_float sample_rate_cache_;
 
