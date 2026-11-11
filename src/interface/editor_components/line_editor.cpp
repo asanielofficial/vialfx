@@ -763,24 +763,24 @@ void LineEditor::resetWavePath() {
   }
 }
 
-inline float LineEditor::padY(float y) {
+float LineEditor::padY(float y) {
   float pad = size_ratio_ * kPaddingY;
   return y * (getHeight() - 2.0f * pad) / getHeight() + pad;
 }
 
-inline float LineEditor::unpadY(float y) {
+float LineEditor::unpadY(float y) {
   float pad = size_ratio_ * kPaddingY;
   return (y - pad) * getHeight() / (getHeight() - 2.0f * pad);
 }
 
-inline float LineEditor::padX(float x) {
+float LineEditor::padX(float x) {
   if (loop_)
     return x;
   float pad = size_ratio_ * kPaddingX;
   return x * (getWidth() - 2.0f * pad) / getWidth() + pad;
 }
 
-inline float LineEditor::unpadX(float x) {
+float LineEditor::unpadX(float x) {
   if (loop_)
     return x;
   float pad = size_ratio_ * kPaddingX;
