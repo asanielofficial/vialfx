@@ -28,6 +28,7 @@
 // vital::kMaxEffectInstances per type), so all of their parameters are real controls that can be automated and
 // modulated; adding an effect takes the first unused copy of its type.
 
+#include "modulation_connection_processor.h"
 #include "JuceHeader.h"
 
 #include "chorus_section.h"
