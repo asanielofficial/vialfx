@@ -9,6 +9,7 @@
 #include "embedded/vialfx_fonts.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <map>
 
@@ -37,6 +38,30 @@ namespace vialfx {
         up = false;
       }
       return out;
+    }
+
+    // Cuts a label to fit a width (Visage does not clip text), by a rough per-character width.
+    std::string fit(const std::string& text, float width, float font_size) {
+      size_t max_chars = (size_t)std::max(3.0f, width / (font_size * 0.52f));
+      if (text.size() <= max_chars)
+        return text;
+      return text.substr(0, max_chars - 2) + "..";
+    }
+
+    // "Compressor 2 Attack" on the Compressor tab becomes "Attack 2".
+    std::string shortName(const std::string& display, const std::string& module) {
+      std::string name = display;
+      std::string prefix = titleCase(module);
+      if (name.compare(0, prefix.size(), prefix) == 0)
+        name = name.substr(prefix.size());
+      while (!name.empty() && name[0] == ' ')
+        name.erase(0, 1);
+      size_t digits = 0;
+      while (digits < name.size() && std::isdigit((unsigned char)name[digits]))
+        ++digits;
+      if (digits > 0 && digits < name.size() && name[digits] == ' ')
+        name = name.substr(digits + 1) + " " + name.substr(0, digits);
+      return name.empty() ? display : name;
     }
 
     class Knob : public visage::Frame {
@@ -88,8 +113,8 @@ namespace vialfx {
           canvas.text(host_->valueText(param_.id, value_), label_font, visage::Font::kCenter, 0, y + size,
                       w, 14.0f * dpiScale());
           canvas.setColor(kDim);
-          canvas.text(param_.display_name, label_font, visage::Font::kCenter, 0, y + size + 14.0f * dpiScale(),
-                      w, 14.0f * dpiScale());
+          canvas.text(fit(param_.display_name, w, 11.0f * dpiScale()), label_font, visage::Font::kCenter, 0,
+                      y + size + 14.0f * dpiScale(), w, 14.0f * dpiScale());
         }
 
         void mouseEnter(const visage::MouseEvent&) override { hovering_ = true; redraw(); }
@@ -160,7 +185,7 @@ namespace vialfx {
           canvas.roundedRectangle(0, y, width(), h, 5.0f * s);
           visage::Font font(11.0f * s, resources::fonts::Lato_Regular_ttf);
           canvas.setColor(on ? kBackground : (hovering_ ? kText : kDim));
-          canvas.text(param_.display_name, font, visage::Font::kCenter, 0, y, width(), h);
+          canvas.text(fit(param_.display_name, width(), 11.0f * s), font, visage::Font::kCenter, 0, y, width(), h);
         }
 
         void mouseEnter(const visage::MouseEvent&) override { hovering_ = true; redraw(); }
@@ -200,11 +225,11 @@ namespace vialfx {
           visage::Font small(10.0f * s, resources::fonts::Lato_Regular_ttf);
           visage::Font font(12.0f * s, resources::fonts::Lato_Regular_ttf);
           canvas.setColor(kDim);
-          canvas.text(param_.display_name, small, visage::Font::kLeft, 2.0f * s, 0, width(), y);
+          canvas.text(fit(param_.display_name, width(), 10.0f * s), small, visage::Font::kLeft, 2.0f * s, 0, width(), y);
           canvas.setColor(hovering_ ? 0xff343841 : kPanel);
           canvas.roundedRectangle(0, y, width(), h, 5.0f * s);
           canvas.setColor(kText);
-          canvas.text(host_->valueText(param_.id, value_), font, visage::Font::kCenter, 0, y, width(), h);
+          canvas.text(fit(host_->valueText(param_.id, value_), width(), 12.0f * s), font, visage::Font::kCenter, 0, y, width(), h);
         }
 
         void mouseEnter(const visage::MouseEvent&) override { hovering_ = true; redraw(); }
@@ -301,34 +326,51 @@ namespace vialfx {
         int selected = 0;
         std::function<void(int)> on_select;
 
-        void draw(visage::Canvas& canvas) override {
-          visage::Font font(12.0f * dpiScale(), resources::fonts::Lato_Regular_ttf);
+        float rowHeight() const { return (kTabHeight + 4.0f) * dpiScale(); }
+
+        // Rows needed at a given width.
+        int rowsFor(float total_width) const {
+          int rows = 1;
           float x = 0.0f;
           for (size_t i = 0; i < tabs.size(); ++i) {
-            float tab_w = tabWidth(i);
+            float w = tabWidth(i);
+            if (x > 0.0f && x + w > total_width) { ++rows; x = 0.0f; }
+            x += w;
+          }
+          return rows;
+        }
+
+        void draw(visage::Canvas& canvas) override {
+          visage::Font font(12.0f * dpiScale(), resources::fonts::Lato_Regular_ttf);
+          float x = 0.0f, y = 0.0f;
+          for (size_t i = 0; i < tabs.size(); ++i) {
+            float w = tabWidth(i);
+            if (x > 0.0f && x + w > width()) { x = 0.0f; y += rowHeight(); }
             canvas.setColor((int)i == selected ? kPanel : kBackground);
-            canvas.roundedRectangle(x, 0, tab_w - 3.0f * dpiScale(), height(), 6.0f * dpiScale());
+            canvas.roundedRectangle(x, y, w - 3.0f * dpiScale(), kTabHeight * dpiScale(), 6.0f * dpiScale());
             canvas.setColor((int)i == selected ? kAccent : kDim);
-            canvas.text(tabs[i], font, visage::Font::kCenter, x, 0, tab_w - 3.0f * dpiScale(), height());
-            x += tab_w;
+            canvas.text(tabs[i], font, visage::Font::kCenter, x, y, w - 3.0f * dpiScale(), kTabHeight * dpiScale());
+            x += w;
           }
         }
 
         void mouseDown(const visage::MouseEvent& e) override {
-          float x = 0.0f;
+          float x = 0.0f, y = 0.0f;
           for (size_t i = 0; i < tabs.size(); ++i) {
-            x += tabWidth(i);
-            if (e.position.x < x) {
+            float w = tabWidth(i);
+            if (x > 0.0f && x + w > width()) { x = 0.0f; y += rowHeight(); }
+            if (e.position.x >= x && e.position.x < x + w && e.position.y >= y && e.position.y < y + rowHeight()) {
               selected = (int)i;
               if (on_select) on_select(selected);
               redraw();
               return;
             }
+            x += w;
           }
         }
 
       private:
-        float tabWidth(size_t i) const { return (14.0f + 7.0f * tabs[i].size()) * dpiScale(); }
+        float tabWidth(size_t i) const { return (22.0f + 7.5f * tabs[i].size()) * dpiScale(); }
     };
 
     class VialfxGui : public GuiWindow {
@@ -336,8 +378,11 @@ namespace vialfx {
         explicit VialfxGui(GuiHost* host) : host_(host) {
           std::map<std::string, std::vector<GuiParam>> by_module;
           for (const GuiParam& p : host->params())
-            if (p.name != "bypass")
-              by_module[p.module].push_back(p);
+            if (p.name != "bypass") {
+              GuiParam q = p;
+              q.display_name = shortName(p.display_name, p.module);
+              by_module[p.module].push_back(q);
+            }
 
           app_ = std::make_unique<visage::ApplicationWindow>();
           app_->setWindowDimensions(kDesignWidth, kDesignHeight);
@@ -417,8 +462,10 @@ namespace vialfx {
           float pad = 16.0f * s;
           if (bypass_)
             bypass_->setBounds(app_->width() - pad - 90.0f * s, 14.0f * s, 90.0f * s, 28.0f * s);
-          tabs_.setBounds(pad, kHeaderHeight * s + 10.0f * s, app_->width() - 2 * pad, kTabHeight * s);
-          float top = (kHeaderHeight + kTabHeight + 24.0f) * s;
+          float tabs_width = app_->width() - 2 * pad;
+          float tabs_height = tabs_.rowsFor(tabs_width) * tabs_.rowHeight();
+          tabs_.setBounds(pad, kHeaderHeight * s + 10.0f * s, tabs_width, tabs_height);
+          float top = kHeaderHeight * s + 10.0f * s + tabs_height + 14.0f * s;
           for (auto& p : pages_)
             p->setBounds(pad, top, app_->width() - 2 * pad, app_->height() - top - pad);
         }
