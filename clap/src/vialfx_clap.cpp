@@ -5,6 +5,7 @@
 #include <clap/ext/gui.h>
 #include <clap/helpers/host-proxy.hxx>
 #include <clap/helpers/plugin.hxx>
+#include <cmath>
 #include <cstring>
 
 #ifndef VIALFX_VERSION
@@ -237,6 +238,18 @@ namespace vialfx {
 
     writeOutputEvents(p->out_events);
 
+    {
+      // Peak levels for the interface meters: new peaks hold, then fall off block by block.
+      float peak[4] = { 0, 0, 0, 0 };
+      for (int i = 0; i < block.num_samples; ++i) {
+        if (block.input[0]) { peak[0] = std::max(peak[0], std::fabs(block.input[0][i])); peak[1] = std::max(peak[1], std::fabs(block.input[1][i])); }
+        if (block.output[0]) { peak[2] = std::max(peak[2], std::fabs(block.output[0][i])); peak[3] = std::max(peak[3], std::fabs(block.output[1][i])); }
+      }
+      float fall = std::pow(0.5f, block.num_samples / (0.15f * (float)sample_rate_));
+      for (int k = 0; k < 4; ++k)
+        peaks_[k].store(std::max(peak[k], peaks_[k].load() * fall));
+    }
+
     int latency = synth_->latencySamples();
     if (latency != reported_latency_) {
       reported_latency_ = latency;
@@ -358,5 +371,8 @@ namespace vialfx {
     if (_host.canUseParams()) _host.paramsRequestFlush();
   }
   std::string VialfxClapPlugin::presetName() const { return synth_->getPresetName().toStdString(); }
+  void VialfxClapPlugin::levels(float* il, float* ir, float* ol, float* orr) const {
+    *il = peaks_[0].load(); *ir = peaks_[1].load(); *ol = peaks_[2].load(); *orr = peaks_[3].load();
+  }
   std::string VialfxClapPlugin::version() const { return VIALFX_VERSION; }
 }

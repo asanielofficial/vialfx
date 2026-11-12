@@ -85,6 +85,7 @@ namespace vialfx {
       void endGesture(uint32_t id) override;
       std::string presetName() const override;
       std::string version() const override;
+      void levels(float* input_l, float* input_r, float* output_l, float* output_r) const override;
 
     private:
       void handleInputEvents(const clap_input_events* in);
@@ -100,6 +101,7 @@ namespace vialfx {
       std::atomic<bool> latency_dirty_ { false };
       int reported_latency_ = 0;
       Transport transport_;
+      std::atomic<float> peaks_[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
       juce::MidiBuffer midi_;
   };
 }

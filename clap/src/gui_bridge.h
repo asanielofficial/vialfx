@@ -35,6 +35,8 @@ namespace vialfx {
       virtual void endGesture(uint32_t id) = 0;
       virtual std::string presetName() const = 0;
       virtual std::string version() const = 0;
+      // Recent peak levels (0..1+) of the input and output, for the meters.
+      virtual void levels(float* input_l, float* input_r, float* output_l, float* output_r) const = 0;
   };
 
   // The window the plugin embeds in the host. Pixel sizes are native pixels.

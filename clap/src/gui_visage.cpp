@@ -413,6 +413,7 @@ namespace vialfx {
             for (auto& p : pages_)
               if (p->isVisible()) p->refresh();
             if (bypass_) bypass_->refresh();
+            app_->redraw();
           };
           timer_.startTimer(50);
         }
@@ -451,10 +452,36 @@ namespace vialfx {
           visage::Font small(11.0f * s, resources::fonts::Lato_Regular_ttf);
           canvas.setColor(kAccent);
           canvas.text("VialFX", title, visage::Font::kLeft, 20.0f * s, 0, 200.0f * s, kHeaderHeight * s);
+          drawMeters(canvas, s);
           canvas.setColor(kDim);
           std::string right = "Visage interface (test)  |  " + host_->version();
           canvas.text(right, small, visage::Font::kRight, app_->width() - 420.0f * s - 120.0f * s, 0,
                       420.0f * s, kHeaderHeight * s);
+        }
+
+        void drawMeters(visage::Canvas& canvas, float s) {
+          float values[4];
+          host_->levels(&values[0], &values[1], &values[2], &values[3]);
+          visage::Font small(10.0f * s, resources::fonts::Lato_Regular_ttf);
+          float meter_w = 150.0f * s, meter_h = 6.0f * s;
+          float x = 230.0f * s;
+          const char* names[2] = { "IN", "OUT" };
+          for (int m = 0; m < 2; ++m) {
+            float y = 14.0f * s + m * 20.0f * s;
+            canvas.setColor(kDim);
+            canvas.text(names[m], small, visage::Font::kLeft, x, y - 4.0f * s, 30.0f * s, 14.0f * s);
+            for (int c = 0; c < 2; ++c) {
+              float level = values[m * 2 + c];
+              // -60 dB .. +6 dB mapped to the bar
+              float db = level > 1.0e-4f ? 20.0f * std::log10(level) : -80.0f;
+              float norm = std::clamp((db + 60.0f) / 66.0f, 0.0f, 1.0f);
+              float by = y + c * (meter_h + 1.0f * s);
+              canvas.setColor(kBackground);
+              canvas.rectangle(x + 34.0f * s, by, meter_w, meter_h);
+              canvas.setColor(db > 0.0f ? 0xffff5a5a : kAccent);
+              canvas.rectangle(x + 34.0f * s, by, meter_w * norm, meter_h);
+            }
+          }
         }
 
         void layout() {
