@@ -8,7 +8,7 @@ on:
       platform:
         description: "Platform to build"
         type: choice
-        options: [ windows, linux ]
+        options: [ windows, linux, windows-visage ]
         default: windows
 
 jobs:
@@ -113,3 +113,53 @@ jobs:
         with:
           name: VialFX-windows-portable
           path: VialFX-windows-portable.zip
+
+  # The Visage port: a CLAP plugin (clap-helpers, interface in Visage) exported to VST3 by clap-wrapper. Built with CMake
+  # from clap/ beside the Projucer builds above, which are unchanged.
+  windows-visage:
+    if: inputs.platform == 'windows-visage'
+    name: Windows portable (Visage CLAP + VST3, zip)
+    runs-on: windows-2022
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          cmake -S clap -B clap-build -G "Visual Studio 17 2022" -A x64 2>&1 | Tee-Object -FilePath configure.log
+          if ($LASTEXITCODE -ne 0) {
+            Select-String -Path configure.log -Pattern 'Error|error|fatal' | Select-Object -Unique -First 30 |
+              ForEach-Object { $t = $_.Line.Trim(); if ($t.Length -gt 450) { $t = $t.Substring(0,450) }; Write-Host "::error::$t" }
+            exit 1
+          }
+
+      - name: Build (Release)
+        shell: pwsh
+        run: |
+          cmake --build clap-build --config Release --parallel 2>&1 | Tee-Object -FilePath build.log
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            Select-String -Path build.log -Pattern ' error |fatal error|LNK[0-9]+' | Select-Object -Unique -First 40 |
+              ForEach-Object { $t = $_.Line.Trim(); if ($t.Length -gt 450) { $t = $t.Substring(0,450) }; Write-Host "::error::$t" }
+          }
+          exit $code
+
+      - name: Collect the plugins and check for Vital branding
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory dist | Out-Null
+          Get-ChildItem -Recurse clap-build -Include *.vst3, *.clap -File | Where-Object { $_.FullName -notmatch '_deps' } |
+            ForEach-Object { Write-Host $_.FullName; Copy-Item $_.FullName dist\ }
+          if (-not (Get-ChildItem dist -Filter *.vst3) -or -not (Get-ChildItem dist -Filter *.clap)) {
+            Write-Host "::error::the build did not produce both a .vst3 and a .clap"; Get-ChildItem -Recurse clap-build -Include *.vst3,*.clap | Out-Host; exit 1
+          }
+          python clap\tests\branding_check.py dist
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::[binary] Vital branding or service domain found in a plugin"; exit 1 }
+          Compress-Archive -Path dist\* -DestinationPath VialFX-visage-windows-portable.zip
+          Get-ChildItem VialFX-visage-windows-portable.zip | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VialFX-visage-windows-portable
+          path: VialFX-visage-windows-portable.zip
