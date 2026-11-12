@@ -141,32 +141,158 @@ namespace vialfx {
         float drag_start_norm_ = 0.0f;
     };
 
-    // A page of knobs for one module of the engine.
+    // Two-state switch (on/off style parameters).
+    class Toggle : public visage::Frame {
+      public:
+        Toggle(GuiHost* host, const GuiParam& param) : host_(host), param_(param) { }
+
+        void refresh() {
+          float v = host_->value(param_.id);
+          if (v != value_) { value_ = v; redraw(); }
+        }
+
+        void draw(visage::Canvas& canvas) override {
+          float s = dpiScale();
+          bool on = value_ > param_.min + 0.5f * (param_.max - param_.min);
+          float h = std::min(height(), 22.0f * s);
+          float y = (height() - h) * 0.5f;
+          canvas.setColor(on ? kAccent : kPanel);
+          canvas.roundedRectangle(0, y, width(), h, 5.0f * s);
+          visage::Font font(11.0f * s, resources::fonts::Lato_Regular_ttf);
+          canvas.setColor(on ? kBackground : (hovering_ ? kText : kDim));
+          canvas.text(param_.display_name, font, visage::Font::kCenter, 0, y, width(), h);
+        }
+
+        void mouseEnter(const visage::MouseEvent&) override { hovering_ = true; redraw(); }
+        void mouseExit(const visage::MouseEvent&) override { hovering_ = false; redraw(); }
+        void mouseDown(const visage::MouseEvent& e) override {
+          if (!e.isLeftButton())
+            return;
+          bool on = value_ > param_.min + 0.5f * (param_.max - param_.min);
+          value_ = on ? param_.min : param_.max;
+          host_->beginGesture(param_.id);
+          host_->setValue(param_.id, value_);
+          host_->endGesture(param_.id);
+          redraw();
+        }
+
+      private:
+        GuiHost* host_;
+        GuiParam param_;
+        float value_ = -1.0e30f;
+        bool hovering_ = false;
+    };
+
+    // Chooser for indexed parameters: click or wheel steps through the choices, right click or Shift steps back.
+    class Selector : public visage::Frame {
+      public:
+        Selector(GuiHost* host, const GuiParam& param) : host_(host), param_(param) { }
+
+        void refresh() {
+          float v = host_->value(param_.id);
+          if (v != value_) { value_ = v; redraw(); }
+        }
+
+        void draw(visage::Canvas& canvas) override {
+          float s = dpiScale();
+          float h = std::min(height(), 22.0f * s);
+          float y = height() - h;
+          visage::Font small(10.0f * s, resources::fonts::Lato_Regular_ttf);
+          visage::Font font(12.0f * s, resources::fonts::Lato_Regular_ttf);
+          canvas.setColor(kDim);
+          canvas.text(param_.display_name, small, visage::Font::kLeft, 2.0f * s, 0, width(), y);
+          canvas.setColor(hovering_ ? 0xff343841 : kPanel);
+          canvas.roundedRectangle(0, y, width(), h, 5.0f * s);
+          canvas.setColor(kText);
+          canvas.text(host_->valueText(param_.id, value_), font, visage::Font::kCenter, 0, y, width(), h);
+        }
+
+        void mouseEnter(const visage::MouseEvent&) override { hovering_ = true; redraw(); }
+        void mouseExit(const visage::MouseEvent&) override { hovering_ = false; redraw(); }
+        void mouseDown(const visage::MouseEvent& e) override {
+          step(e.isRightButton() || e.isShiftDown() ? -1 : 1);
+        }
+        bool mouseWheel(const visage::MouseEvent& e) override {
+          step(e.wheel_delta_y > 0 ? 1 : -1);
+          return true;
+        }
+
+      private:
+        void step(int direction) {
+          float count = param_.max - param_.min + 1.0f;
+          float index = std::round(value_ - param_.min) + direction;
+          index = std::fmod(index + count, count);
+          value_ = param_.min + index;
+          host_->beginGesture(param_.id);
+          host_->setValue(param_.id, value_);
+          host_->endGesture(param_.id);
+          redraw();
+        }
+
+        GuiHost* host_;
+        GuiParam param_;
+        float value_ = -1.0e30f;
+        bool hovering_ = false;
+    };
+
+    // A page of controls for one module of the engine: choosers and switches on top, knobs below.
     class ModulePage : public visage::Frame {
       public:
         ModulePage(GuiHost* host, const std::vector<GuiParam>& params) {
           for (const GuiParam& p : params) {
-            knobs_.push_back(std::make_unique<Knob>(host, p));
-            addChild(knobs_.back().get());
+            if (p.stepped && p.max - p.min <= 1.0f) {
+              toggles_.push_back(std::make_unique<Toggle>(host, p));
+              addChild(toggles_.back().get());
+            }
+            else if (p.stepped) {
+              selectors_.push_back(std::make_unique<Selector>(host, p));
+              addChild(selectors_.back().get());
+            }
+            else {
+              knobs_.push_back(std::make_unique<Knob>(host, p));
+              addChild(knobs_.back().get());
+            }
           }
         }
 
         void resized() override {
-          if (knobs_.empty())
-            return;
-          float cell = 92.0f * dpiScale();
+          float s = dpiScale();
+          float y = 0.0f;
+
+          float toggle_w = 112.0f * s, toggle_h = 28.0f * s;
+          int toggle_cols = std::max(1, (int)(width() / toggle_w));
+          for (size_t i = 0; i < toggles_.size(); ++i)
+            toggles_[i]->setBounds((i % toggle_cols) * toggle_w, y + (i / toggle_cols) * toggle_h,
+                                   toggle_w - 6.0f * s, toggle_h - 4.0f * s);
+          if (!toggles_.empty())
+            y += ((toggles_.size() + toggle_cols - 1) / toggle_cols) * toggle_h + 6.0f * s;
+
+          float sel_w = 168.0f * s, sel_h = 48.0f * s;
+          int sel_cols = std::max(1, (int)(width() / sel_w));
+          for (size_t i = 0; i < selectors_.size(); ++i)
+            selectors_[i]->setBounds((i % sel_cols) * sel_w, y + (i / sel_cols) * sel_h, sel_w - 8.0f * s, sel_h - 4.0f * s);
+          if (!selectors_.empty())
+            y += ((selectors_.size() + sel_cols - 1) / sel_cols) * sel_h + 8.0f * s;
+
+          float cell = 92.0f * s;
           int columns = std::max(1, (int)(width() / cell));
           float cell_w = width() / columns;
           for (size_t i = 0; i < knobs_.size(); ++i) {
             int col = (int)i % columns, row = (int)i / columns;
-            knobs_[i]->setBounds(col * cell_w, row * (cell + 10.0f * dpiScale()), cell_w, cell + 6.0f * dpiScale());
+            knobs_[i]->setBounds(col * cell_w, y + row * (cell + 10.0f * s), cell_w, cell + 6.0f * s);
           }
         }
 
-        void refresh() { for (auto& k : knobs_) k->refresh(); }
+        void refresh() {
+          for (auto& k : knobs_) k->refresh();
+          for (auto& t : toggles_) t->refresh();
+          for (auto& c : selectors_) c->refresh();
+        }
 
       private:
         std::vector<std::unique_ptr<Knob>> knobs_;
+        std::vector<std::unique_ptr<Toggle>> toggles_;
+        std::vector<std::unique_ptr<Selector>> selectors_;
     };
 
     class TabBar : public visage::Frame {
@@ -224,6 +350,14 @@ namespace vialfx {
             tabs_.tabs.push_back(titleCase(entry.first));
             app_->addChild(pages_.back().get(), false);
           }
+          for (const GuiParam& p : host->params()) {
+            if (p.name == "bypass") {
+              GuiParam bypass = p;
+              bypass.display_name = "Bypass";
+              bypass_ = std::make_unique<Toggle>(host, bypass);
+              app_->addChild(bypass_.get());
+            }
+          }
           tabs_.on_select = [this](int index) { showPage(index); };
           app_->addChild(&tabs_);
           app_->onResize() += [this] { layout(); };
@@ -233,6 +367,7 @@ namespace vialfx {
           timer_.onTimerCallback() = [this] {
             for (auto& p : pages_)
               if (p->isVisible()) p->refresh();
+            if (bypass_) bypass_->refresh();
           };
           timer_.startTimer(50);
         }
@@ -273,13 +408,15 @@ namespace vialfx {
           canvas.text("VialFX", title, visage::Font::kLeft, 20.0f * s, 0, 200.0f * s, kHeaderHeight * s);
           canvas.setColor(kDim);
           std::string right = "Visage interface (test)  |  " + host_->version();
-          canvas.text(right, small, visage::Font::kRight, app_->width() - 420.0f * s - 16.0f * s, 0,
+          canvas.text(right, small, visage::Font::kRight, app_->width() - 420.0f * s - 120.0f * s, 0,
                       420.0f * s, kHeaderHeight * s);
         }
 
         void layout() {
           float s = app_->dpiScale();
           float pad = 16.0f * s;
+          if (bypass_)
+            bypass_->setBounds(app_->width() - pad - 90.0f * s, 14.0f * s, 90.0f * s, 28.0f * s);
           tabs_.setBounds(pad, kHeaderHeight * s + 10.0f * s, app_->width() - 2 * pad, kTabHeight * s);
           float top = (kHeaderHeight + kTabHeight + 24.0f) * s;
           for (auto& p : pages_)
@@ -297,6 +434,7 @@ namespace vialfx {
         std::unique_ptr<visage::ApplicationWindow> app_;
         std::vector<std::unique_ptr<ModulePage>> pages_;
         TabBar tabs_;
+        std::unique_ptr<Toggle> bypass_;
         visage::EventTimer timer_;
     };
   }
