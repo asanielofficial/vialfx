@@ -3,6 +3,8 @@
 #include "load_save.h"
 
 #include <clap/ext/gui.h>
+#include <clap/helpers/host-proxy.hxx>
+#include <clap/helpers/plugin.hxx>
 #include <cstring>
 
 #ifndef VIALFX_VERSION
