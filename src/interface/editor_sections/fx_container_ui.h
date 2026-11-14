@@ -25,16 +25,6 @@
 #include <string>
 #include <vector>
 
-namespace fx_log {
-  // Temporary diagnostics: one line per step in %TEMP%/vialfx_fxlog.txt, written (and closed) at once so the last
-  // line survives a crash.
-  inline void write(const String& text) {
-    File file = File::getSpecialLocation(File::tempDirectory).getChildFile("vialfx_fxlog.txt");
-    file.appendText(Time::getCurrentTime().toString(false, true, true, true) + " " + text + "\n");
-  }
-}
-#define FXLOG(x) fx_log::write(String(x))
-
 namespace fx_container_ui {
   enum Action {
     kRename = 1,
@@ -121,7 +111,6 @@ class FxBranchTabs : public SynthSection {
     void setTabListener(TabListener* listener) { listener_ = listener; }
 
     void setState(int count, int selected) {
-      FXLOG("tabs.setState " + String(count) + " " + String(selected));
       bool changed = count != count_ || selected != selected_;
       bool selection_changed = selected != selected_;
       count_ = count;
@@ -139,7 +128,6 @@ class FxBranchTabs : public SynthSection {
     void paintBackground(Graphics& g) override { }
 
     void paint(Graphics& g) override {
-      FXLOG("tabs.paint " + String(getWidth()) + "x" + String(getHeight()));
       int h = getHeight();
       float round_amount = std::max(3.0f, h * 0.25f);
       Colour accent = findColour(Skin::kWidgetPrimary1, true);
@@ -315,7 +303,6 @@ class FxBranchStrip : public SynthSection {
     }
 
     void paintBackground(Graphics& g) override {
-      FXLOG("strip.paintBackground " + getName());
       paintBody(g);
       setLabelFont(g);
       drawLabelForComponent(g, "LEVEL", level_.get());
@@ -324,7 +311,6 @@ class FxBranchStrip : public SynthSection {
     }
 
     void resized() override {
-      FXLOG("strip.resized " + getName() + " " + String(getWidth()) + "x" + String(getHeight()));
       int margin = std::max(3, static_cast<int>(getWidgetMargin()));
       int label_space = std::max(10, static_cast<int>(getHeight() * 0.28f));
       int knob = std::max(8, getHeight() - label_space - margin);
@@ -387,7 +373,7 @@ class FxContainerPanel : public SynthSection, public Value::Listener, public FxB
         addSubSection(tabs_.get());
         for (int b = 0; b < vital::kMaxParallelBranches; ++b) {
           strips_[b] = std::make_unique<FxBranchStrip>(index, b);
-          addSubSection(strips_[b].get(), false);
+          addSubSection(strips_[b].get());
           strips_[b]->setVisible(false);
         }
       }
@@ -435,7 +421,6 @@ class FxContainerPanel : public SynthSection, public Value::Listener, public FxB
 
     // The parallels of a split: the branch slots in order and the position shown.
     void setBranches(const std::vector<int>& slots, int selected) {
-      FXLOG("panel.setBranches " + String(index_) + " n=" + String((int) slots.size()) + " sel=" + String(selected));
       slots_ = slots;
       selected_ = selected;
       if (tabs_)
@@ -447,7 +432,6 @@ class FxContainerPanel : public SynthSection, public Value::Listener, public FxB
     Rectangle<int> titleHitBounds() const { return title_hit_; }
 
     void paintBackground(Graphics& g) override {
-      FXLOG("panel.paintBackground " + getName());
       paintBody(g);
       Colour color = findColour(isOn() ? Skin::kWidgetPrimary1 : Skin::kWidgetPrimaryDisabled, true);
       g.setColour(color);
@@ -468,7 +452,6 @@ class FxContainerPanel : public SynthSection, public Value::Listener, public FxB
     }
 
     void resized() override {
-      FXLOG("panel.resized " + getName() + " " + String(getWidth()) + "x" + String(getHeight()));
       if (header_ <= 0)
         header_ = getHeight();
 
