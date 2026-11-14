@@ -12,6 +12,8 @@
 #include "fx_containers.h"
 #include "fonts.h"
 #include "open_gl_image_component.h"
+#include "open_gl_multi_quad.h"
+#include "synth_gui_interface.h"
 #include "paths.h"
 #include "skin.h"
 #include "synth_button.h"
@@ -274,7 +276,98 @@ class FxBranchTabs : public SynthSection {
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FxBranchTabs)
 };
 
-// Level, pan, mute and solo of one parallel.
+// Tints the Mute and Solo pills while they are on.
+class FxPillTint : public OpenGlMultiQuad {
+  public:
+    FxPillTint(SynthButton* mute, SynthButton* solo) : OpenGlMultiQuad(1, Shaders::kRoundedRectangleFragment),
+                                                       mute_(mute), solo_(solo) {
+      setTargetComponent(this);
+    }
+
+    void render(OpenGlWrapper& open_gl, bool animate) override {
+      const float w = getWidth(), h = getHeight();
+      if (w <= 0.0f || h <= 0.0f)
+        return;
+
+      setRounding(findValue(Skin::kLabelBackgroundRounding));
+      setNumQuads(1);
+      draw(open_gl, animate, mute_, Colour(0xffff5a5a).withAlpha(0.6f));
+      draw(open_gl, animate, solo_, Colour(0xffffc84a).withAlpha(0.6f));
+    }
+
+  private:
+    void draw(OpenGlWrapper& open_gl, bool animate, SynthButton* button, Colour color) {
+      if (!button->getToggleState())
+        return;
+
+      const float w = getWidth(), h = getHeight();
+      Rectangle<int> bounds = button->getBounds();
+      setColor(color);
+      setQuad(0, 2.0f * bounds.getX() / w - 1.0f, 1.0f - 2.0f * bounds.getBottom() / h,
+              2.0f * bounds.getWidth() / w, 2.0f * bounds.getHeight() / h);
+      OpenGlMultiQuad::render(open_gl, animate);
+    }
+
+    SynthButton* mute_;
+    SynthButton* solo_;
+};
+
+// Horizontal output level of one parallel (-60..+6 dB): a bar, a slowly falling peak line, red above 0 dBFS.
+class FxBranchMeter : public OpenGlMultiQuad {
+  public:
+    static constexpr float kMinDb = -60.0f, kMaxDb = 6.0f;
+
+    explicit FxBranchMeter(const std::string& id) : OpenGlMultiQuad(1, Shaders::kRoundedRectangleFragment),
+                                                    id_(id), level_(nullptr), smoothed_(0.0f), hold_(0.0f) {
+      setTargetComponent(this);
+    }
+
+    static float dbToPosition(float db) { return std::min(std::max((db - kMinDb) / (kMaxDb - kMinDb), 0.0f), 1.0f); }
+
+    void init(OpenGlWrapper& open_gl) override {
+      SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
+      if (parent && parent->getSynth())
+        level_ = parent->getSynth()->getStatusOutput(id_ + "_meter");
+      OpenGlMultiQuad::init(open_gl);
+    }
+
+    void render(OpenGlWrapper& open_gl, bool animate) override {
+      const float w = getWidth();
+      if (w <= 0.0f || getHeight() <= 0.0f)
+        return;
+      setRounding(findValue(Skin::kWidgetRoundedCorner) * 0.5f);
+
+      float level = 0.0f;
+      if (level_)
+        level = std::max(level_->value()[0], level_->value()[1]);
+      float target = dbToPosition(vital::utils::magnitudeToDb(std::max(level, 1.0e-6f)));
+      smoothed_ = target > smoothed_ ? target : smoothed_ + (target - smoothed_) * 0.25f;
+      hold_ = std::max(smoothed_, hold_ - 0.006f);
+
+      setNumQuads(1);
+      setColor(findColour(Skin::kWidgetBackground, true));
+      setQuad(0, -1.0f, -1.0f, 2.0f, 2.0f);
+      OpenGlMultiQuad::render(open_gl, animate);
+
+      if (smoothed_ * w > 1.0f) {
+        setColor(level >= 1.0f ? Colour(0xffff5a5a) : findColour(Skin::kWidgetPrimary1, true));
+        setQuad(0, -1.0f, -1.0f, 2.0f * smoothed_, 2.0f);
+        OpenGlMultiQuad::render(open_gl, animate);
+      }
+      if (hold_ * w > 3.0f) {
+        setColor(Colours::white.withAlpha(0.85f));
+        setQuad(0, -1.0f + 2.0f * hold_ - 2.0f * 1.5f / w, -1.0f, 2.0f * 2.0f / w, 2.0f);
+        OpenGlMultiQuad::render(open_gl, animate);
+      }
+    }
+
+  private:
+    std::string id_;
+    const vital::StatusOutput* level_;
+    float smoothed_, hold_;
+};
+
+// Level, pan, mute, solo and the level meter of one parallel.
 class FxBranchStrip : public SynthSection {
   public:
     FxBranchStrip(int split, int branch) : SynthSection("psplit_" + std::to_string(split + 1) + "_strip_" + std::to_string(branch + 1)) {
@@ -292,13 +385,15 @@ class FxBranchStrip : public SynthSection {
 
       mute_ = std::make_unique<SynthButton>(id + "_mute");
       solo_ = std::make_unique<SynthButton>(id + "_solo");
-      for (SynthButton* button : { mute_.get(), solo_.get() }) {
+      for (SynthButton* button : { mute_.get(), solo_.get() })
         addButton(button);
-        button->setLookAndFeel(TextLookAndFeel::instance());
-        button->setUiButton(true);
-      }
       mute_->setText("MUTE");
       solo_->setText("SOLO");
+
+      tint_ = std::make_unique<FxPillTint>(mute_.get(), solo_.get());
+      addOpenGlComponent(tint_.get());
+      meter_ = std::make_unique<FxBranchMeter>(id);
+      addOpenGlComponent(meter_.get());
       setSkinOverride(Skin::kAllEffects);
     }
 
@@ -312,24 +407,37 @@ class FxBranchStrip : public SynthSection {
 
     void resized() override {
       int margin = std::max(3, static_cast<int>(getWidgetMargin()));
-      int label_space = std::max(10, static_cast<int>(getHeight() * 0.28f));
-      int knob = std::max(8, getHeight() - label_space - margin);
+      int knob_height = std::max(10, getHeight() - 2 * margin);
+      int knob_width = static_cast<int>(knob_height * 1.27f);
+      // Where the knob circles are centred, without the labels under them.
+      int center_y = margin + static_cast<int>(knob_height * 0.40f);
+
       int x = margin * 2;
-      level_->setBounds(x, margin, knob, knob);
-      x += knob + margin * 3;
-      pan_->setBounds(x, margin, knob, knob);
-      x += knob + margin * 4;
-      int button_width = std::max(40, static_cast<int>(size_ratio_ * 64.0f));
-      int button_height = std::max(14, static_cast<int>(knob * 0.55f));
-      int button_y = margin + (knob - button_height) / 2;
+      level_->setBounds(x, margin, knob_width, knob_height);
+      x += knob_width + margin;
+      pan_->setBounds(x, margin, knob_width, knob_height);
+      x += knob_width + margin * 4;
+
+      int button_width = std::max(40, static_cast<int>(knob_height * 1.0f));
+      int button_height = std::max(14, static_cast<int>(knob_height * 0.34f));
+      int button_y = center_y - button_height / 2;
       mute_->setBounds(x, button_y, button_width, button_height);
       solo_->setBounds(mute_->getRight() + margin, button_y, button_width, button_height);
+
+      // The meter takes what is left.
+      int meter_x = solo_->getRight() + margin * 3;
+      int meter_width = std::max(1, getWidth() - meter_x - margin * 3);
+      int meter_height = std::max(6, static_cast<int>(button_height * 0.6f));
+      meter_->setBounds(meter_x, center_y - meter_height / 2, meter_width, meter_height);
+      tint_->setBounds(getLocalBounds());
       SynthSection::resized();
     }
 
   private:
     std::unique_ptr<SynthSlider> level_, pan_;
     std::unique_ptr<SynthButton> mute_, solo_;
+    std::unique_ptr<FxPillTint> tint_;
+    std::unique_ptr<FxBranchMeter> meter_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FxBranchStrip)
 };

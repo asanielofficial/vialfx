@@ -208,6 +208,7 @@ namespace vital {
           level_[b] = pan_[b] = nullptr;
           mute_[b] = solo_[b] = nullptr;
           last_gain_[b][0] = last_gain_[b][1] = 1.0f;
+          meter_[b].buffer[0] = 0.0f;
         }
       }
 
@@ -220,6 +221,8 @@ namespace vital {
           pan_[b] = createMonoModControl(branch + "_pan");
           mute_[b] = createBaseControl(branch + "_mute");
           solo_[b] = createBaseControl(branch + "_solo");
+          // What the branch adds to the sum, for the level meter of the interface (left and right peaks).
+          createStatusOutput(branch + "_meter", &meter_[b]);
         }
         SynthModule::init();
       }
@@ -229,6 +232,11 @@ namespace vital {
       // Starts a block: refreshes the controls; slot_mask has a bit for every branch slot in use.
       void begin(int num_samples, int slot_mask) {
         SynthModule::process(num_samples);
+        // The meters fall back a little every block; the branches that run push them up again.
+        for (int b = 0; b < kMaxBranches; ++b)
+          meter_[b].buffer[0] = meter_[b].buffer[0] * 0.93f;
+        for (auto& status_source : data_->status_outputs)
+          status_source.second->update();
         any_solo_ = false;
         for (int b = 0; b < kMaxBranches; ++b) {
           if ((slot_mask & (1 << b)) && solo_[b]->value() > 0.5f)
@@ -250,13 +258,17 @@ namespace vital {
         float step_right = (right - last_gain_[slot][1]) / num_samples;
         float gain_left = last_gain_[slot][0], gain_right = last_gain_[slot][1];
         poly_float* sum = accum_.buffer;
+        poly_float peak = 0.0f;
         for (int i = 0; i < num_samples; ++i) {
           gain_left += step_left;
           gain_right += step_right;
-          sum[i] += audio[i] * poly_float(gain_left, gain_right, gain_left, gain_right);
+          poly_float value = audio[i] * poly_float(gain_left, gain_right, gain_left, gain_right);
+          sum[i] += value;
+          peak = poly_float::max(peak, poly_float::abs(value));
         }
         last_gain_[slot][0] = left;
         last_gain_[slot][1] = right;
+        meter_[slot].buffer[0] = poly_float::max(meter_[slot].buffer[0], poly_float(peak[0], peak[1], peak[0], peak[1]));
       }
 
       const poly_float* finish(const poly_float* dry, int num_samples) {
@@ -270,6 +282,8 @@ namespace vital {
           out[i] = dry[i] + (sum[i] - dry[i]) * mix;
         }
         last_mix_ = target;
+        for (auto& status_source : data_->status_outputs)
+          status_source.second->update();
         return out;
       }
 
@@ -278,6 +292,7 @@ namespace vital {
       std::string prefix_;
       Value* on_;
       Output* mix_;
+      Output meter_[kMaxBranches];
       Output* level_[kMaxBranches];
       Output* pan_[kMaxBranches];
       Value* mute_[kMaxBranches];
