@@ -861,7 +861,8 @@ class FxEffectList : public SynthSection, public ScrollBar::Listener {
         virtual ~Listener() { }
         // type is an effect type, or fx_ui::kNumTypes for a Parallel Split.
         virtual void addEffectRequested(int type) = 0;
-        virtual void rowMoved(int key, int target_key, int mode) = 0;
+        // outdent: with kAfter, how many containers to leave when the row was the last one in them.
+        virtual void rowMoved(int key, int target_key, int mode, int outdent) = 0;
         virtual void rowClicked(int key) = 0;
         virtual void rowsDuplicateRequested(const std::vector<int>& keys) = 0;
         virtual void rowsRemoveRequested(const std::vector<int>& keys) = 0;
@@ -928,6 +929,7 @@ class FxEffectList : public SynthSection, public ScrollBar::Listener {
 
     // The visible rows, in order.
     void setChain(const std::vector<fx_ui::RowItem>& items) {
+      FXLOG("list.setChain " + String((int) items.size()));
       items_ = items;
       if (static_cast<int>(items_.size()) > vital::kMaxFxChainEntries)
         items_.resize(vital::kMaxFxChainEntries);
@@ -1115,7 +1117,8 @@ class FxEffectList : public SynthSection, public ScrollBar::Listener {
       int pitch = static_cast<int>(rowPitch());
       int height = static_cast<int>(rowHeight());
       int width = viewport_.getWidth();
-      int total = static_cast<int>(items_.size()) * pitch;
+      // One free row below the last, so a row can be dropped below everything.
+      int total = (static_cast<int>(items_.size()) + 1) * pitch;
       container_->setBounds(0, 0, width, std::max(total, viewport_.getHeight()));
       for (int i = 0; i < static_cast<int>(items_.size()); ++i) {
         int x = rowX(i);
@@ -1264,7 +1267,7 @@ class FxEffectList : public SynthSection, public ScrollBar::Listener {
         return;
 
       int pitch = static_cast<int>(rowPitch());
-      int max_y = std::max(0, (static_cast<int>(items_.size()) - 1) * pitch);
+      int max_y = std::max(0, static_cast<int>(items_.size()) * pitch);
       int y = std::max(0, std::min(max_y, dragged_start_y_ + e.y - mouse_down_y_));
       if (std::abs(e.y - mouse_down_y_) > 3)
         moved_ = true;
@@ -1299,9 +1302,14 @@ class FxEffectList : public SynthSection, public ScrollBar::Listener {
       int target = rowAt(center);
       int mode = kEnd;
       int target_key = 0;
+      int outdent = 0;
       if (target >= 0) {
         const fx_ui::RowItem& item = items_[target];
-        if (item.key == key)
+        // Dragging to the left of the row it lands on leaves the containers it is the last row of.
+        int diff = rowX(target) - e.x;
+        if (diff > indentWidth() / 3)
+          outdent = (diff + indentWidth() - 1) / indentWidth();
+        if (item.key == key && outdent == 0)
           return;
 
         target_key = item.key;
@@ -1311,9 +1319,18 @@ class FxEffectList : public SynthSection, public ScrollBar::Listener {
           mode = fraction < 0.25f && item.kind != fx_ui::kRowBranch ? kBefore : kFirstChild;
         else
           mode = target > source ? kAfter : kBefore;
+        if (item.key == key || outdent > 0) {
+          // Only a move out of the container makes sense here.
+          if (open_container || item.kind == fx_ui::kRowBranch)
+            outdent = 0;
+          else
+            mode = kAfter;
+        }
+        if (mode != kAfter)
+          outdent = 0;
       }
       for (Listener* listener : listeners_)
-        listener->rowMoved(key, target_key, mode);
+        listener->rowMoved(key, target_key, mode, outdent);
     }
 
     std::vector<Listener*> listeners_;
@@ -1512,6 +1529,7 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
     // ---- chain editing (all of it goes through applyChain / commit) ----
 
     void addEffectRequested(int type) override {
+      FXLOG("addEffectRequested " + String(type));
       if (type == fx_ui::kNumTypes) {
         addSplit();
         return;
@@ -1531,7 +1549,7 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
     }
 
     // A row was dropped somewhere else in the list.
-    void rowMoved(int key, int target_key, int mode) override {
+    void rowMoved(int key, int target_key, int mode, int outdent) override {
       int s = findKey(key);
       if (s < 0)
         return;
@@ -1547,11 +1565,20 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
       int pos = static_cast<int>(rest.size());
       if (mode != FxEffectList::kEnd) {
         int t = findTargetPos(target_key);
-        if (t < 0 || (t >= s && t <= e))
+        if (t < 0)
           return;
 
+        if (t >= s && t <= e) {
+          // Dropped on itself: only leaving its container counts.
+          if (target_key != key || outdent <= 0 || mode != FxEffectList::kAfter)
+            return;
+          pos = s;
+          t = -1;
+        }
         int tr = t > e ? t - (e - s + 1) : t;
-        if (mode == FxEffectList::kBefore)
+        if (t < 0) {
+        }
+        else if (mode == FxEffectList::kBefore)
           pos = tr;
         else if (mode == FxEffectList::kFirstChild)
           pos = tr + 1;
@@ -1560,6 +1587,14 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
           bool begins = kind == vital::chain_token::kBinBegin || kind == vital::chain_token::kSplitBegin;
           int block_end = begins ? vital::chain_token::findEnd(rest.data(), tr, static_cast<int>(rest.size())) : tr;
           pos = std::min(static_cast<int>(rest.size()), block_end + 1);
+        }
+
+        // Past the end markers of the containers it was the last row of.
+        for (int levels = outdent; levels > 0 && pos < static_cast<int>(rest.size()); --levels) {
+          int kind = vital::chain_token::kind(rest[pos]);
+          if (kind != vital::chain_token::kBinEnd && kind != vital::chain_token::kSplitEnd)
+            break;
+          ++pos;
         }
       }
       rest.insert(rest.begin() + pos, unit.begin(), unit.end());
@@ -1761,6 +1796,7 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
     // Tremolo and Vibrato have unit selectors under the knobs.
     static constexpr int kUnitSelectorExtraHeightValue = 44;
     void setEffectPositions() {
+      FXLOG("setEffectPositions start");
       if (getWidth() <= 0 || getHeight() <= 0)
         return;
 
@@ -1826,6 +1862,7 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
 
       for (int i = 0; i < static_cast<int>(chain_.size()); ++i) {
         int token = chain_[i];
+        FXLOG("  token " + String(token));
         if (fx_ui::isEffectEntry(token)) {
           int id = fx_ui::entryId(token);
           if (id < 0 || id >= fx_ui::kPoolSize || hidden())
@@ -1887,10 +1924,12 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
             int depth = static_cast<int>(stack.size());
             FxContainerPanel* panel = split_panels_[index].get();
             int height = frame.minimized ? header : split_height;
+            FXLOG("  split panel place " + String(index));
             panel->setVisible(true);
             panel->setHeaderHeight(header);
             panel->setMinimized(frame.minimized);
             panel->setBounds(xFor(depth), y, widthFor(depth), height);
+            FXLOG("  split panel bounds set");
             int selected = static_cast<int>(std::find(slots.begin(), slots.end(), frame.active_slot) - slots.begin());
             panel->setBranches(slots, selected);
             split_shown[index] = true;
@@ -1943,16 +1982,19 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
           split_panels_[s]->setVisible(false);
       }
 
+      FXLOG("setEffectPositions tokens done");
       container_->setDecorations(guides, hints);
       container_->setBounds(0, 0, viewport_.getWidth(), std::max(0, y - padding));
       viewport_.setViewPosition(position);
 
+      FXLOG("setEffectPositions listeners");
       for (Listener* listener : listeners_)
         listener->effectsMoved();
 
       container_->setScrollWheelEnabled(container_->getHeight() <= viewport_.getHeight());
       setScrollBarRange();
       repaintBackground();
+      FXLOG("setEffectPositions end");
     }
 
     void initOpenGlComponents(OpenGlWrapper& open_gl) override {
@@ -2089,6 +2131,7 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
       int cleaned[vital::kMaxFxChainEntries + 8];
       int count = vital::chain_token::sanitize(candidate.data(), static_cast<int>(candidate.size()), cleaned,
                                                fx_ui::kPoolSize);
+      FXLOG("commit sanitized " + String(count) + " of " + String((int) candidate.size()));
       if (count != static_cast<int>(candidate.size()))
         return false;
 
@@ -2233,18 +2276,23 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
     }
 
     void addSplit() {
+      FXLOG("addSplit begin");
       int split = firstFreeContainer(true);
       if (split < 0 || static_cast<int>(chain_.size()) + 3 > vital::kMaxFxChainEntries)
         return;
 
       resetContainer(true, split);
+      FXLOG("addSplit reset done");
       std::vector<int> candidate = chain_;
       candidate.push_back(vital::chain_token::splitBegin(split, 0));
       candidate.push_back(vital::chain_token::branch(split, 1));
       candidate.push_back(vital::chain_token::splitEnd(split));
       active_slot_[split] = 0;
-      if (commit(candidate))
+      bool committed = commit(candidate);
+      FXLOG("addSplit commit " + String(committed ? 1 : 0));
+      if (committed)
         scrollToPanel(split_panels_[split].get());
+      FXLOG("addSplit end");
     }
 
     // The selected units are moved into a new bin at the place of the first of them, keeping their order.
@@ -2501,17 +2549,22 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
 
     // The chain went to the engine and to the interface.
     void applyChain() {
+      FXLOG("applyChain start");
       SynthGuiInterface* parent = gui();
       if (parent)
         parent->getSynth()->setEffectChain(chain_.data(), static_cast<int>(chain_.size()));
 
+      FXLOG("applyChain engine set");
       ScopedLock lock(open_gl_critical_section_);
       refreshList();
+      FXLOG("applyChain list done");
       setEffectPositions();
+      FXLOG("applyChain positions done");
     }
 
     // The rows of the list: everything except what is inside a collapsed container.
     void refreshList() {
+      FXLOG("refreshList start");
       namespace ct = vital::chain_token;
       std::vector<fx_ui::RowItem> items;
       int depth = 0;
@@ -2601,7 +2654,9 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
           depth = std::max(0, depth - (kind == ct::kBinEnd ? 1 : 2));
         }
       }
+      FXLOG("refreshList items " + String((int) items.size()));
       chain_list_->setChain(items);
+      FXLOG("refreshList end");
     }
 
     void scrollToEffect(int effect_id) {
