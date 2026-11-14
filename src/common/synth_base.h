@@ -127,6 +127,9 @@ class SynthBase : public MidiManager::Listener {
     // The effect build's effect chain: slots hold 0 or 1 + effectId (+ a "minimized" flag for the interface).
     void setEffectChain(const int* slots, int num_slots);
     int getEffectChain(int* slots) const;
+    // Names of the FX Bins (saved with the preset); an empty name means the default "FX Bin".
+    String getFxBinName(int index) const { return index >= 0 && index < vital::kMaxFxBins ? fx_bin_names_[index] : String(); }
+    void setFxBinName(int index, const String& name) { if (index >= 0 && index < vital::kMaxFxBins) fx_bin_names_[index] = name; }
 #endif
     vital::ModulationConnectionBank& getModulationBank();
     void notifyOversamplingChanged();
@@ -194,6 +197,9 @@ class SynthBase : public MidiManager::Listener {
     bool expired_;
 
     std::map<std::string, String> save_info_;
+#if VITAL_FX
+    String fx_bin_names_[vital::kMaxFxBins];
+#endif
     vital::control_map controls_;
     vital::CircularQueue<vital::ModulationConnection*> mod_connections_;
     moodycamel::ConcurrentQueue<vital::control_change> value_change_queue_;

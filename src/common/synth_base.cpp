@@ -349,6 +349,8 @@ void SynthBase::initEngine() {
   for (int lane = 0; lane < vital::SoundEngine::kNumDrawingLanes; ++lane)
     engine_->resetSpectralDrawings(lane);
   engine_->setEffectChain(nullptr, 0);  // no effects
+  for (int i = 0; i < vital::kMaxFxBins; ++i)
+    fx_bin_names_[i] = "";
 #endif
 
   vital::control_map controls = engine_->getControls();

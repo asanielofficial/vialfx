@@ -28,6 +28,7 @@
 #include "morph_module.h"
 #include "flanger_module.h"
 #include "freq_shifter_module.h"
+#include "fx_containers.h"
 #include "phaser_module.h"
 #include "pitch_shifter_module.h"
 #include "reverb_module.h"
@@ -60,7 +61,8 @@ namespace vital {
 
       static constexpr int kNumTypes = constants::kNumEffects;
       static constexpr int kPoolSize = kNumTypes * kMaxEffectInstances;
-      static constexpr int kMaxChain = kPoolSize;
+      static constexpr int kMaxChain = kMaxFxChainEntries;
+      static constexpr int kMaxNesting = kMaxFxNesting;
       static constexpr int kMinimizedFlag = 128;
 
       // "chorus", "chorus_2", ...: the id the parameters of a copy start with (followed by "_").
@@ -97,6 +99,17 @@ namespace vital {
             active_[id] = false;
           }
         }
+
+        for (int i = 0; i < kMaxFxBins; ++i) {
+          bins_[i] = new FxBinModule(i);
+          addSubmodule(bins_[i]);
+          addProcessor(bins_[i]);
+        }
+        for (int i = 0; i < kMaxParallelSplits; ++i) {
+          splits_[i] = new FxSplitModule(i);
+          addSubmodule(splits_[i]);
+          addProcessor(splits_[i]);
+        }
       }
 
       // Connects the played note (pitch bend included) and the note the last played one glides to. Both only exist
@@ -130,27 +143,18 @@ namespace vital {
         int wanted = effectId(constants::kMorph, instance);
         for (auto& slot : slots_) {
           int value = slot.load(std::memory_order_relaxed);
-          if (value > 0 && ((value - 1) & (kMinimizedFlag - 1)) == wanted)
+          if (chain_token::isEffect(value) && ((value - 1) & (kMinimizedFlag - 1)) == wanted)
             return true;
         }
         return false;
       }
 
-      // The delay the Morph effects in the chain add (they run one after the other), in host samples.
+      // The delay the Morph effects in the chain add, in host samples: effects one after the other add up, the
+      // branches of a split run side by side (the longest counts), a bin that is off adds nothing.
       int morphLatencySamples(int fft_index) const {
-        int total = 0;
-        for (auto& slot : slots_) {
-          int value = slot.load(std::memory_order_relaxed);
-          if (value <= 0)
-            continue;
-
-          int id = ((value - 1) & (kMinimizedFlag - 1));
-          if (id >= kPoolSize || typeOf(id) != constants::kMorph || effects_on_[id]->value() < 0.5f)
-            continue;
-
-          total += static_cast<MorphModule*>(effects_[id])->latencySamples(fft_index);
-        }
-        return total;
+        int tokens[kMaxChain];
+        int count = loadTokens(tokens);
+        return rangeLatency(tokens, 0, count, fft_index);
       }
 
       void process(int num_samples) override {
@@ -158,41 +162,16 @@ namespace vital {
       }
 
       void processWithInput(const poly_float* audio_in, int num_samples) override {
-        bool in_chain[kPoolSize] = {};
-        int order[kMaxChain];
-        int count = 0;
-        for (auto& slot : slots_) {
-          int value = slot.load(std::memory_order_relaxed);
-          if (value <= 0)
-            continue;
+        int tokens[kMaxChain];
+        int count = loadTokens(tokens);
+        bool visited[kPoolSize] = {};
 
-          int id = ((value - 1) & (kMinimizedFlag - 1));
-          if (id >= kPoolSize || in_chain[id])
-            continue;
+        audio_in = runRange(tokens, 0, count, audio_in, num_samples, visited);
 
-          in_chain[id] = true;
-          order[count++] = id;
-        }
-
-        // Effects that left the chain stop running (and forget their tails).
+        // Effects that left the chain (or sit in a bin or branch that is off) stop running and forget their tails.
         for (int id = 0; id < kPoolSize; ++id) {
-          if (!in_chain[id] && effects_[id]->enabled())
+          if (!visited[id] && effects_[id]->enabled())
             effects_[id]->enable(false);
-        }
-
-        for (int i = 0; i < count; ++i) {
-          VITAL_ASSERT(utils::isFinite(audio_in, num_samples));
-
-          int id = order[i];
-          bool on = effects_on_[id]->value();
-          if (on != effects_[id]->enabled())
-            effects_[id]->enable(on);
-
-          if (on) {
-            SynthModule* runner = banks_[id] ? static_cast<SynthModule*>(banks_[id]) : effects_[id];
-            runner->processWithInput(audio_in, num_samples);
-            audio_in = runner->output(0)->buffer;
-          }
         }
 
         VITAL_ASSERT(utils::isFinite(audio_in, num_samples));
@@ -216,8 +195,10 @@ namespace vital {
 
       // The chain (may be called from the message thread while audio runs; each slot is atomic).
       void setChain(const int* slots, int num_slots) {
+        int clean[kMaxChain];
+        int count = num_slots > 0 ? chain_token::sanitize(slots, num_slots, clean, kPoolSize) : 0;
         for (int i = 0; i < kMaxChain; ++i)
-          slots_[i].store(i < num_slots ? slots[i] : 0);
+          slots_[i].store(i < count ? clean[i] : 0);
       }
 
       int getChain(int* slots) const {
@@ -230,10 +211,135 @@ namespace vital {
         return count;
       }
 
+      FxBinModule* getBin(int index) { return bins_[index]; }
+      FxSplitModule* getSplit(int index) { return splits_[index]; }
+
       SynthModule* getEffect(int type, int instance = 0) { return effects_[effectId(type, instance)]; }
       const StereoMemory* getEqualizerMemory(int instance = 0) { return equalizer_memory_[instance]; }
 
     protected:
+      // The slots as one well formed list (the interface may be midway through changing them).
+      int loadTokens(int* tokens) const {
+        int raw[kMaxChain];
+        int count = 0;
+        for (auto& slot : slots_) {
+          int value = slot.load(std::memory_order_relaxed);
+          if (value > 0)
+            raw[count++] = value;
+        }
+        return chain_token::sanitize(raw, count, tokens, kPoolSize);
+      }
+
+      int rangeLatency(const int* tokens, int begin, int end, int fft_index) const {
+        int total = 0;
+        for (int i = begin; i < end; ++i) {
+          int token = tokens[i];
+          if (chain_token::isEffect(token)) {
+            int id = (token - 1) & (kMinimizedFlag - 1);
+            if (typeOf(id) == constants::kMorph && effects_on_[id]->value() >= 0.5f)
+              total += static_cast<MorphModule*>(effects_[id])->latencySamples(fft_index);
+          }
+          else if (chain_token::kind(token) == chain_token::kBinBegin) {
+            int close = chain_token::findEnd(tokens, i, end);
+            if (bins_[chain_token::index(token)]->on())
+              total += rangeLatency(tokens, i + 1, close, fft_index);
+            i = close;
+          }
+          else if (chain_token::kind(token) == chain_token::kSplitBegin) {
+            int close = chain_token::findEnd(tokens, i, end);
+            if (splits_[chain_token::index(token)]->on()) {
+              int longest = 0, branch_begin = i + 1, nesting = 0;
+              for (int j = i + 1; j <= close; ++j) {
+                int k = chain_token::kind(tokens[j]);
+                if (k == chain_token::kBinBegin || k == chain_token::kSplitBegin)
+                  ++nesting;
+                else if ((k == chain_token::kBinEnd || k == chain_token::kSplitEnd) && nesting > 0)
+                  --nesting;
+                else if (nesting == 0 && (k == chain_token::kBranch || j == close)) {
+                  longest = std::max(longest, rangeLatency(tokens, branch_begin, j, fft_index));
+                  branch_begin = j + 1;
+                }
+              }
+              total += longest;
+            }
+            i = close;
+          }
+        }
+        return total;
+      }
+
+      // Runs the entries [begin, end) one after the other; returns the audio that comes out.
+      const poly_float* runRange(const int* tokens, int begin, int end, const poly_float* audio_in, int num_samples,
+                                 bool* visited) {
+        for (int i = begin; i < end; ++i) {
+          int token = tokens[i];
+          if (chain_token::isEffect(token)) {
+            VITAL_ASSERT(utils::isFinite(audio_in, num_samples));
+            int id = (token - 1) & (kMinimizedFlag - 1);
+            visited[id] = true;
+            bool on = effects_on_[id]->value();
+            if (on != effects_[id]->enabled())
+              effects_[id]->enable(on);
+
+            if (on) {
+              SynthModule* runner = banks_[id] ? static_cast<SynthModule*>(banks_[id]) : effects_[id];
+              runner->processWithInput(audio_in, num_samples);
+              audio_in = runner->output(0)->buffer;
+            }
+          }
+          else if (chain_token::kind(token) == chain_token::kBinBegin) {
+            int close = chain_token::findEnd(tokens, i, end);
+            FxBinModule* bin = bins_[chain_token::index(token)];
+            bin->update(num_samples);
+            if (bin->on()) {
+              const poly_float* wet = runRange(tokens, i + 1, close, audio_in, num_samples, visited);
+              audio_in = bin->blend(audio_in, wet, num_samples);
+            }
+            i = close;
+          }
+          else if (chain_token::kind(token) == chain_token::kSplitBegin) {
+            int close = chain_token::findEnd(tokens, i, end);
+            FxSplitModule* split = splits_[chain_token::index(token)];
+
+            // Where each branch starts and which control slot it uses.
+            int branch_begin[kMaxParallelBranches + 1];
+            int branch_end[kMaxParallelBranches + 1];
+            int branch_slot[kMaxParallelBranches + 1];
+            int num_branches = 0, slot_mask = 0, nesting = 0;
+            branch_begin[0] = i + 1;
+            branch_slot[0] = chain_token::slot(token);
+            for (int j = i + 1; j <= close; ++j) {
+              int k = chain_token::kind(tokens[j]);
+              if (k == chain_token::kBinBegin || k == chain_token::kSplitBegin)
+                ++nesting;
+              else if ((k == chain_token::kBinEnd || k == chain_token::kSplitEnd) && nesting > 0)
+                --nesting;
+              else if (nesting == 0 && (k == chain_token::kBranch || j == close)) {
+                branch_end[num_branches] = j;
+                slot_mask |= 1 << branch_slot[num_branches];
+                ++num_branches;
+                if (j < close && num_branches <= kMaxParallelBranches) {
+                  branch_begin[num_branches] = j + 1;
+                  branch_slot[num_branches] = chain_token::slot(tokens[j]);
+                }
+              }
+            }
+
+            split->begin(num_samples, slot_mask);
+            if (split->on()) {
+              for (int b = 0; b < num_branches && b < kMaxParallelBranches; ++b) {
+                const poly_float* branch = runRange(tokens, branch_begin[b], branch_end[b], audio_in,
+                                                    num_samples, visited);
+                split->addBranch(branch_slot[b], branch, num_samples);
+              }
+              audio_in = split->finish(audio_in, num_samples);
+            }
+            i = close;
+          }
+        }
+        return audio_in;
+      }
+
       // The effects that can follow the played note get copies for the held notes. The copies share the original's
       // controls and modulation (ControlAliasScope) and only differ in the note they track.
       KeytrackBank* createKeytrackBank(int type, const std::string& name, SynthModule* module) {
@@ -385,6 +491,8 @@ namespace vital {
       const Output* keytrack_;
       const KeytrackNotes* notes_;
       KeytrackBank* banks_[kPoolSize] = {};
+      FxBinModule* bins_[kMaxFxBins] = {};
+      FxSplitModule* splits_[kMaxParallelSplits] = {};
       const StereoMemory* equalizer_memory_[kMaxEffectInstances] = {};
       SynthModule* effects_[kPoolSize];
       Value* effects_on_[kPoolSize];

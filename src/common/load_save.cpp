@@ -176,12 +176,17 @@ json LoadSave::stateToJson(SynthBase* synth, const CriticalSection& critical_sec
     settings_data["point_mods"] = point_mods;
 
     // The effect chain: effect ids in order (+ a flag for minimized effects); see FxEffectChain.
-    int chain[vital::kMaxEffectInstances * vital::constants::kNumEffects];
+    int chain[vital::kMaxFxChainEntries];
     int count = synth->getEffectChain(chain);
     json effect_chain = json::array();
     for (int i = 0; i < count; ++i)
       effect_chain.push_back(chain[i]);
     settings_data["effect_chain"] = effect_chain;
+
+    json bin_names = json::array();
+    for (int i = 0; i < vital::kMaxFxBins; ++i)
+      bin_names.push_back(synth->getFxBinName(i).toStdString());
+    settings_data["fx_bin_names"] = bin_names;
   }
 #endif
 
@@ -1165,6 +1170,17 @@ bool LoadSave::jsonToState(SynthBase* synth, std::map<std::string, String>& save
       }
     }
     synth->setEffectChain(chain.data(), static_cast<int>(chain.size()));
+
+    for (int i = 0; i < vital::kMaxFxBins; ++i)
+      synth->setFxBinName(i, "");
+    if (settings.count("fx_bin_names") && settings["fx_bin_names"].is_array()) {
+      int i = 0;
+      for (const json& name : settings["fx_bin_names"]) {
+        if (i < vital::kMaxFxBins && name.is_string())
+          synth->setFxBinName(i, String(name.get<std::string>()));
+        ++i;
+      }
+    }
   }
 #endif
   loadSaveState(save_info, data);

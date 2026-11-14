@@ -48,6 +48,16 @@ namespace vital {
   // The effect build can run several copies of each effect (kMaxEffectInstances per type, in any order). Copy 1 of an
   // effect keeps the plain parameter names ("chorus_dry_wet"), copy n is named "chorus_n_dry_wet".
   constexpr int kMaxEffectInstances = 8;
+  // FX Bins group effects (power + mix for the whole group); Parallel Splits run the same input through several
+  // parallel effect chains (each with level, pan, mute and solo) and sum them. Their controls are real, automatable
+  // parameters: "fx_bin_<n>_on|mix", "psplit_<n>_on|mix" and "psplit_<n>_b<k>_level|pan|mute|solo".
+  constexpr int kMaxFxBins = 16;
+  constexpr int kMaxParallelSplits = 8;
+  constexpr int kMaxParallelBranches = 16;
+  constexpr int kMaxFxNesting = 8;
+  // Entries of the effect chain: one per effect (15 types x kMaxEffectInstances) plus the begin/end/branch markers.
+  constexpr int kMaxFxChainEntries = 15 * kMaxEffectInstances + 2 * kMaxFxBins +
+                                     kMaxParallelSplits * (2 + kMaxParallelBranches);
 
   constexpr int kOscilloscopeMemorySampleRate = 22000;
   constexpr int kOscilloscopeMemoryResolution = 512;

@@ -1259,6 +1259,107 @@ namespace {
     check(out.finite() && out.peak() < 2.0f, "256 stacked stages stay stable");
   }
 
+  void testContainers() {
+    std::printf("\n== FX Bins and Parallel Split ==\n");
+    using vital::FxEffectChain;
+    namespace t = vital::chain_token;
+    const int utility = 1 + FxEffectChain::effectId(vital::constants::kUtility, 0);
+    const int utility2 = 1 + FxEffectChain::effectId(vital::constants::kUtility, 1);
+
+    // The chain is always made well formed.
+    {
+      int out[64];
+      int stray[] = { utility, t::binEnd(0), t::branch(0, 1), t::binBegin(2), utility2, utility };
+      int n = t::sanitize(stray, 6, out, FxEffectChain::kPoolSize);
+      check(n == 2 && out[0] == utility && out[1] == utility2,
+            "stray ends and branches and unclosed bins are dropped, repeated effects kept once", fmt("%.0f entries", n));
+      int nested[] = { t::binBegin(0), t::splitBegin(1, 0), utility, t::branch(1, 1), utility2, t::splitEnd(1), t::binEnd(0) };
+      n = t::sanitize(nested, 7, out, FxEffectChain::kPoolSize);
+      check(n == 7, "bins and splits nest", fmt("%.0f entries", n));
+      int duplicate[] = { t::binBegin(0), utility, t::binEnd(0), t::binBegin(0), utility2, t::binEnd(0) };
+      n = t::sanitize(duplicate, 6, out, FxEffectChain::kPoolSize);
+      check(n == 4 && out[2] == t::binEnd(0) && out[3] == utility2,
+            "a bin that appears twice keeps its first place", fmt("%.0f entries", n));
+    }
+
+    auto gain = [&](const std::vector<int>& chain, const std::function<void(Rig&)>& setup, bool right = false) {
+      Rig rig;
+      rig.controls["utility_on"]->set(1.0f);
+      rig.controls["utility_gain"]->set(6.0206f);   // x2
+      rig.controls["utility_2_on"]->set(1.0f);
+      rig.controls["utility_2_gain"]->set(-6.0206f);  // x0.5
+      setup(rig);
+      rig.engine->setEffectChain(chain.data(), static_cast<int>(chain.size()));
+      Stereo out = rig.render(kSampleRate / 2, sine(440.0f));
+      double input = kAmp / std::sqrt(2.0);
+      return rms(right ? out.right : out.left, kSampleRate / 4) / input;
+    };
+    auto none = [](Rig&) { };
+
+    // FX Bin: power and mix.
+    {
+      std::vector<int> bin = { t::binBegin(0), utility, t::binEnd(0) };
+      check(std::fabs(gain(bin, none) - 2.0) < 0.05, "a bin runs the effects inside it", fmt("x%.3f", gain(bin, none)));
+      double half = gain(bin, [](Rig& r) { r.controls["fx_bin_1_mix"]->set(0.5f); });
+      check(std::fabs(half - 1.5) < 0.05, "the bin's mix blends the inside with the unprocessed input", fmt("x%.3f", half));
+      double off = gain(bin, [](Rig& r) { r.controls["fx_bin_1_on"]->set(0.0f); });
+      check(std::fabs(off - 1.0) < 0.05, "a bin that is off passes the input through", fmt("x%.3f", off));
+      std::vector<int> two = { t::binBegin(0), utility, t::binEnd(0), t::binBegin(1), utility2, t::binEnd(1) };
+      check(std::fabs(gain(two, none) - 1.0) < 0.05, "bins run one after the other (x2 then x0.5)");
+    }
+
+    // Parallel Split: branches sum; level, pan, mute, solo, mix.
+    {
+      std::vector<int> split = { t::splitBegin(0, 0), utility, t::branch(0, 1), t::splitEnd(0) };
+      double sum = gain(split, none);
+      check(std::fabs(sum - 3.0) < 0.06, "branches run in parallel and are summed (x2 + x1)", fmt("x%.3f", sum));
+      double level = gain(split, [](Rig& r) { r.controls["psplit_1_b2_level"]->set(0.0f); });
+      check(std::fabs(level - 2.0) < 0.05, "a branch's level scales its contribution", fmt("x%.3f", level));
+      double mute = gain(split, [](Rig& r) { r.controls["psplit_1_b1_mute"]->set(1.0f); });
+      check(std::fabs(mute - 1.0) < 0.05, "mute silences a branch", fmt("x%.3f", mute));
+      double solo = gain(split, [](Rig& r) { r.controls["psplit_1_b1_solo"]->set(1.0f); });
+      check(std::fabs(solo - 2.0) < 0.05, "solo plays only the soloed branches", fmt("x%.3f", solo));
+      double mix = gain(split, [](Rig& r) { r.controls["psplit_1_mix"]->set(0.0f); });
+      check(std::fabs(mix - 1.0) < 0.05, "mix 0 leaves only the unprocessed input", fmt("x%.3f", mix));
+      double panned = gain(split, [](Rig& r) { r.controls["psplit_1_b1_pan"]->set(-1.0f); }, true);
+      check(std::fabs(panned - 1.0) < 0.05, "pan hard left silences that branch on the right", fmt("x%.3f", panned));
+      double off = gain(split, [](Rig& r) { r.controls["psplit_1_on"]->set(0.0f); });
+      check(std::fabs(off - 1.0) < 0.05, "a split that is off passes the input through", fmt("x%.3f", off));
+
+      // Branch slots keep their controls when branches change places.
+      std::vector<int> moved = { t::splitBegin(0, 1), utility, t::branch(0, 0), t::splitEnd(0) };
+      double slot = gain(moved, [](Rig& r) { r.controls["psplit_1_b1_level"]->set(0.0f); });
+      check(std::fabs(slot - 2.0) < 0.05, "controls follow the branch slot, not its position", fmt("x%.3f", slot));
+    }
+
+    // Nesting: a bin inside a branch, a split inside a bin.
+    {
+      std::vector<int> nested = { t::splitBegin(0, 0), t::binBegin(3), utility, t::binEnd(3), t::branch(0, 1), t::splitEnd(0) };
+      check(std::fabs(gain(nested, none) - 3.0) < 0.06, "a bin inside a branch", fmt("x%.3f", gain(nested, none)));
+      std::vector<int> inner = { t::binBegin(0), t::splitBegin(0, 0), utility, t::branch(0, 1), t::splitEnd(0), t::binEnd(0) };
+      double deep = gain(inner, [](Rig& r) { r.controls["fx_bin_1_mix"]->set(0.5f); });
+      check(std::fabs(deep - 2.0) < 0.06, "a split inside a bin, mixed 50%", fmt("x%.3f", deep));
+    }
+
+    // Parameters exist for every container and branch.
+    {
+      Rig rig;
+      int missing = 0;
+      for (int b = 1; b <= vital::kMaxFxBins; ++b)
+        missing += rig.controls.count("fx_bin_" + std::to_string(b) + "_on") + rig.controls.count("fx_bin_" + std::to_string(b) + "_mix") == 2 ? 0 : 1;
+      for (int sp = 1; sp <= vital::kMaxParallelSplits; ++sp) {
+        std::string id = "psplit_" + std::to_string(sp);
+        missing += rig.controls.count(id + "_on") && rig.controls.count(id + "_mix") ? 0 : 1;
+        for (int br = 1; br <= vital::kMaxParallelBranches; ++br) {
+          std::string bid = id + "_b" + std::to_string(br);
+          for (const char* suffix : { "_level", "_pan", "_mute", "_solo" })
+            missing += rig.controls.count(bid + suffix) ? 0 : 1;
+        }
+      }
+      check(missing == 0, "every bin and every parallel has its controls", fmt("%.0f missing", missing));
+    }
+  }
+
   void testPointModulation() {
     std::printf("\n== Modulation of the points of drawn lines ==\n");
     std::vector<poly_float> silence(kMaxBufferSize, poly_float(0.0f));
@@ -2718,6 +2819,11 @@ int main(int argc, char** argv) {
       std::printf("\n%d checks, %d failed\n", g_checks, g_failures);
       return g_failures;
     }
+    if (argc > 1 && std::string(argv[1]) == "containers") {
+      testContainers();
+      std::printf("\n%d checks, %d failed\n", g_checks, g_failures);
+      return g_failures;
+    }
     testPassthrough();
     testFilters();
     testRouting();
@@ -2733,6 +2839,7 @@ int main(int argc, char** argv) {
     testOversampling();
     testModulation();
     testEffectChain();
+    testContainers();
     testInputRouting();
     testLanes();
     testModulationMatrix();
