@@ -68,7 +68,7 @@ void SynthPlugin::automationSlotsChanged() {
     bridge_lookup_[name] = slot_bridges_[i];
   }
 
-  updateHostDisplay(ChangeDetails().withParameterInfoChanged(true));
+  updateHostDisplay();
 }
 
 SynthPlugin::~SynthPlugin() {
