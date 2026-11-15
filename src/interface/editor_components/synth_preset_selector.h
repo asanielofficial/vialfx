@@ -23,7 +23,7 @@
 #include "synth_button.h"
 #include "synth_section.h"
 
-class SynthPresetSelector : public SynthSection,
+class SynthPresetSelector : public SynthSection, private Timer,
                             public PresetBrowser::Listener, public BankExporter::Listener,
                             public PresetSelector::Listener {
   public:
@@ -115,6 +115,7 @@ class SynthPresetSelector : public SynthSection,
 
   private:
     void loadFromFile(File& preset);
+    void timerCallback() override;
 
     std::vector<Listener*> listeners_;
 
@@ -124,6 +125,10 @@ class SynthPresetSelector : public SynthSection,
     std::unique_ptr<PresetSelector> selector_;
     std::unique_ptr<OpenGlShapeButton> menu_button_;
     std::unique_ptr<OpenGlShapeButton> save_button_;
+    std::unique_ptr<OpenGlShapeButton> undo_button_;
+    std::unique_ptr<OpenGlShapeButton> redo_button_;
+    bool undo_enabled_ = false;
+    bool redo_enabled_ = false;
     BankExporter* bank_exporter_;
     PresetBrowser* browser_;
     SaveSection* save_section_;

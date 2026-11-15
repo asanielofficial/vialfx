@@ -57,6 +57,14 @@ class SynthBase : public MidiManager::Listener {
     void presetChangedThroughMidi(File preset) override;
     void valueChangedExternal(const std::string& name, vital::mono_float value);
     void valueChangedInternal(const std::string& name, vital::mono_float value);
+
+    // Undo / redo of everything done in the interface: snapshots of the whole state, one per burst of edits.
+    // noteEdit() goes right before every change made from the interface.
+    void noteEdit();
+    bool canUndo();
+    bool canRedo();
+    bool undo();
+    bool redo();
     bool connectModulation(const std::string& source, const std::string& destination);
     void connectModulation(vital::ModulationConnection* connection);
     void disconnectModulation(const std::string& source, const std::string& destination);
@@ -200,6 +208,24 @@ class SynthBase : public MidiManager::Listener {
 #if VITAL_FX
     String fx_bin_names_[vital::kMaxFxBins];
 #endif
+    class EditTimer : public Timer {
+      public:
+        explicit EditTimer(SynthBase* owner) : owner_(owner) { }
+        void timerCallback() override { stopTimer(); owner_->commitEdits(); }
+      private:
+        SynthBase* owner_;
+    };
+
+    void commitEdits();
+    void resetHistory();
+    bool applySnapshot(const std::string& snapshot);
+
+    std::vector<std::string> undo_stack_;
+    std::vector<std::string> redo_stack_;
+    std::string history_current_;
+    bool history_loading_ = false;
+    EditTimer edit_timer_{this};
+
     vital::control_map controls_;
     vital::CircularQueue<vital::ModulationConnection*> mod_connections_;
     moodycamel::ConcurrentQueue<vital::control_change> value_change_queue_;

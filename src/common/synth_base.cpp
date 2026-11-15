@@ -75,6 +75,7 @@ void SynthBase::valueChanged(const std::string& name, vital::mono_float value) {
 }
 
 void SynthBase::valueChangedInternal(const std::string& name, vital::mono_float value) {
+  noteEdit();
   valueChanged(name, value);
   setValueNotifyHost(name, value);
 }
@@ -372,21 +373,120 @@ void SynthBase::loadInitPreset() {
   engine_->allSoundsOff();
   initEngine();
   LoadSave::initSaveInfo(save_info_);
+  resetHistory();
   pauseProcessing(false);
 }
 
 bool SynthBase::loadFromJson(const json& data) {
   pauseProcessing(true);
   engine_->allSoundsOff();
+  bool was_loading = history_loading_;
+  history_loading_ = true;
   try {
     bool result = LoadSave::jsonToState(this, save_info_, data);
+    history_loading_ = was_loading;
+    if (!was_loading)
+      resetHistory();
     pauseProcessing(false);
     return result;
   }
   catch (const json::exception& e) {
+    history_loading_ = was_loading;
     pauseProcessing(false);
     throw e;
   }
+}
+
+// ---- undo / redo ----
+
+namespace {
+  constexpr size_t kMaxUndoSteps = 100;
+  constexpr int kEditBurstMs = 350;
+}
+
+void SynthBase::resetHistory() {
+  edit_timer_.stopTimer();
+  undo_stack_.clear();
+  redo_stack_.clear();
+  history_current_.clear();
+}
+
+void SynthBase::noteEdit() {
+  if (history_loading_ || MessageManager::getInstanceWithoutCreating() == nullptr)
+    return;
+
+  // The state before the first edit is the point undo returns to.
+  if (history_current_.empty() && !edit_timer_.isTimerRunning())
+    history_current_ = saveToJson().dump();
+  edit_timer_.startTimer(kEditBurstMs);
+}
+
+void SynthBase::commitEdits() {
+  edit_timer_.stopTimer();
+  if (history_loading_ || history_current_.empty())
+    return;
+
+  std::string now = saveToJson().dump();
+  if (now == history_current_)
+    return;
+
+  undo_stack_.push_back(history_current_);
+  if (undo_stack_.size() > kMaxUndoSteps)
+    undo_stack_.erase(undo_stack_.begin());
+  redo_stack_.clear();
+  history_current_ = now;
+}
+
+bool SynthBase::canUndo() {
+  return !undo_stack_.empty() || edit_timer_.isTimerRunning();
+}
+
+bool SynthBase::canRedo() {
+  return !redo_stack_.empty();
+}
+
+bool SynthBase::applySnapshot(const std::string& snapshot) {
+  bool was_loading = history_loading_;
+  history_loading_ = true;
+  bool ok = false;
+  try {
+    ok = loadFromJson(json::parse(snapshot, nullptr));
+  }
+  catch (const json::exception&) {
+    ok = false;
+  }
+  history_loading_ = was_loading;
+
+  SynthGuiInterface* gui_interface = getGuiInterface();
+  if (gui_interface)
+    gui_interface->updateFullGui();
+  return ok;
+}
+
+bool SynthBase::undo() {
+  if (edit_timer_.isTimerRunning())
+    commitEdits();
+  if (undo_stack_.empty())
+    return false;
+
+  std::string target = undo_stack_.back();
+  undo_stack_.pop_back();
+  redo_stack_.push_back(history_current_);
+  history_current_ = target;
+  return applySnapshot(target);
+}
+
+bool SynthBase::redo() {
+  if (edit_timer_.isTimerRunning())
+    commitEdits();
+  if (redo_stack_.empty())
+    return false;
+
+  std::string target = redo_stack_.back();
+  redo_stack_.pop_back();
+  undo_stack_.push_back(history_current_);
+  history_current_ = target;
+  return applySnapshot(target);
 }
 
 bool SynthBase::loadFromFile(File preset, std::string& error) {

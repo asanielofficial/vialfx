@@ -311,6 +311,34 @@ class Paths {
       return path;
     }
 
+    // Curved arrow for the undo (and, mirrored, redo) buttons.
+    static Path undoRedo(int width, bool redo) {
+      static constexpr float kLineWidth = 0.04f;
+      float line_width = std::max<float>(1.0f, width * kLineWidth);
+      float center = width / 2.0f;
+      float radius = width * 0.2f;
+      float cy = center + width * 0.02f;
+      const float pi = 3.14159265f;
+
+      Path outline;
+      outline.addCentredArc(center, cy, radius, radius, 0.0f, -0.5f * pi, 0.5f * pi, true);
+      outline.lineTo(center + radius, cy + width * 0.1f);
+      outline.startNewSubPath(center - radius, cy);
+      outline.lineTo(center - radius, cy + width * 0.14f);
+      outline.startNewSubPath(center - radius - width * 0.09f, cy + width * 0.05f);
+      outline.lineTo(center - radius, cy + width * 0.14f);
+      outline.lineTo(center - radius + width * 0.09f, cy + width * 0.05f);
+      if (redo)
+        outline.applyTransform(AffineTransform::scale(-1.0f, 1.0f).translated(width, 0.0f));
+
+      Path path;
+      PathStrokeType stroke(line_width, PathStrokeType::curved, PathStrokeType::rounded);
+      stroke.createStrokedPath(path, outline);
+      path.addLineSegment(Line<float>(0.0f, 0.0f, 0.0f, 0.0f), 0.2f);
+      path.addLineSegment(Line<float>(width, width, width, width), 0.2f);
+      return path;
+    }
+
     static Path downTriangle() {
       Path path;
 

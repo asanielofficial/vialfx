@@ -2541,8 +2541,10 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
     // The chain went to the engine and to the interface.
     void applyChain() {
       SynthGuiInterface* parent = gui();
-      if (parent)
+      if (parent) {
+        parent->getSynth()->noteEdit();
         parent->getSynth()->setEffectChain(chain_.data(), static_cast<int>(chain_.size()));
+      }
 
       ScopedLock lock(open_gl_critical_section_);
       refreshList();
