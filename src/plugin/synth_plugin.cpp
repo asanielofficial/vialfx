@@ -34,11 +34,16 @@ SynthPlugin::SynthPlugin() {
   last_seconds_time_ = 0.0;
 
   // The host sees bypass and a fixed set of automation slots; everything else is reached through a slot.
-  ValueBridge* bypass = new ValueBridge("bypass", controls_["bypass"]);
-  bypass->setListener(this);
-  bridge_lookup_["bypass"] = bypass;
-  addParameter(bypass);
-  bypass_parameter_ = bypass;
+  for (const std::string& name : getFixedHostParameters()) {
+    if (controls_.count(name) == 0)
+      continue;
+
+    ValueBridge* bridge = new ValueBridge(name, controls_[name]);
+    bridge->setListener(this);
+    bridge_lookup_[name] = bridge;
+    addParameter(bridge);
+  }
+  bypass_parameter_ = bridge_lookup_["bypass"];
 
   for (int i = 0; i < vital::kNumAutomationSlots; ++i) {
     ValueBridge* bridge = new ValueBridge(i);
@@ -50,7 +55,7 @@ SynthPlugin::SynthPlugin() {
 
 void SynthPlugin::automationSlotsChanged() {
   for (auto it = bridge_lookup_.begin(); it != bridge_lookup_.end();) {
-    if (it->first == "bypass")
+    if (isFixedHostParameter(it->first))
       ++it;
     else
       it = bridge_lookup_.erase(it);

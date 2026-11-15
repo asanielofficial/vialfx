@@ -39,8 +39,53 @@ ExtraModSection::ExtraModSection(String name, SynthGuiData* synth_data) : SynthS
   other_modulations_->registerModulationButtons(this);
   other_modulations_->setVertical(true);
 
-  macro_knobs_ = std::make_unique<MacroKnobSection>("MACRO");
+  macro_knobs_ = std::make_unique<MacroKnobSection>("MACRO", 0, 4);
   addSubSection(macro_knobs_.get());
+
+  // Macros 5 - 8 sit in a second column to the right, shown only while the section is expanded.
+  extra_macro_knobs_ = std::make_unique<MacroKnobSection>("MACRO2", 4, 4);
+  addSubSection(extra_macro_knobs_.get());
+  extra_macro_knobs_->setVisible(false);
+
+  toggle_button_ = std::make_unique<OpenGlShapeButton>("Expand Macros");
+  addAndMakeVisible(toggle_button_.get());
+  addOpenGlComponent(toggle_button_->getGlComponent());
+  toggle_button_->addListener(this);
+  Path arrow;
+  arrow.addTriangle(0.0f, 0.0f, 0.0f, 10.0f, 6.0f, 5.0f);
+  toggle_button_->setShape(arrow);
+}
+
+int ExtraModSection::getTotalWidth(int column_width) const {
+  int total = column_width + getToggleWidth(column_width);
+  if (expanded_)
+    total += column_width + getPadding();
+  return total;
+}
+
+void ExtraModSection::setExpanded(bool expanded) {
+  if (expanded_ == expanded)
+    return;
+
+  expanded_ = expanded;
+  extra_macro_knobs_->setVisible(expanded);
+
+  Path arrow;
+  if (expanded)
+    arrow.addTriangle(6.0f, 0.0f, 6.0f, 10.0f, 0.0f, 5.0f);
+  else
+    arrow.addTriangle(0.0f, 0.0f, 0.0f, 10.0f, 6.0f, 5.0f);
+  toggle_button_->setShape(arrow);
+
+  for (Listener* listener : listeners_)
+    listener->extraModExpansionChanged(expanded);
+}
+
+void ExtraModSection::buttonClicked(Button* clicked_button) {
+  if (clicked_button == toggle_button_.get())
+    setExpanded(!expanded_);
+  else
+    SynthSection::buttonClicked(clicked_button);
 }
 
 ExtraModSection::~ExtraModSection() { }
@@ -68,8 +113,15 @@ void ExtraModSection::resized() {
   int macro_height = 4 * (2 * knob_section_height - widget_margin + padding) - padding;
   int mod_height = getHeight() - macro_height - padding;
 
-  macro_knobs_->setBounds(0, 0, getWidth(), macro_height);
-  other_modulations_->setBounds(0, macro_height + padding, getWidth(), mod_height);
+  int column_width = column_width_ > 0 ? column_width_ : getWidth();
+  int toggle_width = getToggleWidth(column_width);
+  int content_width = getWidth() - toggle_width;
+  column_width = std::min(column_width, content_width);
+
+  macro_knobs_->setBounds(0, 0, column_width, macro_height);
+  extra_macro_knobs_->setBounds(column_width + padding, 0, std::max(0, content_width - column_width - padding), macro_height);
+  toggle_button_->setBounds(content_width + padding / 2, 0, toggle_width - padding / 2, macro_height);
+  other_modulations_->setBounds(0, macro_height + padding, content_width, mod_height);
 
   SynthSection::resized();
   other_modulations_->setFontSize(getModFontSize());

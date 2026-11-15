@@ -399,6 +399,21 @@ bool SynthBase::loadFromJson(const json& data) {
 
 // ---- host automation slots ----
 
+const std::vector<std::string>& SynthBase::getFixedHostParameters() {
+  static const std::vector<std::string> parameters = [] {
+    std::vector<std::string> list = { "bypass", "volume", "input_on", "input_level", "sidechain_on", "sidechain_level" };
+    for (int i = 0; i < vital::kNumMacros; ++i)
+      list.push_back("macro_control_" + std::to_string(i + 1));
+    return list;
+  }();
+  return parameters;
+}
+
+bool SynthBase::isFixedHostParameter(const std::string& name) {
+  const std::vector<std::string>& list = getFixedHostParameters();
+  return std::find(list.begin(), list.end(), name) != list.end();
+}
+
 int SynthBase::findAutomationSlot(const std::string& name) const {
   for (int i = 0; i < vital::kNumAutomationSlots; ++i) {
     if (automation_slots_[i] == name)
@@ -410,7 +425,7 @@ int SynthBase::findAutomationSlot(const std::string& name) const {
 void SynthBase::setAutomationSlot(int slot, const std::string& name) {
   if (slot < 0 || slot >= vital::kNumAutomationSlots)
     return;
-  if (!name.empty() && (controls_.count(name) == 0 || name == "bypass"))
+  if (!name.empty() && (controls_.count(name) == 0 || isFixedHostParameter(name)))
     return;
 
   // A parameter sits in one slot at most.
@@ -446,7 +461,7 @@ void SynthBase::automationSlotsFromJson(const json& data) {
     for (int i = 0; i < vital::kNumAutomationSlots && i < static_cast<int>(data.size()); ++i) {
       if (data[i].is_string()) {
         std::string name = data[i].get<std::string>();
-        if (controls_.count(name) && name != "bypass" && findAutomationSlot(name) < 0)
+        if (controls_.count(name) && !isFixedHostParameter(name) && findAutomationSlot(name) < 0)
           automation_slots_[i] = name;
       }
     }

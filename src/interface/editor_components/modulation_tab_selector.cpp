@@ -80,12 +80,19 @@ void ModulationTabSelector::checkNumShown(bool should_repaint) {
   int num_to_show = getNumModulationsToShow();
 
   if (vertical_) {
-    float cell_height = float(getHeight() + 1) / num_to_show;
+    int visible = std::min(num_to_show, kMaxVisibleTabs);
+    scroll_ = std::max(0, std::min(scroll_, num_to_show - visible));
+    float cell_height = float(getHeight() + 1) / std::max(1, visible);
     int y = 0;
 
     for (int i = 0; i < num_to_show; ++i) {
+      if (i < scroll_ || i >= scroll_ + visible) {
+        modulation_buttons_[i]->setVisible(false);
+        continue;
+      }
+
       int last_y = y;
-      y = std::round((i + 1) * cell_height);
+      y = std::round((i - scroll_ + 1) * cell_height);
       modulation_buttons_[i]->setBounds(0.0f, last_y, getWidth(), y - last_y - 1);
       modulation_buttons_[i]->setVisible(true);
     }
@@ -109,7 +116,25 @@ void ModulationTabSelector::checkNumShown(bool should_repaint) {
     repaintBackground();
 }
 
+void ModulationTabSelector::mouseWheelMove(const MouseEvent& e, const MouseWheelDetails& wheel) {
+  int num_to_show = getNumModulationsToShow();
+  if (!vertical_ || num_to_show <= kMaxVisibleTabs || wheel.deltaY == 0.0f) {
+    SynthSection::mouseWheelMove(e, wheel);
+    return;
+  }
+
+  int max_scroll = num_to_show - kMaxVisibleTabs;
+  int new_scroll = std::max(0, std::min(max_scroll, scroll_ + (wheel.deltaY < 0.0f ? 1 : -1)));
+  if (new_scroll == scroll_)
+    return;
+
+  scroll_ = new_scroll;
+  checkNumShown(false);
+  repaintBackground();
+}
+
 void ModulationTabSelector::reset() {
+  scroll_ = 0;
   for (auto& button : modulation_buttons_) {
     button->select(false);
     button->setActiveModulation(false);

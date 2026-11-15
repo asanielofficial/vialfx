@@ -22,7 +22,7 @@
 
 namespace vital {
 
-  constexpr int kNumLfos = 8;
+  constexpr int kNumLfos = 32;
   constexpr int kNumOscillators = 3;
   // The effect build's four wavetables: 0 input warp table, 1 sidechain warp table, 2 input spectral table,
   // 3 sidechain spectral table.
@@ -35,9 +35,13 @@ namespace vital {
   constexpr int kNumWavetableSlots = kNumOscillators;
 #endif
   constexpr int kNumOscillatorWaveFrames = 257;
-  constexpr int kNumEnvelopes = 6;
-  constexpr int kNumRandomLfos = 4;
-  constexpr int kNumMacros = 4;
+  constexpr int kNumEnvelopes = 32;
+  constexpr int kNumRandomLfos = 16;
+  // How many of each modulator old presets were saved with (version migrations only touch these).
+  constexpr int kLegacyNumLfos = 8;
+  constexpr int kLegacyNumEnvelopes = 6;
+  constexpr int kLegacyNumRandomLfos = 4;
+  constexpr int kNumMacros = 8;
   constexpr int kNumFilters = 2;
   constexpr int kNumFormants = 4;
   constexpr int kNumChannels = 2;

@@ -58,6 +58,10 @@ class SynthBase : public MidiManager::Listener {
     void valueChangedExternal(const std::string& name, vital::mono_float value);
     void valueChangedInternal(const std::string& name, vital::mono_float value);
 
+    // Parameters the host always sees (no slot needed): bypass, master volume, lane switches and levels, macros.
+    static const std::vector<std::string>& getFixedHostParameters();
+    static bool isFixedHostParameter(const std::string& name);
+
     // Host automation slots. A parameter is automatable from the host only while it is assigned to a slot.
     const std::string& getAutomationSlot(int slot) const { return automation_slots_[slot]; }
     int findAutomationSlot(const std::string& name) const;

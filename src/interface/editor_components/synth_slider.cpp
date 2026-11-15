@@ -231,7 +231,7 @@ PopupItems SynthSlider::createPopupMenu() {
   options.addItem(kManualEntry, "Enter Value");
 
   if (has_parameter_assignment_ && vital::Parameters::isParameter(getName().toStdString()) &&
-      getName() != "bypass") {
+      !SynthBase::isFixedHostParameter(getName().toStdString())) {
     options.addItem(automation_menu::build(synth_interface_->getSynth(), getName().toStdString()));
   }
 

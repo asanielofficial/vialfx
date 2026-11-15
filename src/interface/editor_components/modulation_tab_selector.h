@@ -40,6 +40,7 @@ class ModulationTabSelector : public SynthSection, public ModulationButton::List
     void resized() override;
     void checkNumShown(bool should_repaint);
     void reset() override;
+    void mouseWheelMove(const MouseEvent& e, const MouseWheelDetails& wheel) override;
 
     void modulationClicked(ModulationButton* source) override;
     void modulationConnectionChanged() override;
@@ -67,6 +68,10 @@ class ModulationTabSelector : public SynthSection, public ModulationButton::List
     }
 
   private:
+    // Vertical selectors show at most this many tabs at once (like the 8 LFOs of the original layout) and scroll
+    // when more are in use.
+    static constexpr int kMaxVisibleTabs = 8;
+
     int getModulationIndex(String name);
     int getNumModulationsToShow();
 
@@ -76,6 +81,7 @@ class ModulationTabSelector : public SynthSection, public ModulationButton::List
     bool selections_enabled_;
     int min_modulations_shown_;
     int num_shown_;
+    int scroll_ = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ModulationTabSelector)
 };

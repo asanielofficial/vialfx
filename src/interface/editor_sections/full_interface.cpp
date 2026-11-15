@@ -146,6 +146,7 @@ FullInterface::FullInterface(SynthGuiData* synth_data) : SynthSection("full_inte
   addSubSection(modulation_interface_.get());
 
   extra_mod_section_ = std::make_unique<ExtraModSection>("extra_mod_section", synth_data);
+  extra_mod_section_->addListener(this);
   addSubSection(extra_mod_section_.get());
 
   keyboard_interface_ = std::make_unique<KeyboardInterface>(synth_data->synth->getKeyboardState());
@@ -624,7 +625,8 @@ void FullInterface::resized() {
 
   int padding = getPadding();
   int voice_padding = findValue(Skin::kLargePadding);
-  int extra_mod_width = findValue(Skin::kModulationButtonWidth);
+  int extra_mod_column = findValue(Skin::kModulationButtonWidth);
+  int extra_mod_width = extra_mod_section_->getTotalWidth(extra_mod_column);
   int main_x = left + extra_mod_width + 2 * voice_padding;
   int top_height = kTopHeight * ratio;
 
@@ -665,9 +667,10 @@ void FullInterface::resized() {
   voice_section_->setBounds(modulation_interface_->getX(), voice_y, voice_width, knob_section_height);
 
   bend_section_->setBounds(left + voice_padding, top + height - knob_section_height - padding,
-                           extra_mod_width, knob_section_height);
+                           extra_mod_width - ExtraModSection::getToggleWidth(extra_mod_column), knob_section_height);
 
   int extra_mod_height = height - top_height - knob_section_height - padding - 1;
+  extra_mod_section_->setColumnWidth(extra_mod_column);
   extra_mod_section_->setBounds(left + voice_padding, top + top_height, extra_mod_width, extra_mod_height);
 
   int keyboard_height = std::max(0, keyboard_section_height - voice_padding - padding);

@@ -176,11 +176,11 @@ class SingleMacroSection : public SynthSection, public TextEditor::Listener {
     std::unique_ptr<OpenGlShapeButton> edit_label_;
 };
 
-MacroKnobSection::MacroKnobSection(String name) : SynthSection(name) {
+MacroKnobSection::MacroKnobSection(String name, int first_macro, int num_macros) : SynthSection(name) {
   setWantsKeyboardFocus(true);
-  for (int i = 0; i < vital::kNumMacros; ++i) {
-    macros_[i] = std::make_unique<SingleMacroSection>(name + String(i), i);
-    addSubSection(macros_[i].get());
+  for (int i = 0; i < num_macros; ++i) {
+    macros_.push_back(std::make_unique<SingleMacroSection>(name + String(first_macro + i), first_macro + i));
+    addSubSection(macros_.back().get());
   }
 
   setSkinOverride(Skin::kMacro);
@@ -198,14 +198,17 @@ void MacroKnobSection::resized() {
   int widget_margin = getWidgetMargin();
   int width = getWidth();
   int y = 0;
-  for (int i = 0; i < vital::kNumMacros; ++i) {
+  int num_macros = static_cast<int>(macros_.size());
+  for (int i = 0; i < num_macros; ++i) {
     float next_y = (i + 1) * (2 * knob_section_height - widget_margin + padding);
     macros_[i]->setBounds(0, y, width, next_y - y - padding);
     y = next_y;
   }
 
-  int last_y = macros_[vital::kNumMacros - 2]->getBottom() + padding;
-  macros_[vital::kNumMacros - 1]->setBounds(0, last_y, width, getHeight() - last_y);
+  if (num_macros >= 2) {
+    int last_y = macros_[num_macros - 2]->getBottom() + padding;
+    macros_[num_macros - 1]->setBounds(0, last_y, width, getHeight() - last_y);
+  }
 
   reset();
   SynthSection::resized();

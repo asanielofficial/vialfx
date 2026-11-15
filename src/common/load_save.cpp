@@ -289,6 +289,15 @@ void LoadSave::loadLfos(SynthBase* synth, const json& lfos) {
     lfo_source->jsonToState(lfo);
     lfo_source->render();
     i++;
+    if (i >= vital::kNumLfos)
+      break;
+  }
+
+  // Presets saved with fewer LFOs leave the others at their default shape.
+  for (; i < vital::kNumLfos; ++i) {
+    LineGenerator* lfo_source = synth->getLfoSource(i);
+    lfo_source->initTriangle();
+    lfo_source->render();
   }
 }
 
@@ -384,7 +393,7 @@ json LoadSave::updateFromOldVersion(json state) {
   if (compareVersionStrings(version, "0.2.1") < 0) {
     std::string env_start = "env_";
 
-    for (int i = 0; i < vital::kNumEnvelopes; ++i) {
+    for (int i = 0; i < vital::kLegacyNumEnvelopes; ++i) {
       std::string number = std::to_string(i + 1);
       std::string attack_string = env_start + number + "_attack";
       std::string decay_string = env_start + number + "_decay";
@@ -414,7 +423,7 @@ json LoadSave::updateFromOldVersion(json state) {
   if (compareVersionStrings(version, "0.2.5") < 0) {
     std::string env_start = "env_";
 
-    for (int i = 0; i < vital::kNumEnvelopes; ++i) {
+    for (int i = 0; i < vital::kLegacyNumEnvelopes; ++i) {
       std::string number = std::to_string(i + 1);
       std::string attack_string = env_start + number + "_attack";
       std::string decay_string = env_start + number + "_decay";
@@ -432,7 +441,7 @@ json LoadSave::updateFromOldVersion(json state) {
   if (compareVersionStrings(version, "0.2.6") < 0) {
     std::string lfo_start = "lfo_";
 
-    for (int i = 0; i < vital::kNumLfos; ++i) {
+    for (int i = 0; i < vital::kLegacyNumLfos; ++i) {
       std::string number = std::to_string(i + 1);
       std::string fade_string = lfo_start + number + "_fade_time";
       std::string delay_string = lfo_start + number + "_delay_time";
@@ -520,7 +529,7 @@ json LoadSave::updateFromOldVersion(json state) {
   if (compareVersionStrings(version, "0.3.6") < 0) {
     std::string lfo_start = "lfo_";
 
-    for (int i = 0; i < vital::kNumLfos; ++i) {
+    for (int i = 0; i < vital::kLegacyNumLfos; ++i) {
       std::string sync_type_string = lfo_start + std::to_string(i + 1) + "_sync_type";
       if (settings.count(sync_type_string)) {
         float value = settings[sync_type_string];
@@ -870,7 +879,7 @@ json LoadSave::updateFromOldVersion(json state) {
     settings["delay_tempo"] = delay_tempo + 1.0f;
 
     std::string lfo_start = "lfo_";
-    for (int i = 0; i < vital::kNumLfos; ++i) {
+    for (int i = 0; i < vital::kLegacyNumLfos; ++i) {
       std::string tempo_string = lfo_start + std::to_string(i + 1) + "_tempo";
       if (settings.count(tempo_string)) {
         float tempo = settings[tempo_string];
@@ -879,7 +888,7 @@ json LoadSave::updateFromOldVersion(json state) {
     }
 
     std::string random_start = "random_";
-    for (int i = 0; i < vital::kNumRandomLfos; ++i) {
+    for (int i = 0; i < vital::kLegacyNumRandomLfos; ++i) {
       std::string tempo_string = random_start + std::to_string(i + 1) + "_tempo";
       if (settings.count(tempo_string)) {
         float tempo = settings[tempo_string];
@@ -1048,7 +1057,7 @@ json LoadSave::updateFromOldVersion(json state) {
   }
 
   if (compareVersionStrings(version, "0.8.1") < 0) {
-    for (int i = 0; i < vital::kNumLfos; ++i) {
+    for (int i = 0; i < vital::kLegacyNumLfos; ++i) {
       std::string name = "lfo_" + std::to_string(i) + "_smooth_mode";
       settings[name] = 0.0f;
     }

@@ -301,7 +301,7 @@ void SynthButton::mouseDown(const MouseEvent& e) {
     options.addItem(kArmMidiLearn, "Learn MIDI Assignment");
     if (parent->getSynth()->isMidiMapped(getName().toStdString()))
       options.addItem(kClearMidiLearn, "Clear MIDI Assignment");
-    if (vital::Parameters::isParameter(getName().toStdString()) && getName() != "bypass")
+    if (vital::Parameters::isParameter(getName().toStdString()) && !SynthBase::isFixedHostParameter(getName().toStdString()))
       options.addItem(automation_menu::build(synth, getName().toStdString()));
 
     SynthSection* parent = findParentComponentOfClass<SynthSection>();

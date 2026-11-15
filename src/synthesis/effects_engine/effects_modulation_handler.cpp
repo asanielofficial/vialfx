@@ -313,6 +313,9 @@ namespace vital {
     for (int i = 1; i < kNumEnvelopes; ++i)
       envelopes_[i]->enable(false);
 
+    for (int i = 0; i < kNumRandomLfos; ++i)
+      random_lfos_[i]->enable(false);
+
     random_->enable(false);
   }
 

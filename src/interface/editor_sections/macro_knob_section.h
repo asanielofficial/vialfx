@@ -25,14 +25,15 @@ class SingleMacroSection;
 
 class MacroKnobSection : public SynthSection {
   public:
-    MacroKnobSection(String name);
+    // Shows macros first_macro .. first_macro + num_macros - 1.
+    MacroKnobSection(String name, int first_macro, int num_macros);
     ~MacroKnobSection();
 
     void paintBackground(Graphics& g) override;
     void resized() override;
 
   private:
-    std::unique_ptr<SingleMacroSection> macros_[vital::kNumMacros];
+    std::vector<std::unique_ptr<SingleMacroSection>> macros_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MacroKnobSection)
 };

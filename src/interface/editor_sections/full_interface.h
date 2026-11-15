@@ -39,7 +39,7 @@ class BankExporter;
 class BendSection;
 class DeleteSection;
 class ExpiredSection;
-class ExtraModSection;
+#include "extra_mod_section.h"
 class HeaderSection;
 class KeyboardInterface;
 class MasterControlsInterface;
@@ -59,7 +59,7 @@ class VoiceSection;
 class FullInterface : public SynthSection, public AuthenticationSection::Listener, public HeaderSection::Listener,
                       public DownloadSection::Listener, public UpdateCheckSection::Listener,
                       public EffectsInterface::Listener, public ModulationMatrix::Listener,
-                      public OpenGLRenderer, DragAndDropContainer {
+                      public ExtraModSection::Listener, public OpenGLRenderer, DragAndDropContainer {
   public:
     static constexpr double kMinOpenGlVersion = 1.4;
 
@@ -96,6 +96,10 @@ class FullInterface : public SynthSection, public AuthenticationSection::Listene
       checkShouldReposition();
     }
     virtual void resized() override;
+    void extraModExpansionChanged(bool expanded) override {
+      resized();
+      repaintBackground();
+    }
     void animate(bool animate) override;
     void reset() override;
     void setAllValues(vital::control_map& controls) override;
