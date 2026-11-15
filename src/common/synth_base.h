@@ -58,6 +58,15 @@ class SynthBase : public MidiManager::Listener {
     void valueChangedExternal(const std::string& name, vital::mono_float value);
     void valueChangedInternal(const std::string& name, vital::mono_float value);
 
+    // Host automation slots. A parameter is automatable from the host only while it is assigned to a slot.
+    const std::string& getAutomationSlot(int slot) const { return automation_slots_[slot]; }
+    int findAutomationSlot(const std::string& name) const;
+    void setAutomationSlot(int slot, const std::string& name);
+    void clearAutomationSlot(const std::string& name);
+    json automationSlotsToJson() const;
+    void automationSlotsFromJson(const json& data);
+    virtual void automationSlotsChanged() { }
+
     // Undo / redo of everything done in the interface: snapshots of the whole state, one per burst of edits.
     // noteEdit() goes right before every change made from the interface.
     void noteEdit();
@@ -219,6 +228,8 @@ class SynthBase : public MidiManager::Listener {
     void commitEdits();
     void resetHistory();
     bool applySnapshot(const std::string& snapshot);
+
+    std::string automation_slots_[vital::kNumAutomationSlots];
 
     std::vector<std::string> undo_stack_;
     std::vector<std::string> redo_stack_;

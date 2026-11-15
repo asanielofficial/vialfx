@@ -397,6 +397,63 @@ bool SynthBase::loadFromJson(const json& data) {
   }
 }
 
+// ---- host automation slots ----
+
+int SynthBase::findAutomationSlot(const std::string& name) const {
+  for (int i = 0; i < vital::kNumAutomationSlots; ++i) {
+    if (automation_slots_[i] == name)
+      return i;
+  }
+  return -1;
+}
+
+void SynthBase::setAutomationSlot(int slot, const std::string& name) {
+  if (slot < 0 || slot >= vital::kNumAutomationSlots)
+    return;
+  if (!name.empty() && (controls_.count(name) == 0 || name == "bypass"))
+    return;
+
+  // A parameter sits in one slot at most.
+  if (!name.empty()) {
+    int existing = findAutomationSlot(name);
+    if (existing >= 0)
+      automation_slots_[existing].clear();
+  }
+  automation_slots_[slot] = name;
+  automationSlotsChanged();
+}
+
+void SynthBase::clearAutomationSlot(const std::string& name) {
+  int slot = findAutomationSlot(name);
+  if (slot < 0)
+    return;
+  automation_slots_[slot].clear();
+  automationSlotsChanged();
+}
+
+json SynthBase::automationSlotsToJson() const {
+  json slots = json::array();
+  for (int i = 0; i < vital::kNumAutomationSlots; ++i)
+    slots.push_back(automation_slots_[i]);
+  return slots;
+}
+
+void SynthBase::automationSlotsFromJson(const json& data) {
+  for (std::string& slot : automation_slots_)
+    slot.clear();
+
+  if (data.is_array()) {
+    for (int i = 0; i < vital::kNumAutomationSlots && i < static_cast<int>(data.size()); ++i) {
+      if (data[i].is_string()) {
+        std::string name = data[i].get<std::string>();
+        if (controls_.count(name) && name != "bypass" && findAutomationSlot(name) < 0)
+          automation_slots_[i] = name;
+      }
+    }
+  }
+  automationSlotsChanged();
+}
+
 // ---- undo / redo ----
 
 namespace {

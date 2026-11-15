@@ -30,26 +30,68 @@ class ValueBridge : public AudioProcessorParameter {
 
     ValueBridge() = delete;
 
+    // A parameter that is always exposed to the host.
     ValueBridge(std::string name, vital::Value* value) :
-        AudioProcessorParameter(), name_(name), value_(value), listener_(nullptr),
-        source_changed_(false) {
+        AudioProcessorParameter(), slot_(-1), value_(nullptr), listener_(nullptr), source_changed_(false) {
+      assign(name, value);
+    }
+
+    // A numbered automation slot: exposed to the host as "Automation N", it drives whatever parameter the user
+    // assigned to it (nothing until then).
+    explicit ValueBridge(int slot) :
+        AudioProcessorParameter(), slot_(slot), value_(nullptr), listener_(nullptr), source_changed_(false) {
+      details_ = vital::ValueDetails();
+      span_ = 1.0f;
+    }
+
+    void assign(const std::string& name, vital::Value* value) {
+      const ScopedLock lock(lock_);
+      name_ = name;
+      value_ = value;
+      if (value == nullptr) {
+        details_ = vital::ValueDetails();
+        span_ = 1.0f;
+        return;
+      }
+
       details_ = vital::Parameters::getDetails(name);
       span_ = details_.max - details_.min;
       if (details_.value_scale == vital::ValueDetails::kIndexed)
         span_ = std::round(span_);
+      if (span_ == 0.0f)
+        span_ = 1.0f;
+    }
+
+    bool isAssigned() const {
+      const ScopedLock lock(lock_);
+      return value_ != nullptr;
+    }
+
+    String getParameterName() const {
+      const ScopedLock lock(lock_);
+      return name_;
     }
 
     float getValue() const override {
+      const ScopedLock lock(lock_);
+      if (value_ == nullptr)
+        return 0.0f;
       return convertToPluginValue(value_->value());
     }
 
     void setValue(float value) override {
-      if (listener_ && !source_changed_) {
+      String name;
+      vital::mono_float synth_value = 0.0f;
+      {
+        const ScopedLock lock(lock_);
+        if (value_ == nullptr || listener_ == nullptr || source_changed_)
+          return;
         source_changed_ = true;
-        vital::mono_float synth_value = convertToEngineValue(value);
-        listener_->parameterChanged(name_.toStdString(), synth_value);
-        source_changed_ = false;
+        name = name_;
+        synth_value = convertToEngineValue(value);
       }
+      listener_->parameterChanged(name.toStdString(), synth_value);
+      source_changed_ = false;
     }
 
     void setListener(Listener* listener) {
@@ -57,11 +99,21 @@ class ValueBridge : public AudioProcessorParameter {
     }
 
     float getDefaultValue() const override {
+      const ScopedLock lock(lock_);
+      if (value_ == nullptr)
+        return 0.0f;
       return convertToPluginValue(details_.default_value);
     }
 
     String getName(int maximumStringLength) const override {
-      return String(details_.display_name).substring(0, maximumStringLength);
+      const ScopedLock lock(lock_);
+      if (slot_ < 0)
+        return String(details_.display_name).substring(0, maximumStringLength);
+
+      String name = "Automation " + String(slot_ + 1);
+      if (value_ != nullptr)
+        name += " - " + String(details_.display_name);
+      return name.substring(0, maximumStringLength);
     }
 
     String getLabel() const override {
@@ -69,6 +121,9 @@ class ValueBridge : public AudioProcessorParameter {
     }
 
     String getText(float value, int maximumStringLength) const override {
+      const ScopedLock lock(lock_);
+      if (value_ == nullptr)
+        return "";
       float adjusted = convertToEngineValue(value);
       String result = "";
       if (details_.string_lookup && details_.string_lookup_size > 0) {
@@ -174,6 +229,8 @@ class ValueBridge : public AudioProcessorParameter {
       }
     }
 
+    mutable CriticalSection lock_;
+    int slot_;
     String name_;
     vital::ValueDetails details_;
     vital::mono_float span_;

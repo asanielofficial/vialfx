@@ -16,6 +16,8 @@
 
 #include "synth_slider.h"
 
+#include "automation_menu.h"
+
 #include <cmath>
 
 #include "skin.h"
@@ -227,6 +229,11 @@ PopupItems SynthSlider::createPopupMenu() {
     options.addItem(kClearMidiLearn, "Clear MIDI Assignment");
 
   options.addItem(kManualEntry, "Enter Value");
+
+  if (has_parameter_assignment_ && vital::Parameters::isParameter(getName().toStdString()) &&
+      getName() != "bypass") {
+    options.addItem(automation_menu::build(synth_interface_->getSynth(), getName().toStdString()));
+  }
 
   std::vector<vital::ModulationConnection*> connections = getConnections();
   if (!connections.empty())
@@ -729,7 +736,9 @@ void SynthSlider::handlePopupResult(int result) {
   SynthBase* synth = synth_interface_->getSynth();
   std::vector<vital::ModulationConnection*> connections = getConnections();
 
-  if (result == kArmMidiLearn)
+  if (automation_menu::isAutomationResult(result))
+    automation_menu::handle(synth, getName().toStdString(), result);
+  else if (result == kArmMidiLearn)
     synth->armMidiLearn(getName().toStdString());
   else if (result == kClearMidiLearn)
     synth->clearMidiLearn(getName().toStdString());

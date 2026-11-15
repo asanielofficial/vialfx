@@ -16,6 +16,8 @@
 
 #include "synth_button.h"
 
+#include "automation_menu.h"
+
 #include "default_look_and_feel.h"
 #include "full_interface.h"
 #include "synth_strings.h"
@@ -277,7 +279,9 @@ void SynthButton::handlePopupResult(int result) {
 
   SynthBase* synth = parent->getSynth();
 
-  if (result == kArmMidiLearn)
+  if (automation_menu::isAutomationResult(result))
+    automation_menu::handle(synth, getName().toStdString(), result);
+  else if (result == kArmMidiLearn)
     synth->armMidiLearn(getName().toStdString());
   else if (result == kClearMidiLearn)
     synth->clearMidiLearn(getName().toStdString());
@@ -297,6 +301,8 @@ void SynthButton::mouseDown(const MouseEvent& e) {
     options.addItem(kArmMidiLearn, "Learn MIDI Assignment");
     if (parent->getSynth()->isMidiMapped(getName().toStdString()))
       options.addItem(kClearMidiLearn, "Clear MIDI Assignment");
+    if (vital::Parameters::isParameter(getName().toStdString()) && getName() != "bypass")
+      options.addItem(automation_menu::build(synth, getName().toStdString()));
 
     SynthSection* parent = findParentComponentOfClass<SynthSection>();
     parent->showPopupSelector(this, e.getPosition(), options, [=](int selection) { handlePopupResult(selection); });

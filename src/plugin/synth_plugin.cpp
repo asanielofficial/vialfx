@@ -33,19 +33,42 @@ SynthPlugin::SynthPlugin() {
 #endif
   last_seconds_time_ = 0.0;
 
-  int num_params = vital::Parameters::getNumParameters();
-  for (int i = 0; i < num_params; ++i) {
-    const vital::ValueDetails* details = vital::Parameters::getDetails(i);
-    if (controls_.count(details->name) == 0)
-      continue;
+  // The host sees bypass and a fixed set of automation slots; everything else is reached through a slot.
+  ValueBridge* bypass = new ValueBridge("bypass", controls_["bypass"]);
+  bypass->setListener(this);
+  bridge_lookup_["bypass"] = bypass;
+  addParameter(bypass);
+  bypass_parameter_ = bypass;
 
-    ValueBridge* bridge = new ValueBridge(details->name, controls_[details->name]);
+  for (int i = 0; i < vital::kNumAutomationSlots; ++i) {
+    ValueBridge* bridge = new ValueBridge(i);
     bridge->setListener(this);
-    bridge_lookup_[details->name] = bridge;
+    slot_bridges_.push_back(bridge);
     addParameter(bridge);
   }
+}
 
-  bypass_parameter_ = bridge_lookup_["bypass"];
+void SynthPlugin::automationSlotsChanged() {
+  for (auto it = bridge_lookup_.begin(); it != bridge_lookup_.end();) {
+    if (it->first == "bypass")
+      ++it;
+    else
+      it = bridge_lookup_.erase(it);
+  }
+
+  for (int i = 0; i < vital::kNumAutomationSlots; ++i) {
+    const std::string& name = getAutomationSlot(i);
+    auto control = controls_.find(name);
+    if (name.empty() || control == controls_.end() || control->second == nullptr) {
+      slot_bridges_[i]->assign("", nullptr);
+      continue;
+    }
+
+    slot_bridges_[i]->assign(name, control->second);
+    bridge_lookup_[name] = slot_bridges_[i];
+  }
+
+  updateHostDisplay(ChangeDetails().withParameterInfoChanged(true));
 }
 
 SynthPlugin::~SynthPlugin() {
@@ -279,6 +302,7 @@ void SynthPlugin::parameterChanged(std::string name, vital::mono_float value) {
 void SynthPlugin::getStateInformation(MemoryBlock& dest_data) {
   json data = LoadSave::stateToJson(this, getCallbackLock());
   data["tuning"] = getTuning()->stateToJson();
+  data["automation_slots"] = automationSlotsToJson();
 
   String data_string = data.dump();
   MemoryOutputStream stream;
@@ -297,6 +321,8 @@ void SynthPlugin::setStateInformation(const void* data, int size_in_bytes) {
 
     if (json_data.count("tuning"))
       getTuning()->jsonToState(json_data["tuning"]);
+    if (json_data.count("automation_slots"))
+      automationSlotsFromJson(json_data["automation_slots"]);
   }
   catch (const json::exception& e) {
     std::string error = "There was an error open the preset. Preset file is corrupted.";

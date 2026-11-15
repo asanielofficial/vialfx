@@ -74,6 +74,7 @@ class SynthPlugin : public SynthBase, public AudioProcessor, public ValueBridge:
     AudioProcessorParameter* getBypassParameter() const override { return bypass_parameter_; }
 
     void parameterChanged(std::string name, vital::mono_float value) override;
+    void automationSlotsChanged() override;
 
     // Latency of the spectral stage as last reported to the host.
     int getReportedLatency() const { return reported_latency_.load(); }
@@ -100,7 +101,9 @@ class SynthPlugin : public SynthBase, public AudioProcessor, public ValueBridge:
 
     AudioPlayHead::CurrentPositionInfo position_info_;
 
+    // Name -> bridge of the parameters the host can currently see (bypass and the assigned automation slots).
     std::map<std::string, ValueBridge*> bridge_lookup_;
+    std::vector<ValueBridge*> slot_bridges_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SynthPlugin)
 };
