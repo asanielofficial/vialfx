@@ -24,6 +24,7 @@
 #include "value.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <memory>
 #include <vector>
@@ -156,30 +157,9 @@ namespace vital {
 
       explicit SpectralMorphProcessor(bool uses_modulator) :
           Processor(kNumInputs, 1), uses_modulator_(uses_modulator) {
-        for (int c = 0; c < 2; ++c) {
-          channels_[c].in.assign(kMaxFftSize, 0.0f);
-          channels_[c].mod.assign(kMaxFftSize, 0.0f);
-          channels_[c].acc.assign(kMaxFftSize, 0.0f);
-          channels_[c].vout.assign(kMaxFftSize, 0.0f);
-          channels_[c].history.assign(kHistoryFrames * (kMaxFftSize + 2), 0.0f);
-          channels_[c].drift.assign(kMaxFftSize / 2 + 2, 0.0f);
-          channels_[c].venv.assign(kMaxFftSize / 2 + 2, 0.0f);
-          channels_[c].vavg.assign(kMaxFftSize / 2 + 2, 0.0f);
-        }
-        work_.assign(2 * kMaxFftSize + 4, 0.0f);
-        mod_work_.assign(2 * kMaxFftSize + 4, 0.0f);
-        mod_small_.assign(2 * 256 + 4, 0.0f);
-        small_sum_.assign(130, 0.0f);
         window_small_.resize(256);
         for (int i = 0; i < 256; ++i)
           window_small_[i] = 0.5f * (1.0f - cosf(2.0f * kPi_ * i / 256.0f));
-        mag_.assign(kMaxFftSize / 2 + 2, 0.0f);
-        env_.assign(kMaxFftSize / 2 + 2, 0.0f);
-        env2_.assign(kMaxFftSize / 2 + 2, 0.0f);
-        vocode_power_[0].assign(kMaxFftSize / 2 + 3, 0.0f);
-        vocode_power_[1].assign(kMaxFftSize / 2 + 3, 0.0f);
-        prefix_.assign(kMaxFftSize / 2 + 3, 0.0f);
-        phase_.assign(kMaxFftSize / 2 + 2, 0.0f);
         for (int i = 0; i < kNumFftSizes; ++i)
           transforms_[i] = std::make_shared<FourierTransform>(kMinFftBits + i);
         setFftSize(kDefaultFftIndex);
@@ -215,7 +195,46 @@ namespace vital {
       // Drawn curves (0..1 over 20 Hz..20 kHz on a log axis) for Spectral Filter, Phaser and Flanger.
       void setCurve(int which, const LineGenerator* curve) { curves_[which] = curve; }
 
+      // The working buffers are large (several MB), so they are only allocated once the processor is needed: when the
+      // effect that owns it joins the chain (message thread), or at the latest when it first runs.
+      void prepare() {
+        if (allocated_)
+          return;
+
+          for (int c = 0; c < 2; ++c) {
+            channels_[c].in.assign(kMaxFftSize, 0.0f);
+            channels_[c].mod.assign(kMaxFftSize, 0.0f);
+            channels_[c].acc.assign(kMaxFftSize, 0.0f);
+            channels_[c].vout.assign(kMaxFftSize, 0.0f);
+            channels_[c].history.assign(kHistoryFrames * (kMaxFftSize + 2), 0.0f);
+            channels_[c].drift.assign(kMaxFftSize / 2 + 2, 0.0f);
+            channels_[c].venv.assign(kMaxFftSize / 2 + 2, 0.0f);
+            channels_[c].vavg.assign(kMaxFftSize / 2 + 2, 0.0f);
+          }
+          work_.assign(2 * kMaxFftSize + 4, 0.0f);
+          mod_work_.assign(2 * kMaxFftSize + 4, 0.0f);
+          mod_small_.assign(2 * 256 + 4, 0.0f);
+          small_sum_.assign(130, 0.0f);
+          mag_.assign(kMaxFftSize / 2 + 2, 0.0f);
+          env_.assign(kMaxFftSize / 2 + 2, 0.0f);
+          env2_.assign(kMaxFftSize / 2 + 2, 0.0f);
+          vocode_power_[0].assign(kMaxFftSize / 2 + 3, 0.0f);
+          vocode_power_[1].assign(kMaxFftSize / 2 + 3, 0.0f);
+          prefix_.assign(kMaxFftSize / 2 + 3, 0.0f);
+          phase_.assign(kMaxFftSize / 2 + 2, 0.0f);
+        for (Channel& ch : channels_) {
+          ch.vavg_valid = false;
+          ch.history_pos = 0;
+          ch.history_filled = 0;
+          ch.write = 0;
+          ch.read = 0;
+        }
+        hop_count_ = 0;
+        allocated_ = true;
+      }
+
       void process(int num_samples) override {
+        prepare();
         int size_index = static_cast<int>(input(kFftSize)->source->buffer[0][0] + 0.5f);
         size_index = std::max(0, std::min(size_index, kNumFftSizes - 1));
         if (size_index != fft_index_)
@@ -1083,6 +1102,7 @@ namespace vital {
       const LineGenerator* curves_[3] = { nullptr, nullptr, nullptr };
       int latency_ = 1024;
       Channel channels_[2];
+      bool allocated_ = false;  // set by prepare(), always before the processor runs
       std::vector<float> window_small_, mod_small_, small_sum_;
       float vocode_unvoiced_[2] = { 0.0f, 0.0f };
       std::vector<float> window_, work_, mod_work_, mag_, env_, env2_, prefix_, phase_;

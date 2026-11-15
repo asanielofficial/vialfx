@@ -197,6 +197,17 @@ namespace vital {
       void setChain(const int* slots, int num_slots) {
         int clean[kMaxChain];
         int count = num_slots > 0 ? chain_token::sanitize(slots, num_slots, clean, kPoolSize) : 0;
+
+        // Copies that join the chain get their big buffers first, so the audio thread never has to allocate.
+        for (int i = 0; i < count; ++i) {
+          if (!chain_token::isEffect(clean[i]))
+            continue;
+
+          int id = (clean[i] - 1) & (kMinimizedFlag - 1);
+          if (typeOf(id) == constants::kMorph)
+            static_cast<MorphModule*>(effects_[id])->prepare();
+        }
+
         for (int i = 0; i < kMaxChain; ++i)
           slots_[i].store(i < count ? clean[i] : 0);
       }

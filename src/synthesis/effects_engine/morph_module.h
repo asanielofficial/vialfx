@@ -64,6 +64,9 @@ namespace vital {
 
       MorphModule() : SynthModule(kNumInputs, 1) { }
 
+      // Allocates the large spectral buffers (message thread, when the effect joins the chain).
+      void prepare() { if (spectral_) spectral_->prepare(); }
+
       void init() override {
         spectral_mode_ = createBaseControl("morph_spectral_morph_type");
         warp_mode_ = createBaseControl("morph_distortion_type");

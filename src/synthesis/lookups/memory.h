@@ -20,6 +20,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
+#include <cstring>
 
 #include "poly_utils.h"
 
@@ -34,17 +36,12 @@ namespace vital {
       MemoryTemplate(int size) : offset_(0) {
         size_ = utils::nextPowerOfTwo(size);
         bitmask_ = size_ - 1;
-        for (int i = 0; i < kChannels; ++i) {
-          memories_[i] = std::make_unique<mono_float[]>(2 * size_);
-          buffers_[i] = memories_[i].get();
-        }
+        allocate();
       }
 
       MemoryTemplate(const MemoryTemplate& other) {
-        for (int i = 0; i < poly_float::kSize; ++i) {
-          memories_[i] = std::make_unique<mono_float[]>(2 * other.size_);
-          buffers_[i] = memories_[i].get();
-        }
+        size_ = other.size_;
+        allocate();
 
         size_ = other.size_;
         bitmask_ = other.bitmask_;
@@ -54,6 +51,7 @@ namespace vital {
       virtual ~MemoryTemplate() { }
 
       void push(poly_float sample) {
+        dirty_ = true;
         offset_ = (offset_ + 1) & bitmask_;
         for (int i = 0; i < kChannels; ++i) {
           mono_float val = sample[i];
@@ -82,6 +80,11 @@ namespace vital {
       }
 
       void clearAll() {
+        // Memory that was never written is still the zeros it was allocated with (and its pages were never touched).
+        if (!dirty_)
+          return;
+
+        dirty_ = false;
         for (int c = 0; c < kChannels; ++c)
           memset(buffers_[c], 0, 2 * size_ * sizeof(mono_float));
       }
@@ -107,7 +110,21 @@ namespace vital {
       }
 
     protected:
-      std::unique_ptr<mono_float[]> memories_[poly_float::kSize];
+      struct FreeDeleter {
+        void operator()(mono_float* memory) const { std::free(memory); }
+      };
+
+      // Zeroed by the operating system, which hands out untouched pages lazily: an effect that is never used costs
+      // address space, not memory.
+      void allocate() {
+        for (int i = 0; i < kChannels; ++i) {
+          memories_[i].reset(static_cast<mono_float*>(std::calloc(2 * size_, sizeof(mono_float))));
+          buffers_[i] = memories_[i].get();
+        }
+      }
+
+      std::unique_ptr<mono_float[], FreeDeleter> memories_[poly_float::kSize];
+      bool dirty_ = false;
       mono_float* buffers_[poly_float::kSize];
       unsigned int size_;
       unsigned int bitmask_;
