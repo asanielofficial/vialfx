@@ -2455,6 +2455,11 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
           setControl(target, control.second->value());
       }
       copyModulations(from, to, controls);
+
+      // Selector-style widgets (the filter's model and style) keep their own state, refresh it from the values.
+      SynthSection* section = slots_[to]->section();
+      if (section)
+        section->setAllValues(controls);
       syncActive(to);
     }
 
