@@ -56,7 +56,7 @@ ExtraModSection::ExtraModSection(String name, SynthGuiData* synth_data) : SynthS
   toggle_button_->setShape(arrow);
 }
 
-int ExtraModSection::getTotalWidth(int column_width) const {
+int ExtraModSection::getTotalWidth(int column_width) {
   int total = column_width + getToggleWidth(column_width);
   if (expanded_)
     total += column_width + getPadding();

@@ -43,7 +43,7 @@ class ExtraModSection : public SynthSection {
     // Width of the strip with the expand / retract button, next to the macro columns.
     static int getToggleWidth(int column_width) { return std::max(12, column_width / 6); }
     // Total width of the section for the given width of one macro column.
-    int getTotalWidth(int column_width) const;
+    int getTotalWidth(int column_width);
     void buttonClicked(Button* clicked_button) override;
 
     void paintBackground(Graphics& g) override;
