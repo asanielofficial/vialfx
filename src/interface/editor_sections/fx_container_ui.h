@@ -399,6 +399,7 @@ class FxBranchStrip : public SynthSection {
 
     void paintBackground(Graphics& g) override {
       paintBody(g);
+      paintKnobShadows(g);
       setLabelFont(g);
       drawLabelForComponent(g, "LEVEL", level_.get());
       drawLabelForComponent(g, "PAN", pan_.get());
