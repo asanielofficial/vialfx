@@ -78,9 +78,9 @@ namespace vital {
   constexpr wchar_t kDefaultKeyboardOctaveDown = 'z';
   const std::wstring kDefaultKeyboard = L"awsedftgyhujkolp;'";
 
-  // Presets and skins. The older .vital / .vitalskin files still open.
-  const std::string kPresetExtension = "vialfx";
-  const std::string kPresetExtensionsList = "*.vialfx;*.vital";
+  // Presets and skins. Presets are saved as .vialsynth; the older .vialfx and .vital files still open.
+  const std::string kPresetExtension = "vialsynth";
+  const std::string kPresetExtensionsList = "*.vialsynth;*.vialfx;*.vital";
   const std::string kWavetableExtension = "vitaltable";
   const std::string kWavetableExtensionsList = "*." + vital::kWavetableExtension + ";*.wav;*.flac";
   const std::string kSampleExtensionsList = "*.wav;*.flac";
