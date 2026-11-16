@@ -47,41 +47,34 @@ namespace automation_menu {
   inline PopupItems buildManager(SynthBase* synth) {
     PopupItems manager("Manage Automation Slots");
     int used = 0;
-    for (int group = 0; group < vital::kNumAutomationSlots; group += kGroupSize) {
-      int group_used = 0;
-      for (int slot = group; slot < group + kGroupSize; ++slot)
-        group_used += synth->getAutomationSlot(slot).empty() ? 0 : 1;
-      used += group_used;
-
-      PopupItems sub("Slots " + std::to_string(group + 1) + " - " + std::to_string(group + kGroupSize) +
-                     " (" + std::to_string(group_used) + " used)");
-      for (int slot = group; slot < group + kGroupSize; ++slot)
-        sub.addItem(kFirstManaged + slot, slotLabel(synth, slot), !synth->getAutomationSlot(slot).empty());
-      manager.addItem(sub);
+    for (int slot = 0; slot < vital::kNumAutomationSlots; ++slot) {
+      used += synth->getAutomationSlot(slot).empty() ? 0 : 1;
+      manager.addItem(kFirstManaged + slot, slotLabel(synth, slot), !synth->getAutomationSlot(slot).empty());
     }
     if (used > 0)
       manager.addItem(kClearAll, "Clear all " + std::to_string(used) + " mapped slots");
     return manager;
   }
 
+  // Two levels only (the popup lists are flat): the slots to assign to, and the manager.
   inline PopupItems build(SynthBase* synth, const std::string& parameter) {
     PopupItems menu("Host Automation Slot");
     int current = synth->findAutomationSlot(parameter);
-    for (int group = 0; group < vital::kNumAutomationSlots; group += kGroupSize) {
-      PopupItems sub("Slots " + std::to_string(group + 1) + " - " + std::to_string(group + kGroupSize));
-      for (int slot = group; slot < group + kGroupSize; ++slot) {
-        std::string label = "Automation " + std::to_string(slot + 1);
-        const std::string& taken = synth->getAutomationSlot(slot);
-        if (!taken.empty() && slot != current && vital::Parameters::isParameter(taken))
-          label += " (" + vital::Parameters::getDetails(taken).display_name + ")";
-        sub.addItem(kFirstSlot + slot, label, slot == current);
-      }
-      menu.addItem(sub);
+    for (int slot = 0; slot < vital::kNumAutomationSlots; ++slot) {
+      std::string label = "Automation " + std::to_string(slot + 1);
+      const std::string& taken = synth->getAutomationSlot(slot);
+      if (!taken.empty() && slot != current && vital::Parameters::isParameter(taken))
+        label += " (" + vital::Parameters::getDetails(taken).display_name + ")";
+      menu.addItem(kFirstSlot + slot, label, slot == current);
     }
-    menu.addItem(buildManager(synth));
     if (current >= 0)
       menu.addItem(kClear, "Remove from Automation " + std::to_string(current + 1));
     return menu;
+  }
+
+  inline void addTo(PopupItems& options, SynthBase* synth, const std::string& parameter) {
+    options.addItem(build(synth, parameter));
+    options.addItem(buildManager(synth));
   }
 
   inline bool handle(SynthBase* synth, const std::string& parameter, int result) {

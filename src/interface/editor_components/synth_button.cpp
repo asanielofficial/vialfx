@@ -302,7 +302,7 @@ void SynthButton::mouseDown(const MouseEvent& e) {
     if (parent->getSynth()->isMidiMapped(getName().toStdString()))
       options.addItem(kClearMidiLearn, "Clear MIDI Assignment");
     if (vital::Parameters::isParameter(getName().toStdString()) && !SynthBase::isFixedHostParameter(getName().toStdString()))
-      options.addItem(automation_menu::build(synth, getName().toStdString()));
+      automation_menu::addTo(options, synth, getName().toStdString());
 
     SynthSection* parent = findParentComponentOfClass<SynthSection>();
     parent->showPopupSelector(this, e.getPosition(), options, [=](int selection) { handlePopupResult(selection); });

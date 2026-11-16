@@ -232,7 +232,7 @@ PopupItems SynthSlider::createPopupMenu() {
 
   if (has_parameter_assignment_ && vital::Parameters::isParameter(getName().toStdString()) &&
       !SynthBase::isFixedHostParameter(getName().toStdString())) {
-    options.addItem(automation_menu::build(synth_interface_->getSynth(), getName().toStdString()));
+    automation_menu::addTo(options, synth_interface_->getSynth(), getName().toStdString());
   }
 
   std::vector<vital::ModulationConnection*> connections = getConnections();

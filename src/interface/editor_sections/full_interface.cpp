@@ -1161,6 +1161,23 @@ void FullInterface::popupBrowserUpdate(SynthSection* owner) {
 
 void FullInterface::popupSelector(Component* source, Point<int> position, const PopupItems& options,
                                   std::function<void(int)> callback, std::function<void()> cancel) {
+  // The single list is flat, so a menu with submenus (like the host automation slots) opens as two lists.
+  bool nested = false;
+  for (const PopupItems& item : options.items)
+    nested = nested || item.size() > 0;
+
+  if (nested) {
+    dual_popup_selector_->setCallback([this, callback](int id) {
+      callback(id);
+      dual_popup_selector_->setVisible(false);
+    });
+    dual_popup_selector_->showSelections(options);
+    Rectangle<int> dual_bounds(0, 0, std::ceil(display_scale_ * getWidth()), std::ceil(display_scale_ * getHeight()));
+    dual_popup_selector_->setPosition(getLocalPoint(source, position), 330 * size_ratio_, dual_bounds);
+    dual_popup_selector_->setVisible(true);
+    return;
+  }
+
   popup_selector_->setCallback(callback);
   popup_selector_->setCancelCallback(cancel);
   popup_selector_->showSelections(options);
