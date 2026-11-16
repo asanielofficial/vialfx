@@ -26,9 +26,42 @@ namespace automation_menu {
   constexpr int kClear = 100000;
   constexpr int kFirstSlot = 100001;
   constexpr int kGroupSize = 16;
+  // The slot manager: choosing a mapped slot empties it.
+  constexpr int kClearAll = kFirstSlot + vital::kNumAutomationSlots;
+  constexpr int kFirstManaged = kClearAll + 1;
 
   inline bool isAutomationResult(int result) {
-    return result >= kClear && result < kFirstSlot + vital::kNumAutomationSlots;
+    return result >= kClear && result < kFirstManaged + vital::kNumAutomationSlots;
+  }
+
+  inline std::string slotLabel(SynthBase* synth, int slot) {
+    std::string label = std::to_string(slot + 1) + ": ";
+    const std::string& mapped = synth->getAutomationSlot(slot);
+    if (mapped.empty())
+      return label + "(empty)";
+    if (vital::Parameters::isParameter(mapped))
+      return label + vital::Parameters::getDetails(mapped).display_name + "  (click to clear)";
+    return label + mapped + "  (click to clear)";
+  }
+
+  inline PopupItems buildManager(SynthBase* synth) {
+    PopupItems manager("Manage Automation Slots");
+    int used = 0;
+    for (int group = 0; group < vital::kNumAutomationSlots; group += kGroupSize) {
+      int group_used = 0;
+      for (int slot = group; slot < group + kGroupSize; ++slot)
+        group_used += synth->getAutomationSlot(slot).empty() ? 0 : 1;
+      used += group_used;
+
+      PopupItems sub("Slots " + std::to_string(group + 1) + " - " + std::to_string(group + kGroupSize) +
+                     " (" + std::to_string(group_used) + " used)");
+      for (int slot = group; slot < group + kGroupSize; ++slot)
+        sub.addItem(kFirstManaged + slot, slotLabel(synth, slot), !synth->getAutomationSlot(slot).empty());
+      manager.addItem(sub);
+    }
+    if (used > 0)
+      manager.addItem(kClearAll, "Clear all " + std::to_string(used) + " mapped slots");
+    return manager;
   }
 
   inline PopupItems build(SynthBase* synth, const std::string& parameter) {
@@ -45,6 +78,7 @@ namespace automation_menu {
       }
       menu.addItem(sub);
     }
+    menu.addItem(buildManager(synth));
     if (current >= 0)
       menu.addItem(kClear, "Remove from Automation " + std::to_string(current + 1));
     return menu;
@@ -53,6 +87,15 @@ namespace automation_menu {
   inline bool handle(SynthBase* synth, const std::string& parameter, int result) {
     if (result == kClear) {
       synth->clearAutomationSlot(parameter);
+      return true;
+    }
+    if (result == kClearAll) {
+      for (int slot = 0; slot < vital::kNumAutomationSlots; ++slot)
+        synth->setAutomationSlot(slot, "");
+      return true;
+    }
+    if (result >= kFirstManaged && result < kFirstManaged + vital::kNumAutomationSlots) {
+      synth->setAutomationSlot(result - kFirstManaged, "");
       return true;
     }
     if (result >= kFirstSlot && result < kFirstSlot + vital::kNumAutomationSlots) {
