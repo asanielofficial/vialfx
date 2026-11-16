@@ -206,6 +206,8 @@ namespace vital {
           int id = (clean[i] - 1) & (kMinimizedFlag - 1);
           if (typeOf(id) == constants::kMorph)
             static_cast<MorphModule*>(effects_[id])->prepare();
+          else if (typeOf(id) == constants::kPitchShifter)
+            static_cast<PitchShifterModule*>(effects_[id])->prepare();
         }
 
         for (int i = 0; i < kMaxChain; ++i)

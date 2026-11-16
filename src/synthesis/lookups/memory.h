@@ -26,6 +26,18 @@
 #include "poly_utils.h"
 
 namespace vital {
+  // Arrays that start out as zeros the operating system hands over lazily: until something writes to a page it costs
+  // address space, not memory. For the big buffers of effects that may never be used.
+  struct LazyFree {
+    void operator()(void* memory) const { std::free(memory); }
+  };
+  template<class T>
+  using LazyArray = std::unique_ptr<T[], LazyFree>;
+  template<class T>
+  LazyArray<T> makeLazyArray(size_t size) {
+    return LazyArray<T>(static_cast<T*>(std::calloc(size, sizeof(T))));
+  }
+
 
   template<size_t kChannels>
   class MemoryTemplate {

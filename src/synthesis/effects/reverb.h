@@ -17,6 +17,7 @@
 #pragma once
 
 #include "processor.h"
+#include "memory.h"
 #include "one_pole_filter.h"
 
 namespace vital {
@@ -107,8 +108,9 @@ namespace vital {
     private:
       std::unique_ptr<StereoMemory> memory_;
 
-      std::unique_ptr<poly_float[]> allpass_lookups_[kNetworkContainers];
-      std::unique_ptr<mono_float[]> feedback_memories_[kNetworkSize];
+      LazyArray<poly_float> allpass_lookups_[kNetworkContainers];
+      LazyArray<mono_float> feedback_memories_[kNetworkSize];
+      bool dirty_ = false;  // the buffers have been written to since they were last cleared
       mono_float* feedback_lookups_[kNetworkSize];
       poly_float decays_[kNetworkContainers];
 

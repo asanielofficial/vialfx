@@ -589,9 +589,13 @@ namespace vital {
   constexpr int PitchShifter::Channel::kResolutionSizes[PitchShifter::Channel::kNumResolutions];
 
   // -----------------------------------------------------------------------------------------------
-  PitchShifter::PitchShifter() : Processor(kNumInputs, kNumOutputs), allocated_rate_(0), ready_(false),
-                                 mix_(1.0f), neutral_(0.0f), ratio_(1.0f), formant_ratio_(1.0f) {
-    allocate(44100);
+  PitchShifter::PitchShifter() : Processor(kNumInputs, kNumOutputs), allocated_rate_(0), desired_rate_(44100),
+                                 ready_(false), mix_(1.0f), neutral_(0.0f), ratio_(1.0f), formant_ratio_(1.0f) {
+    // The buffers are several MB, so they wait until the effect is used (prepare()).
+  }
+
+  void PitchShifter::prepare() {
+    allocate(desired_rate_);
   }
 
   PitchShifter::~PitchShifter() { }
@@ -609,7 +613,9 @@ namespace vital {
 
   void PitchShifter::setSampleRate(int sample_rate) {
     Processor::setSampleRate(sample_rate);
-    allocate(sample_rate);
+    desired_rate_ = sample_rate;
+    if (ready_)
+      allocate(sample_rate);
   }
 
   void PitchShifter::hardReset() {
@@ -625,6 +631,9 @@ namespace vital {
 
   void PitchShifter::processWithInput(const poly_float* audio_in, int num_samples) {
     poly_float* audio_out = output(kAudioOut)->buffer;
+    if (!ready_)
+      prepare();  // normally done when the effect joins the chain; this only matters outside the chain
+
     if (!ready_) {
       for (int i = 0; i < num_samples; ++i)
         audio_out[i] = audio_in[i];

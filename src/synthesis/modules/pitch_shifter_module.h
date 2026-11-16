@@ -17,11 +17,14 @@ namespace vital {
       void hardReset() override;
       void enable(bool enable) override;
 
+      // Allocates the shifter's buffers (message thread, when the effect joins the chain).
+      void prepare();
+
       void setSampleRate(int sample_rate) override;
       void processWithInput(const poly_float* audio_in, int num_samples) override;
       Processor* clone() const override { return new PitchShifterModule(*this); }
 
-    protected:
+    private:
       PitchShifter* shifter_;
 
       JUCE_LEAK_DETECTOR(PitchShifterModule)

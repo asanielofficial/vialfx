@@ -35,6 +35,11 @@ namespace vital {
     SynthModule::init();
   }
 
+  void PitchShifterModule::prepare() {
+    if (shifter_)
+      shifter_->prepare();
+  }
+
   void PitchShifterModule::hardReset() {
     shifter_->hardReset();
   }

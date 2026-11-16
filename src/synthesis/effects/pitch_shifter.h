@@ -58,11 +58,15 @@ namespace vital {
       void setSampleRate(int sample_rate) override;
       void hardReset() override;
 
+      // Allocates the buffers (message thread, before the effect runs).
+      void prepare();
+
     private:
       void allocate(int sample_rate);
 
       std::unique_ptr<Channel> channels_[2];
       int allocated_rate_;
+      int desired_rate_;
       bool ready_;
       mono_float mix_;
       mono_float neutral_;

@@ -72,7 +72,7 @@ namespace vital {
     max_feedback_size_ = max_feedback_size;
     feedback_mask_ = max_feedback_size_ - 1;
     for (int i = 0; i < kNetworkSize; ++i) {
-      feedback_memories_[i] = std::make_unique<mono_float[]>(max_feedback_size_ + kExtraLookupSample);
+      feedback_memories_[i] = makeLazyArray<mono_float>(max_feedback_size_ + kExtraLookupSample);
       feedback_lookups_[i] = feedback_memories_[i].get() + 1;
     }
 
@@ -80,7 +80,7 @@ namespace vital {
     poly_allpass_mask_ = max_allpass_size_ - 1;
     allpass_mask_ = max_allpass_size_ * poly_float::kSize - 1;
     for (int i = 0; i < kNetworkContainers; ++i)
-      allpass_lookups_[i] = std::make_unique<poly_float[]>(max_allpass_size_);
+      allpass_lookups_[i] = makeLazyArray<poly_float>(max_allpass_size_);
 
     write_index_ &= feedback_mask_;
   }
@@ -91,6 +91,7 @@ namespace vital {
   }
 
   void Reverb::processWithInput(const poly_float* audio_in, int num_samples) {
+    dirty_ = true;
     for (int i = 0; i < kNetworkSize; ++i)
       wrapFeedbackBuffer(feedback_memories_[i].get());
 
@@ -381,6 +382,11 @@ namespace vital {
       decays_[i] = 0.0f;
     }
 
+    // Buffers that were never written to are still zeros, and clearing them would only touch their pages.
+    if (!dirty_)
+      return;
+
+    dirty_ = false;
     for (int n = 0; n < kNetworkContainers; ++n) {
       for (int i = 0; i < max_allpass_size_; ++i)
         allpass_lookups_[n][i] = 0.0f;
