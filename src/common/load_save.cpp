@@ -182,6 +182,7 @@ json LoadSave::stateToJson(SynthBase* synth, const CriticalSection& critical_sec
     for (int i = 0; i < count; ++i)
       effect_chain.push_back(chain[i]);
     settings_data["effect_chain"] = effect_chain;
+    settings_data["effect_chain_format"] = vital::chain_token::kFormat;
 
     json bin_names = json::array();
     for (int i = 0; i < vital::kMaxFxBins; ++i)
@@ -1156,10 +1157,14 @@ bool LoadSave::jsonToState(SynthBase* synth, std::map<std::string, String>& save
 
     // The chain. Presets from before the effects list had a fixed set of effects in a permuted order.
     std::vector<int> chain;
+    bool current_format = settings.count("effect_chain_format") && settings["effect_chain_format"].is_number_integer() &&
+                          settings["effect_chain_format"].get<int>() >= vital::chain_token::kFormat;
     if (settings.count("effect_chain") && settings["effect_chain"].is_array()) {
       for (const json& value : settings["effect_chain"]) {
-        if (value.is_number_integer())
-          chain.push_back(value.get<int>());
+        if (value.is_number_integer()) {
+          int token = value.get<int>();
+          chain.push_back(current_format ? token : vital::chain_token::fromLegacy(token));
+        }
       }
     }
     else {

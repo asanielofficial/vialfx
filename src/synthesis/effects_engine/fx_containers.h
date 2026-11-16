@@ -10,26 +10,52 @@
 namespace vital {
 
   // The entries of the effect chain. An effect is 1 + effectId (+ kMinimizedFlag, which only the interface looks
-  // at). Containers are marker entries (kind in the bits from 12 up, the container's index in bits 0-6, the minimized
-  // flag in bit 7 and, for splits, the branch slot in bits 8-11):
+  // at). Containers are marker entries (kind in the bits from 16 up, the container's index in bits 0-6, the minimized
+  // flag in bit 15 and, for splits, the branch slot in bits 8-11):
   //   BinBegin(b) ... BinEnd(b)
   //   SplitBegin(s, slot) ... Branch(s, slot) ... SplitEnd(s)      (the first branch starts at SplitBegin)
   // A branch slot names the branch's controls ("psplit_<s+1>_b<slot+1>_level"...), so they stay with a branch when
   // branches are added or removed.
   namespace chain_token {
-    constexpr int kMinimizedFlag = 128;
-    constexpr int kBinBegin = 1 << 12;
-    constexpr int kBinEnd = 2 << 12;
-    constexpr int kSplitBegin = 3 << 12;
-    constexpr int kBranch = 4 << 12;
-    constexpr int kSplitEnd = 5 << 12;
+    // Effect ids use bits 0-14 (the pool holds up to 15 types x kMaxEffectInstances), the minimized flag is bit 15.
+    constexpr int kMinimizedFlag = 1 << 15;
+    constexpr int kBinBegin = 1 << 16;
+    constexpr int kBinEnd = 2 << 16;
+    constexpr int kSplitBegin = 3 << 16;
+    constexpr int kBranch = 4 << 16;
+    constexpr int kSplitEnd = 5 << 16;
+    // Chains were saved with the older layout (kinds from bit 12, flag in bit 7, 8 copies of each effect) until
+    // the format below was introduced.
+    constexpr int kFormat = 2;
 
     inline bool isMarker(int token) { return token >= kBinBegin; }
     inline bool isEffect(int token) { return token > 0 && token < kBinBegin; }
-    inline int kind(int token) { return token & ~0xFFF; }
+    inline int kind(int token) { return token & ~0xFFFF; }
     inline int index(int token) { return token & 0x7F; }
     inline int slot(int token) { return (token >> 8) & 0xF; }
     inline bool minimized(int token) { return (token & kMinimizedFlag) != 0; }
+
+    // Converts an entry of the older layout (see kFormat): 8 copies of each effect, markers with their kind from bit 12
+    // and the minimized flag in bit 7.
+    inline int fromLegacy(int token) {
+      constexpr int kLegacyFlag = 128;
+      constexpr int kLegacyKindShift = 12;
+      constexpr int kLegacyInstances = 8;
+      if (token <= 0)
+        return token;
+
+      bool flag = (token & kLegacyFlag) != 0;
+      if (token < (1 << kLegacyKindShift)) {
+        int id = (token - 1) & (kLegacyFlag - 1);
+        int type = id / kLegacyInstances;
+        int instance = id % kLegacyInstances;
+        return 1 + type * kMaxEffectInstances + instance + (flag ? kMinimizedFlag : 0);
+      }
+
+      int legacy_kind = token >> kLegacyKindShift;
+      int slot = (token >> 8) & 0xF;
+      return (legacy_kind << 16) | (slot << 8) | (token & 0x7F) | (flag ? kMinimizedFlag : 0);
+    }
 
     inline int binBegin(int bin, bool minimized = false) { return kBinBegin | bin | (minimized ? kMinimizedFlag : 0); }
     inline int binEnd(int bin) { return kBinEnd | bin; }
@@ -55,7 +81,7 @@ namespace vital {
       bool keep[kMaxFxChainEntries + 8] = {};
       int tokens[kMaxFxChainEntries + 8];
       count = std::min(count, kMaxFxChainEntries);
-      bool effect_used[256] = {};
+      bool effect_used[15 * kMaxEffectInstances] = {};
       bool bin_used[kMaxFxBins] = {};
       bool split_used[kMaxParallelSplits] = {};
       Frame stack[kMaxFxNesting + 1];
@@ -70,7 +96,7 @@ namespace vital {
         tokens[i] = token;
         if (isEffect(token)) {
           int id = (token - 1) & (kMinimizedFlag - 1);
-          if (id < effect_pool_size && !effect_used[id]) {
+          if (id < effect_pool_size && id < 15 * kMaxEffectInstances && !effect_used[id]) {
             effect_used[id] = true;
             keep[i] = true;
           }

@@ -63,7 +63,7 @@ namespace vital {
       static constexpr int kPoolSize = kNumTypes * kMaxEffectInstances;
       static constexpr int kMaxChain = kMaxFxChainEntries;
       static constexpr int kMaxNesting = kMaxFxNesting;
-      static constexpr int kMinimizedFlag = 128;
+      static constexpr int kMinimizedFlag = chain_token::kMinimizedFlag;
 
       // "chorus", "chorus_2", ...: the id the parameters of a copy start with (followed by "_").
       static std::string instanceId(int type, int instance) {

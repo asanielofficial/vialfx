@@ -1282,6 +1282,20 @@ namespace {
             "a bin that appears twice keeps its first place", fmt("%.0f entries", n));
     }
 
+    // Chains saved with the older token layout convert to the current one.
+    {
+      using vital::kMaxEffectInstances;
+      int legacy_utility2 = 1 + (vital::constants::kUtility * 8 + 1);
+      check(t::fromLegacy(legacy_utility2) == 1 + FxEffectChain::effectId(vital::constants::kUtility, 1),
+            "legacy effect tokens map to the same type and copy");
+      check(t::fromLegacy(legacy_utility2 + 128) == t::fromLegacy(legacy_utility2) + t::kMinimizedFlag,
+            "legacy minimized effects stay minimized");
+      check(t::fromLegacy((1 << 12) | 3) == t::binBegin(3) && t::fromLegacy((2 << 12) | 3 | 128) == (t::binEnd(3) + t::kMinimizedFlag),
+            "legacy bin markers convert");
+      check(t::fromLegacy((4 << 12) | (5 << 8) | 2) == t::branch(2, 5) && t::fromLegacy((3 << 12) | (1 << 8) | 4) == t::splitBegin(4, 1),
+            "legacy split markers convert");
+    }
+
     auto gain = [&](const std::vector<int>& chain, const std::function<void(Rig&)>& setup, bool right = false) {
       Rig rig;
       rig.controls["utility_on"]->set(1.0f);
