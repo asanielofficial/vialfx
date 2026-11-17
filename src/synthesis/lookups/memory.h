@@ -24,13 +24,10 @@
 #include <cstring>
 #include <memory>
 
-#if defined(_WIN32)
-  #ifndef NOMINMAX
-    #define NOMINMAX
-  #endif
-  #include <windows.h>
-#elif defined(__unix__) || defined(__APPLE__)
+// (Windows' own allocator already hands out big blocks as untouched zero pages, so only the Unix ones go direct.)
+#if !defined(_WIN32) && (defined(__unix__) || defined(__APPLE__))
   #include <sys/mman.h>
+  #define VITAL_LAZY_MMAP 1
 #endif
 
 #include "poly_utils.h"
@@ -47,10 +44,7 @@ namespace vital {
       size_t total = bytes + kHeader;
       void* base = nullptr;
       bool system = total >= kSystemThreshold;
-#if defined(_WIN32)
-      if (system)
-        base = VirtualAlloc(nullptr, total, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-#elif defined(__unix__) || defined(__APPLE__)
+#if VITAL_LAZY_MMAP
       if (system) {
         base = mmap(nullptr, total, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
         if (base == MAP_FAILED)
@@ -80,12 +74,7 @@ namespace vital {
       size_t* header = static_cast<size_t*>(base);
       size_t total = header[0];
       bool system = header[1] != 0;
-#if defined(_WIN32)
-      if (system) {
-        VirtualFree(base, 0, MEM_RELEASE);
-        return;
-      }
-#elif defined(__unix__) || defined(__APPLE__)
+#if VITAL_LAZY_MMAP
       if (system) {
         munmap(base, total);
         return;
