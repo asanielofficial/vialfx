@@ -14,6 +14,7 @@
  * along with pylon.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "debug_log.h"
 #include "synth_plugin.h"
 #include "synth_editor.h"
 #include "sound_engine.h"
@@ -297,6 +298,7 @@ bool SynthPlugin::hasEditor() const {
 }
 
 AudioProcessorEditor* SynthPlugin::createEditor() {
+  vial_debug::log("createEditor");
   return new SynthEditor(*this);
 }
 
@@ -316,6 +318,7 @@ void SynthPlugin::getStateInformation(MemoryBlock& dest_data) {
 }
 
 void SynthPlugin::setStateInformation(const void* data, int size_in_bytes) {
+  vial_debug::log("setStateInformation " + String(size_in_bytes) + " bytes");
   MemoryInputStream stream(data, size_in_bytes, false);
   String data_string = stream.readEntireStreamAsString();
 
@@ -334,10 +337,12 @@ void SynthPlugin::setStateInformation(const void* data, int size_in_bytes) {
     AlertWindow::showNativeDialogBox("Error opening preset", error, false);
   }
   pauseProcessing(false);
+  vial_debug::log("setStateInformation: engine state loaded");
 
   SynthGuiInterface* editor = getGuiInterface();
   if (editor)
     editor->updateFullGui();
+  vial_debug::log("setStateInformation: done");
 }
 
 AudioProcessor* JUCE_CALLTYPE createPluginFilter() {

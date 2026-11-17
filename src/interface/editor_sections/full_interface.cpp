@@ -16,6 +16,8 @@
 
 #include "full_interface.h"
 
+#include "debug_log.h"
+
 #include "about_section.h"
 #include "bank_exporter.h"
 #include "bend_section.h"
@@ -52,6 +54,7 @@ FullInterface::FullInterface(SynthGuiData* synth_data) : SynthSection("full_inte
                                                          unsupported_(false), animate_(true),
                                                          enable_redo_background_(true), needs_download_(false),
                                                          open_gl_(open_gl_context_) {
+  vial_debug::log("FullInterface: start");
   full_screen_section_ = nullptr;
   Skin default_skin;
   setSkinValues(default_skin, true);
@@ -104,6 +107,7 @@ FullInterface::FullInterface(SynthGuiData* synth_data) : SynthSection("full_inte
         });
   }
 
+  vial_debug::log("FullInterface: effects interface");
 #if VITAL_FX
   effects_interface_ = std::make_unique<EffectsInterface>(synth_data->mono_modulations,
                                                           synth_data->poly_modulations,
@@ -170,6 +174,7 @@ FullInterface::FullInterface(SynthGuiData* synth_data) : SynthSection("full_inte
   modulation_matrix_->addListener(this);
   point_mod_targets_ = std::make_unique<PointModTargets>();
   addSubSection(point_mod_targets_.get());
+  vial_debug::log("FullInterface: modulation manager");
   mono_modulations_ = synth_data->mono_modulations;
   poly_modulations_ = synth_data->poly_modulations;
   createModulationSliders(synth_data->mono_modulations, synth_data->poly_modulations);
@@ -289,12 +294,15 @@ FullInterface::FullInterface(SynthGuiData* synth_data) : SynthSection("full_inte
   bin_highlight_ = std::make_unique<BinHighlight>();
   addSubSection(bin_highlight_.get());
 
+  vial_debug::log("FullInterface: setAllValues");
   setAllValues(synth_data->controls);
+  vial_debug::log("FullInterface: setAllValues done");
   setOpaque(true);
   setSkinValues(default_skin, true);
 
   needs_download_ = UpdateMemory::getInstance()->incrementChecker();
 
+  vial_debug::log("FullInterface: constructed");
   open_gl_context_.setContinuousRepainting(true);
   open_gl_context_.setOpenGLVersionRequired(OpenGLContext::openGL3_2);
   open_gl_context_.setSwapInterval(0);
@@ -815,9 +823,11 @@ void FullInterface::newOpenGLContextCreated() {
   open_gl_.display_scale = display_scale_;
   last_render_scale_ = display_scale_;
 
+  vial_debug::log("OpenGL context created");
   ScopedLock lock(open_gl_critical_section_);
   background_.init(open_gl_);
   initOpenGlComponents(open_gl_);
+  vial_debug::log("OpenGL components initialised");
   pending_gl_init_.clear();
   retired_managers_.clear();
 }
@@ -1222,6 +1232,7 @@ void FullInterface::effectSectionCreated(SynthSection* section) {
 // The modulation manager builds its rings and meters for the knobs that exist when it is made, so it is made again
 // once new effect sections have joined.
 void FullInterface::rebuildModulationManager() {
+  vial_debug::log("rebuild modulation manager");
   manager_rebuild_pending_ = false;
   if (modulation_manager_ == nullptr)
     return;
@@ -1257,6 +1268,7 @@ void FullInterface::rebuildModulationManager() {
   modulation_manager_->updateModulationMeterLocations();
   modulation_manager_->setVisibleMeterBounds();
   modulation_manager_->hideUnusedHoverModulations();
+  vial_debug::log("rebuild modulation manager done");
 }
 
 // A section moved or resized knobs after the layout pass (a mode changed a knob's width, say): the modulation

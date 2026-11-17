@@ -29,6 +29,7 @@
 // modulated; adding an effect takes the first unused copy of its type.
 
 #include "JuceHeader.h"
+#include "debug_log.h"
 #include "modulation_connection_processor.h"
 
 #include "chorus_section.h"
@@ -2415,6 +2416,7 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
       if (slots_[id])
         return slots_[id].get();
 
+      vial_debug::log("effect section for id " + String(id));
       // The render thread must not see a half built section.
       ScopedLock lock(*(gl_lock_ ? gl_lock_ : &open_gl_critical_section_));
       FxEffectSlot* slot = createSlot(id);
@@ -2426,6 +2428,7 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
         slot->setAllValues(parent->getSynth()->getControls());
       for (Listener* listener : listeners_)
         listener->effectSectionCreated(slot);
+      vial_debug::log("effect section built");
       return slot;
     }
 
