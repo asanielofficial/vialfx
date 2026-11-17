@@ -2851,6 +2851,23 @@ int main(int argc, char** argv) {
       std::printf("one second rendered %s\n", rss().c_str());
       return 0;
     }
+    if (argc > 1 && std::string(argv[1]) == "memory") {
+      auto rss = []() {
+        std::ifstream status("/proc/self/status");
+        std::string line;
+        while (std::getline(status, line)) {
+          if (line.compare(0, 6, "VmRSS:") == 0)
+            return line;
+        }
+        return std::string("?");
+      };
+      std::printf("start %s\n", rss().c_str());
+      Rig rig;
+      std::printf("engine created %s\n", rss().c_str());
+      Stereo out = rig.render(kSampleRate, sine(440.0f));
+      std::printf("one second rendered %s\n", rss().c_str());
+      return 0;
+    }
     if (argc > 1 && std::string(argv[1]) == "containers") {
       testContainers();
       std::printf("\n%d checks, %d failed\n", g_checks, g_failures);

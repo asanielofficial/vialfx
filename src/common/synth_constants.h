@@ -28,7 +28,7 @@ namespace vital {
   // 3 sidechain spectral table.
   // The effect build can run several copies of each effect (kMaxEffectInstances per type, in any order). Copy 1 of an
   // effect keeps the plain parameter names ("chorus_dry_wet"), copy n is named "chorus_n_dry_wet".
-  constexpr int kMaxEffectInstances = 16;
+  constexpr int kMaxEffectInstances = 32;
   // The Morph effect adds two more for each of its copies: slot 4 + 2n is the Distort Table and slot 5 + 2n the
   // Spectral Table of copy n.
   constexpr int kNumFxTables = 4 + 2 * kMaxEffectInstances;
