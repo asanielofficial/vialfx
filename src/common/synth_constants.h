@@ -26,9 +26,12 @@ namespace vital {
   constexpr int kNumOscillators = 3;
   // The effect build's four wavetables: 0 input warp table, 1 sidechain warp table, 2 input spectral table,
   // 3 sidechain spectral table.
-  // The Morph effect adds two more for each of its copies (kMaxEffectInstances = 8): slot 4 + 2n is the Distort Table
-  // and slot 5 + 2n the Spectral Table of copy n.
-  constexpr int kNumFxTables = 4 + 2 * 8;
+  // The effect build can run several copies of each effect (kMaxEffectInstances per type, in any order). Copy 1 of an
+  // effect keeps the plain parameter names ("chorus_dry_wet"), copy n is named "chorus_n_dry_wet".
+  constexpr int kMaxEffectInstances = 16;
+  // The Morph effect adds two more for each of its copies: slot 4 + 2n is the Distort Table and slot 5 + 2n the
+  // Spectral Table of copy n.
+  constexpr int kNumFxTables = 4 + 2 * kMaxEffectInstances;
 #if VITAL_FX
   constexpr int kNumWavetableSlots = kNumFxTables;
 #else
@@ -51,9 +54,6 @@ namespace vital {
   constexpr int kMaxModulationConnections = 64;
   // Host automation slots: the only parameters exposed to the host (besides bypass), assigned by the user.
   constexpr int kNumAutomationSlots = 64;
-  // The effect build can run several copies of each effect (kMaxEffectInstances per type, in any order). Copy 1 of an
-  // effect keeps the plain parameter names ("chorus_dry_wet"), copy n is named "chorus_n_dry_wet".
-  constexpr int kMaxEffectInstances = 8;
   // FX Bins group effects (power + mix for the whole group); Parallel Splits run the same input through several
   // parallel effect chains (each with level, pan, mute and solo) and sum them. Their controls are real, automatable
   // parameters: "fx_bin_<n>_on|mix", "psplit_<n>_on|mix" and "psplit_<n>_b<k>_level|pan|mute|solo".
