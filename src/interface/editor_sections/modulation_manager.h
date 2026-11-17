@@ -178,6 +178,9 @@ class ModulationManager : public SynthSection,
                       vital::output_map poly_modulations);
     ~ModulationManager();
 
+    // Stops listening to the buttons and knobs, which outlive a manager that is being replaced.
+    void detach();
+
     void createModulationMeter(const vital::Output* mono_total, const vital::Output* poly_total,
                                SynthSlider* slider, OpenGlMultiQuad* quads, int index);
     void createModulationSlider(std::string name, SynthSlider* slider, bool poly);

@@ -80,6 +80,7 @@ class ModulationButton : public PlainShapeComponent {
     void mouseWheelMove(const MouseEvent& e, const MouseWheelDetails& wheel) override;
     void focusLost(FocusChangeType cause) override;
     void addListener(Listener* listener);
+    void removeListener(Listener* listener);
     void disconnectIndex(int index);
 
     void select(bool select);

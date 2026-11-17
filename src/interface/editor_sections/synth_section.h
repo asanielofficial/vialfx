@@ -287,6 +287,8 @@ class SynthSection : public Component, public Slider::Listener,
 
     void addModulationButton(ModulationButton* button, bool show = true);
     void addSubSection(SynthSection* section, bool show = true);
+    // A sub section that got new controls after it was added: this section and every parent learn about them.
+    void registerSubSectionControls(SynthSection* sub_section);
     void removeSubSection(SynthSection* section);
     virtual void setScrollWheelEnabled(bool enabled);
     ToggleButton* activator() const { return activator_; }

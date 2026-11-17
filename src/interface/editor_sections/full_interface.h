@@ -127,6 +127,7 @@ class FullInterface : public SynthSection, public AuthenticationSection::Listene
     void bankImported() override;
 
     void effectsMoved() override;
+    void effectSectionCreated(SynthSection* section) override;
     void modulationsScrolled() override;
 
     void setFocus();
@@ -201,6 +202,14 @@ class FullInterface : public SynthSection, public AuthenticationSection::Listene
     std::map<std::string, Button*> button_lookup_;
     std::unique_ptr<PointModTargets> point_mod_targets_;
     std::unique_ptr<ModulationManager> modulation_manager_;
+    // Effect copies get their sections the first time they are used: the new controls need a modulation manager
+    // that knows them, and the render thread sets up their OpenGL parts.
+    void rebuildModulationManager();
+    vital::output_map mono_modulations_;
+    vital::output_map poly_modulations_;
+    std::vector<SynthSection*> pending_gl_init_;
+    std::vector<std::unique_ptr<ModulationManager>> retired_managers_;
+    bool manager_rebuild_pending_ = false;
     std::unique_ptr<ModulationMatrix> modulation_matrix_;
 
     std::unique_ptr<AboutSection> about_section_;

@@ -1403,7 +1403,12 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
       public:
         virtual ~Listener() { }
         virtual void effectsMoved() = 0;
+        // A copy's section was built the first time it was needed (see kBuiltCopies); its controls are registered.
+        virtual void effectSectionCreated(SynthSection* section) { }
     };
+
+    // The lock the render thread holds while it draws, taken while a section is added.
+    void setOpenGlLock(CriticalSection* lock) { gl_lock_ = lock; }
 
     EffectsInterface(const vital::output_map& mono_modulations, const vital::output_map& poly_modulations,
                      vital::SoundEngine* engine) : SynthSection("effects") {
@@ -1414,11 +1419,13 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
       viewport_.addListener(this);
       viewport_.setScrollBarsShown(false, false, true, false);
 
+      mono_modulations_ = &mono_modulations;
+      poly_modulations_ = &poly_modulations;
+      engine_ = engine;
+      // The first copies of every effect exist from the start, the rest are built when they first join the chain.
       for (int id = 0; id < fx_ui::kPoolSize; ++id) {
-        slots_[id] = std::make_unique<FxEffectSlot>(id, mono_modulations, poly_modulations, engine);
-        slots_[id]->addListener(this);
-        container_->addSubSection(slots_[id].get());
-        slots_[id]->setVisible(false);
+        if (fx_ui::instanceOf(id) < kBuiltCopies)
+          createSlot(id);
       }
 
       for (int b = 0; b < vital::kMaxFxBins; ++b) {
@@ -1865,7 +1872,7 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
             continue;
 
           int depth = static_cast<int>(stack.size());
-          FxEffectSlot* slot = slots_[id].get();
+          FxEffectSlot* slot = ensureSlot(id);
           bool minimized = fx_ui::entryMinimized(token);
           slot->setVisible(true);
           slot->setMinimized(minimized);
@@ -1964,7 +1971,7 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
       }
 
       for (int id = 0; id < fx_ui::kPoolSize; ++id) {
-        if (!shown[id])
+        if (!shown[id] && slots_[id])
           slots_[id]->setVisible(false);
       }
       for (int b = 0; b < vital::kMaxFxBins; ++b) {
@@ -2393,6 +2400,42 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
 
     SynthGuiInterface* gui() { return findParentComponentOfClass<SynthGuiInterface>(); }
 
+    FxEffectSlot* createSlot(int id) {
+      slots_[id] = std::make_unique<FxEffectSlot>(id, *mono_modulations_, *poly_modulations_, engine_);
+      slots_[id]->addListener(this);
+      container_->addSubSection(slots_[id].get());
+      slots_[id]->setVisible(false);
+      return slots_[id].get();
+    }
+
+    // The slot of a copy, built now if it is the first time it is needed.
+    FxEffectSlot* ensureSlot(int id) {
+      if (id < 0 || id >= fx_ui::kPoolSize)
+        return nullptr;
+      if (slots_[id])
+        return slots_[id].get();
+
+      // The render thread must not see a half built section.
+      ScopedLock lock(*(gl_lock_ ? gl_lock_ : &open_gl_critical_section_));
+      FxEffectSlot* slot = createSlot(id);
+      slot->setSizeRatio(getSizeRatio());
+      container_->registerSubSectionControls(slot);
+
+      SynthGuiInterface* parent = gui();
+      if (parent)
+        slot->setAllValues(parent->getSynth()->getControls());
+      for (Listener* listener : listeners_)
+        listener->effectSectionCreated(slot);
+      return slot;
+    }
+
+    void ensureChainSlots() {
+      for (int token : chain_) {
+        if (fx_ui::isEffectEntry(token))
+          ensureSlot(fx_ui::entryId(token));
+      }
+    }
+
     void setControl(const std::string& name, vital::mono_float value) {
       SynthGuiInterface* parent = gui();
       if (parent == nullptr)
@@ -2409,7 +2452,7 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
 
     // Setting a control from here does not notify the effect's section, which greys itself when off.
     void syncActive(int id) {
-      SynthSection* section = slots_[id]->section();
+      SynthSection* section = slots_[id] ? slots_[id]->section() : nullptr;
       if (section && section->activator())
         section->setActive(section->activator()->getToggleState());
     }
@@ -2457,7 +2500,8 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
       copyModulations(from, to, controls);
 
       // Selector-style widgets (the filter's model and style) keep their own state, refresh it from the values.
-      SynthSection* section = slots_[to]->section();
+      FxEffectSlot* to_slot = ensureSlot(to);
+      SynthSection* section = to_slot ? to_slot->section() : nullptr;
       if (section)
         section->setAllValues(controls);
       syncActive(to);
@@ -2579,7 +2623,8 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
           if (id < 0 || id >= fx_ui::kPoolSize)
             continue;
           item.kind = fx_ui::kRowEffect;
-          item.on = slots_[id]->isOn();
+          ensureSlot(id);
+          item.on = slots_[id] ? slots_[id]->isOn() : true;
           item.title = fx_ui::instanceTitle(fx_ui::typeOf(id), fx_ui::instanceOf(id));
           item.icon = fx_ui::typeIcon(fx_ui::typeOf(id));
           items.push_back(item);
@@ -2646,7 +2691,7 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
     }
 
     void scrollToEffect(int effect_id) {
-      if (effect_id < 0 || effect_id >= fx_ui::kPoolSize || !slots_[effect_id]->isVisible())
+      if (effect_id < 0 || effect_id >= fx_ui::kPoolSize || !slots_[effect_id] || !slots_[effect_id]->isVisible())
         return;
 
       int y = slots_[effect_id]->getY();
@@ -2660,6 +2705,11 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
     OpenGlImage background_;
     CriticalSection open_gl_critical_section_;
 
+    static constexpr int kBuiltCopies = 8;
+    const vital::output_map* mono_modulations_ = nullptr;
+    const vital::output_map* poly_modulations_ = nullptr;
+    vital::SoundEngine* engine_ = nullptr;
+    CriticalSection* gl_lock_ = nullptr;
     std::unique_ptr<FxEffectSlot> slots_[fx_ui::kPoolSize];
     std::unique_ptr<FxContainerPanel> bin_panels_[vital::kMaxFxBins];
     std::unique_ptr<FxContainerPanel> split_panels_[vital::kMaxParallelSplits];

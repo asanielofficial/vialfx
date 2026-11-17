@@ -334,6 +334,7 @@ class SynthSlider : public OpenGlSlider, public TextEditor::Listener {
     void setDefaultRange();
 
     void addSliderListener(SliderListener* listener);
+    void removeSliderListener(SliderListener* listener);
 
     void showPopup(bool primary);
     void hidePopup(bool primary);

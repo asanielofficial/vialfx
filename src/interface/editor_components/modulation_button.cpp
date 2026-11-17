@@ -306,6 +306,10 @@ void ModulationButton::addListener(Listener* listener) {
   listeners_.push_back(listener);
 }
 
+void ModulationButton::removeListener(Listener* listener) {
+  listeners_.erase(std::remove(listeners_.begin(), listeners_.end(), listener), listeners_.end());
+}
+
 void ModulationButton::disconnectIndex(int index) {
   if (parent_ == nullptr)
     return;

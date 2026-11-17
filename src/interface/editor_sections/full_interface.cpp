@@ -115,6 +115,9 @@ FullInterface::FullInterface(SynthGuiData* synth_data) : SynthSection("full_inte
   effects_interface_->setVisible(false);
   effects_interface_->addListener(this);
 #if VITAL_FX
+  effects_interface_->setOpenGlLock(&open_gl_critical_section_);
+#endif
+#if VITAL_FX
   // The Morph effects' table menus open the same wavetable editors as the voice panel's.
   effects_interface_->setTableEditorCallback([this](int index) { showWavetableEditSection(index); });
   effects_interface_->setTableImportCallback(
@@ -167,6 +170,8 @@ FullInterface::FullInterface(SynthGuiData* synth_data) : SynthSection("full_inte
   modulation_matrix_->addListener(this);
   point_mod_targets_ = std::make_unique<PointModTargets>();
   addSubSection(point_mod_targets_.get());
+  mono_modulations_ = synth_data->mono_modulations;
+  poly_modulations_ = synth_data->poly_modulations;
   createModulationSliders(synth_data->mono_modulations, synth_data->poly_modulations);
   modulation_manager_->on_drag_started = [this]() { point_mod_targets_->beginDrag(); };
   modulation_manager_->on_drag_ended = [this]() { point_mod_targets_->endDrag(); };
@@ -810,8 +815,11 @@ void FullInterface::newOpenGLContextCreated() {
   open_gl_.display_scale = display_scale_;
   last_render_scale_ = display_scale_;
 
+  ScopedLock lock(open_gl_critical_section_);
   background_.init(open_gl_);
   initOpenGlComponents(open_gl_);
+  pending_gl_init_.clear();
+  retired_managers_.clear();
 }
 
 void FullInterface::renderOpenGL() {
@@ -826,6 +834,15 @@ void FullInterface::renderOpenGL() {
 
   ScopedLock lock(open_gl_critical_section_);
   open_gl_.display_scale = display_scale_;
+
+  // Parts that came into being after the context did.
+  for (auto& retired : retired_managers_)
+    retired->destroyOpenGlComponents(open_gl_);
+  retired_managers_.clear();
+  for (SynthSection* section : pending_gl_init_)
+    section->initOpenGlComponents(open_gl_);
+  pending_gl_init_.clear();
+
   background_.render(open_gl_);
   modulation_manager_->renderMeters(open_gl_, animate_);
   renderOpenGlComponents(open_gl_, animate_);
@@ -1187,6 +1204,59 @@ void FullInterface::popupDisplay(Component* source, const std::string& text,
     placement = BubbleComponent::above;
   display->setContent(text, source_bounds, placement);
   display->setVisible(true);
+}
+
+void FullInterface::effectSectionCreated(SynthSection* section) {
+  pending_gl_init_.push_back(section);
+  if (manager_rebuild_pending_)
+    return;
+
+  manager_rebuild_pending_ = true;
+  Component::SafePointer<FullInterface> safe(this);
+  MessageManager::callAsync([safe]() {
+    if (safe != nullptr)
+      safe->rebuildModulationManager();
+  });
+}
+
+// The modulation manager builds its rings and meters for the knobs that exist when it is made, so it is made again
+// once new effect sections have joined.
+void FullInterface::rebuildModulationManager() {
+  manager_rebuild_pending_ = false;
+  if (modulation_manager_ == nullptr)
+    return;
+
+  ScopedLock lock(open_gl_critical_section_);
+  bool visible = modulation_manager_->isVisible();
+  modulation_manager_->detach();
+  removeSubSection(modulation_manager_.get());
+  removeChildComponent(modulation_manager_.get());
+  // One whose OpenGL parts were never set up has nothing to tear down on the render thread.
+  bool was_pending = false;
+  auto pending = std::find(pending_gl_init_.begin(), pending_gl_init_.end(), modulation_manager_.get());
+  if (pending != pending_gl_init_.end()) {
+    pending_gl_init_.erase(pending);
+    was_pending = true;
+  }
+  if (open_gl_.shaders && !was_pending)
+    retired_managers_.push_back(std::move(modulation_manager_));
+  else
+    modulation_manager_ = nullptr;
+
+  createModulationSliders(mono_modulations_, poly_modulations_);
+  modulation_manager_->on_drag_started = [this]() { point_mod_targets_->beginDrag(); };
+  modulation_manager_->on_drag_ended = [this]() { point_mod_targets_->endDrag(); };
+  modulation_manager_->setSizeRatio(getSizeRatio());
+  modulation_manager_->setBounds(getLocalBounds());
+  modulation_manager_->toFront(false);
+  modulation_manager_->setVisible(visible);
+  if (open_gl_.shaders)
+    pending_gl_init_.push_back(modulation_manager_.get());
+
+  modulation_manager_->reset();
+  modulation_manager_->updateModulationMeterLocations();
+  modulation_manager_->setVisibleMeterBounds();
+  modulation_manager_->hideUnusedHoverModulations();
 }
 
 // A section moved or resized knobs after the layout pass (a mode changed a knob's width, say): the modulation

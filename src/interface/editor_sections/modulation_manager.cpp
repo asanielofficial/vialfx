@@ -529,6 +529,14 @@ void ModulationManager::createModulationSlider(std::string name, SynthSlider* sl
 
 ModulationManager::~ModulationManager() { }
 
+void ModulationManager::detach() {
+  for (auto& modulation_button : modulation_buttons_)
+    modulation_button.second->removeListener(this);
+
+  for (auto& slider : slider_model_lookup_)
+    slider.second->removeSliderListener(this);
+}
+
 void ModulationManager::resized() {
   float meter_thickness = findValue(Skin::kKnobModMeterArcThickness);
   Colour meter_center_color = findColour(Skin::kModulationMeter, true);

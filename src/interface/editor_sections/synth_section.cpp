@@ -514,6 +514,21 @@ void SynthSection::addSubSection(SynthSection* sub_section, bool show) {
   all_modulation_buttons_.insert(sub_mod_buttons.begin(), sub_mod_buttons.end());
 }
 
+void SynthSection::registerSubSectionControls(SynthSection* sub_section) {
+  std::map<std::string, SynthSlider*> sub_sliders = sub_section->getAllSliders();
+  all_sliders_.insert(sub_sliders.begin(), sub_sliders.end());
+
+  std::map<std::string, ToggleButton*> sub_buttons = sub_section->getAllButtons();
+  all_buttons_.insert(sub_buttons.begin(), sub_buttons.end());
+
+  std::map<std::string, ModulationButton*> sub_mod_buttons = sub_section->getAllModulationButtons();
+  all_modulation_buttons_.insert(sub_mod_buttons.begin(), sub_mod_buttons.end());
+
+  SynthSection* parent = const_cast<SynthSection*>(parent_);
+  if (parent)
+    parent->registerSubSectionControls(this);
+}
+
 void SynthSection::removeSubSection(SynthSection* section) {
   auto location = std::find(sub_sections_.begin(), sub_sections_.end(), section);
   if (location != sub_sections_.end())
