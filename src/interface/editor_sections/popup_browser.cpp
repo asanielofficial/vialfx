@@ -185,6 +185,10 @@ void PopupList::mouseMove(const MouseEvent& e) {
   int row = getRowFromPosition(e.position.y);
   if (row >= selections_.size() || row < 0)
     row = -1;
+  if (row != hovered_ && row >= 0) {
+    for (Listener* listener : listeners_)
+      listener->hoveredRow(this, row);
+  }
   hovered_ = row;
 }
 
@@ -935,11 +939,15 @@ void SelectionList::destroyOpenGlComponents(OpenGlWrapper& open_gl) {
 
 SinglePopupSelector::SinglePopupSelector() : SynthSection("Popup Selector"),
                                              body_(Shaders::kRoundedRectangleFragment),
-                                             border_(Shaders::kRoundedRectangleBorderFragment) {
+                                             border_(Shaders::kRoundedRectangleBorderFragment),
+                                             sub_body_(Shaders::kRoundedRectangleFragment),
+                                             sub_border_(Shaders::kRoundedRectangleBorderFragment) {
   callback_ = nullptr;
   cancel_ = nullptr;
   addOpenGlComponent(&body_);
   addOpenGlComponent(&border_);
+  addOpenGlComponent(&sub_body_);
+  addOpenGlComponent(&sub_border_);
 
   popup_list_ = std::make_unique<PopupList>();
   popup_list_->addListener(this);
@@ -947,37 +955,114 @@ SinglePopupSelector::SinglePopupSelector() : SynthSection("Popup Selector"),
   popup_list_->setAlwaysOnTop(true);
   popup_list_->setWantsKeyboardFocus(false);
 
+  sub_list_ = std::make_unique<PopupList>();
+  sub_list_->addListener(this);
+  addSubSection(sub_list_.get());
+  sub_list_->setAlwaysOnTop(true);
+  sub_list_->setWantsKeyboardFocus(false);
+  sub_list_->setVisible(false);
+
   setSkinOverride(Skin::kPopupBrowser);
+}
+
+bool SinglePopupSelector::hitTest(int x, int y) {
+  Rectangle<int> main_bounds(main_x_, 0, main_width_, main_height_);
+  return main_bounds.contains(x, y) || (!sub_bounds_.isEmpty() && sub_bounds_.contains(x, y));
 }
 
 void SinglePopupSelector::resized() {
   SynthSection::resized();
 
-  Rectangle<int> bounds = getLocalBounds();
   int rounding = findValue(Skin::kBodyRounding);
-  popup_list_->setBounds(1, rounding, getWidth() - 2, getHeight() - 2 * rounding);
+  Rectangle<int> main_bounds(main_x_, 0, main_width_, main_height_);
+  popup_list_->setBounds(main_bounds.getX() + 1, rounding, main_bounds.getWidth() - 2,
+                         main_bounds.getHeight() - 2 * rounding);
 
-  body_.setBounds(bounds);
-  body_.setRounding(findValue(Skin::kBodyRounding));
+  body_.setBounds(main_bounds);
+  body_.setRounding(rounding);
   body_.setColor(findColour(Skin::kBody, true));
 
-  border_.setBounds(bounds);
-  border_.setRounding(findValue(Skin::kBodyRounding));
+  border_.setBounds(main_bounds);
+  border_.setRounding(rounding);
   border_.setThickness(1.0f, true);
   border_.setColor(findColour(Skin::kBorder, true));
+
+  sub_body_.setBounds(sub_bounds_);
+  sub_body_.setRounding(rounding);
+  sub_body_.setColor(findColour(Skin::kBody, true));
+
+  sub_border_.setBounds(sub_bounds_);
+  sub_border_.setRounding(rounding);
+  sub_border_.setThickness(1.0f, true);
+  sub_border_.setColor(findColour(Skin::kBorder, true));
+
+  if (!sub_bounds_.isEmpty()) {
+    sub_list_->setBounds(sub_bounds_.getX() + 1, sub_bounds_.getY() + rounding,
+                         sub_bounds_.getWidth() - 2, sub_bounds_.getHeight() - 2 * rounding);
+  }
+}
+
+void SinglePopupSelector::showSubmenu(int row) {
+  sub_bounds_ = Rectangle<int>();
+  sub_list_->setVisible(false);
+
+  if (row >= 0 && row < popup_list_->getSelectionCount() && popup_list_->getSelectionItems(row).size() > 0) {
+    int rounding = findValue(Skin::kBodyRounding);
+    PopupItems children = popup_list_->getSelectionItems(row);
+    sub_list_->setSelections(children);
+    sub_list_->resetScrollPosition();
+
+    int rows = std::min(children.size(), static_cast<int>(kMaxSubRows));
+    int height = rows * sub_list_->getRowHeight() + 2 * rounding;
+    int width = sub_list_->getBrowseWidth() + (children.size() > kMaxSubRows ? 16 : 0);
+    int y = row * popup_list_->getRowHeight();
+    y = std::max(0, std::min(y, getHeight() - height));
+    int x = sub_on_left_ ? main_x_ - width : main_x_ + main_width_;
+    sub_bounds_ = Rectangle<int>(std::max(0, x), y, width, height);
+    sub_list_->setVisible(true);
+  }
+  resized();
+}
+
+void SinglePopupSelector::hoveredRow(PopupList* list, int index) {
+  if (list == popup_list_.get())
+    showSubmenu(index);
 }
 
 void SinglePopupSelector::setPosition(Point<int> position, Rectangle<int> bounds) {
   int rounding = findValue(Skin::kBodyRounding);
-  int width = popup_list_->getBrowseWidth();
-  int height = popup_list_->getBrowseHeight() + 2 * rounding;
+  main_width_ = popup_list_->getBrowseWidth();
+  main_height_ = popup_list_->getBrowseHeight() + 2 * rounding;
+
+  // Room for the widest submenu beside the list.
+  int sub_width = 0;
+  int sub_height = 0;
+  for (int i = 0; i < popup_list_->getSelectionCount(); ++i) {
+    PopupItems children = popup_list_->getSelectionItems(i);
+    if (children.size() == 0)
+      continue;
+    sub_list_->setSelections(children);
+    sub_width = std::max(sub_width, sub_list_->getBrowseWidth() + 16);
+    sub_height = std::max(sub_height, std::min(children.size(), static_cast<int>(kMaxSubRows)) *
+                                      sub_list_->getRowHeight() + 2 * rounding);
+  }
+  sub_reserve_width_ = sub_width;
+  sub_reserve_height_ = sub_height;
+
   int x = position.x;
   int y = position.y;
-  if (x + width > bounds.getRight())
-    x -= width;
+  int height = std::max(main_height_, sub_height);
+  if (x + main_width_ > bounds.getRight())
+    x -= main_width_;
   if (y + height > bounds.getBottom())
     y = bounds.getBottom() - height;
-  setBounds(x, y, width, height);
+  y = std::max(0, y);
+
+  sub_on_left_ = sub_width > 0 && x + main_width_ + sub_width > bounds.getRight();
+  main_x_ = sub_on_left_ ? sub_width : 0;
+  int total_width = main_width_ + sub_width;
+  setBounds(x - main_x_, y, total_width, height);
+  showSubmenu(-1);
 }
 
 DualPopupSelector::DualPopupSelector() : SynthSection("Dual Popup Selector"),
