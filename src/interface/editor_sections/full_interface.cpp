@@ -1213,7 +1213,7 @@ void FullInterface::effectSectionCreated(SynthSection* section) {
 
   manager_rebuild_pending_ = true;
   Component::SafePointer<FullInterface> safe(this);
-  MessageManager::callAsync([safe]() {
+  MessageManager::callAsync([safe]() mutable {
     if (safe != nullptr)
       safe->rebuildModulationManager();
   });
