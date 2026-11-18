@@ -24,29 +24,23 @@ jobs:
 
       - name: Build VialFX VST3
         run: |
-          make -C effects/builds/linux_vst VST3 CONFIG=Release AR=gcc-ar CXXFLAGS="-g1" \
+          make -C effects/builds/linux_vst Standalone CONFIG=Release AR=gcc-ar CXXFLAGS="-g1" \
             SIMDFLAGS="-msse2" GLFLAGS="" BUILD_DATE="$(date +'%Y %m %d %H %M')" > build.log 2>&1 \
             || { tail -n 40 build.log; exit 1; }
-
-      - name: Get pluginval
-        run: |
-          curl -sSL -o pluginval.zip https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Linux.zip
-          unzip -q pluginval.zip
-          chmod +x pluginval
-          ls -l pluginval
 
       - name: Open the plugin
         continue-on-error: true
         run: |
+          ls -l effects/builds/linux_vst/build/
           rm -f /tmp/VialFX_debug.log
           export VIALFX_SELFTEST=1
           export LIBGL_ALWAYS_SOFTWARE=1
           export MESA_GL_VERSION_OVERRIDE=4.5
           export MESA_GLSL_VERSION_OVERRIDE=450
+          app=$(ls effects/builds/linux_vst/build/VialFX | head -1)
           xvfb-run -a -s "-screen 0 1600x1000x24 +extension GLX +render -noreset" \
-            gdb -batch -ex "handle SIGPIPE nostop noprint" -ex "run" -ex "bt 40" -ex "info threads" \
-            --args ./pluginval --validate-in-process --strictness-level 10 --timeout-ms 120000 \
-            effects/builds/linux_vst/build/VialFX.vst3 > run.log 2>&1
+            timeout 240 gdb -batch -ex "handle SIGPIPE nostop noprint" -ex "run" -ex "bt 40" -ex "info threads" \
+            --args effects/builds/linux_vst/build/VialFX > run.log 2>&1
           echo "exit status $?"
 
       - name: Results

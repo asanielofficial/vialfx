@@ -327,6 +327,7 @@ FullInterface::FullInterface(SynthGuiData* synth_data) : SynthSection("full_inte
           interface->showWavetableEditSection(-1);
           vial_debug::log("selftest done");
           stopTimer();
+          JUCEApplicationBase::quit();
         }
       }
     };
