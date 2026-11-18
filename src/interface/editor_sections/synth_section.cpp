@@ -400,7 +400,7 @@ void SynthSection::initOpenGlComponents(OpenGlWrapper& open_gl) {
     sub_section->initOpenGlComponents(open_gl);
 
   double total = Time::getMillisecondCounterHiRes() - start;
-  if (total > 300.0)
+  if (total > 40.0)
     vial_debug::log("  gl init " + getName() + ": " + String(total, 0) + " ms (own " + String(own, 0) + ", " +
                     String(static_cast<int>(open_gl_components_.size())) + " parts)");
 }

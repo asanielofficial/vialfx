@@ -2429,7 +2429,9 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
 
       vial_debug::log("effect section for id " + String(id));
       // The render thread must not see a half built section.
-      ScopedLock lock(*(gl_lock_ ? gl_lock_ : &open_gl_critical_section_));
+      // This lock, not the whole interface's: callers already hold it, and the render thread takes the interface's
+      // lock before this one, so taking that one here could deadlock.
+      ScopedLock lock(open_gl_critical_section_);
       vial_debug::log("  lock taken");
       FxEffectSlot* slot = createSlot(id);
       vial_debug::log("  slot created");

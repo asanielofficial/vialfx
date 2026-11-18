@@ -207,6 +207,7 @@ class FullInterface : public SynthSection, public AuthenticationSection::Listene
     void rebuildModulationManager();
     vital::output_map mono_modulations_;
     vital::output_map poly_modulations_;
+    CriticalSection pending_lock_;  // guards the two lists below; never held while taking another lock
     std::vector<SynthSection*> pending_gl_init_;
     std::vector<std::unique_ptr<ModulationManager>> retired_managers_;
     bool manager_rebuild_pending_ = false;

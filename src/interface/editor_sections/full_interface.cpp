@@ -828,8 +828,11 @@ void FullInterface::newOpenGLContextCreated() {
   background_.init(open_gl_);
   initOpenGlComponents(open_gl_);
   vial_debug::log("OpenGL components initialised");
-  pending_gl_init_.clear();
-  retired_managers_.clear();
+  {
+    ScopedLock pending_lock(pending_lock_);
+    pending_gl_init_.clear();
+    retired_managers_.clear();
+  }
 }
 
 void FullInterface::renderOpenGL() {
@@ -846,12 +849,18 @@ void FullInterface::renderOpenGL() {
   open_gl_.display_scale = display_scale_;
 
   // Parts that came into being after the context did.
-  for (auto& retired : retired_managers_)
-    retired->destroyOpenGlComponents(open_gl_);
-  retired_managers_.clear();
-  for (SynthSection* section : pending_gl_init_)
+  std::vector<std::unique_ptr<ModulationManager>> retired;
+  std::vector<SynthSection*> pending;
+  {
+    ScopedLock pending_lock(pending_lock_);
+    retired.swap(retired_managers_);
+    pending.swap(pending_gl_init_);
+  }
+  for (auto& manager : retired)
+    manager->destroyOpenGlComponents(open_gl_);
+  retired.clear();
+  for (SynthSection* section : pending)
     section->initOpenGlComponents(open_gl_);
-  pending_gl_init_.clear();
 
   background_.render(open_gl_);
   modulation_manager_->renderMeters(open_gl_, animate_);
@@ -1217,7 +1226,10 @@ void FullInterface::popupDisplay(Component* source, const std::string& text,
 }
 
 void FullInterface::effectSectionCreated(SynthSection* section) {
-  pending_gl_init_.push_back(section);
+  {
+    ScopedLock pending_lock(pending_lock_);
+    pending_gl_init_.push_back(section);
+  }
   if (manager_rebuild_pending_)
     return;
 
@@ -1245,14 +1257,17 @@ void FullInterface::rebuildModulationManager() {
   removeChildComponent(modulation_manager_.get());
   // One whose OpenGL parts were never set up has nothing to tear down on the render thread.
   bool was_pending = false;
-  auto pending = std::find(pending_gl_init_.begin(), pending_gl_init_.end(), modulation_manager_.get());
-  if (pending != pending_gl_init_.end()) {
-    pending_gl_init_.erase(pending);
-    was_pending = true;
+  {
+    ScopedLock pending_lock(pending_lock_);
+    auto pending = std::find(pending_gl_init_.begin(), pending_gl_init_.end(), modulation_manager_.get());
+    if (pending != pending_gl_init_.end()) {
+      pending_gl_init_.erase(pending);
+      was_pending = true;
+    }
+    if (open_gl_.shaders && !was_pending)
+      retired_managers_.push_back(std::move(modulation_manager_));
   }
-  if (open_gl_.shaders && !was_pending)
-    retired_managers_.push_back(std::move(modulation_manager_));
-  else
+  if (modulation_manager_ != nullptr)
     modulation_manager_ = nullptr;
 
   vial_debug::log("  old manager retired");
@@ -1264,8 +1279,10 @@ void FullInterface::rebuildModulationManager() {
   modulation_manager_->setBounds(getLocalBounds());
   modulation_manager_->toFront(false);
   modulation_manager_->setVisible(visible);
-  if (open_gl_.shaders)
+  if (open_gl_.shaders) {
+    ScopedLock pending_lock(pending_lock_);
     pending_gl_init_.push_back(modulation_manager_.get());
+  }
 
   modulation_manager_->reset();
   modulation_manager_->updateModulationMeterLocations();
