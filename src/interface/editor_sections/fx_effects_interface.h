@@ -1788,13 +1788,19 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
 
     void setTableImportCallback(
         std::function<bool(int, String, InputStream*, WavetableCreator::AudioFileLoadStyle)> callback) {
-      for (auto& slot : slots_)
-        slot->setTableImportCallback(callback);
+      table_import_callback_ = callback;
+      for (auto& slot : slots_) {
+        if (slot)
+          slot->setTableImportCallback(callback);
+      }
     }
 
     void setTableEditorCallback(std::function<void(int)> callback) {
-      for (auto& slot : slots_)
-        slot->setTableEditorCallback(callback);
+      table_editor_callback_ = callback;
+      for (auto& slot : slots_) {
+        if (slot)
+          slot->setTableEditorCallback(callback);
+      }
     }
 
     void setFocus() { grabKeyboardFocus(); }
@@ -2406,6 +2412,11 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
       slots_[id]->addListener(this);
       container_->addSubSection(slots_[id].get());
       slots_[id]->setVisible(false);
+      // Copies built later take the same callbacks the first ones were given.
+      if (table_import_callback_)
+        slots_[id]->setTableImportCallback(table_import_callback_);
+      if (table_editor_callback_)
+        slots_[id]->setTableEditorCallback(table_editor_callback_);
       return slots_[id].get();
     }
 
@@ -2708,6 +2719,8 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
     OpenGlImage background_;
     CriticalSection open_gl_critical_section_;
 
+    std::function<bool(int, String, InputStream*, WavetableCreator::AudioFileLoadStyle)> table_import_callback_;
+    std::function<void(int)> table_editor_callback_;
     static constexpr int kBuiltCopies = 8;
     const vital::output_map* mono_modulations_ = nullptr;
     const vital::output_map* poly_modulations_ = nullptr;
