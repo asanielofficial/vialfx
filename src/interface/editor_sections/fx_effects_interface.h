@@ -1806,6 +1806,9 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
 
     void setFocus() { grabKeyboardFocus(); }
 
+    // For the automated smoke test (VIALFX_SELFTEST): adds one more copy of an effect, as the add menu would.
+    void selfTestAddCopy(int type) { addEffectRequested(type); }
+
     bool slotBuilt(int effect_id) const {
       return effect_id >= 0 && effect_id < fx_ui::kPoolSize && slots_[effect_id] != nullptr;
     }

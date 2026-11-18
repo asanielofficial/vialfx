@@ -305,6 +305,37 @@ FullInterface::FullInterface(SynthGuiData* synth_data) : SynthSection("full_inte
   needs_download_ = UpdateMemory::getInstance()->incrementChecker();
 
   vial_debug::log("FullInterface: constructed");
+#if VITAL_FX
+  if (SystemStats::getEnvironmentVariable("VIALFX_SELFTEST", "").isNotEmpty()) {
+    struct SelfTest : public Timer {
+      FullInterface* interface = nullptr;
+      int tick = 0;
+      void timerCallback() override {
+        ++tick;
+        vial_debug::log("selftest tick " + String(tick));
+        if (tick == 1)
+          interface->tabSelected(1);
+        // Types: 0 chorus, 2 delay, 9 morph.
+        const int types[3] = { 0, 2, 9 };
+        if (tick >= 2 && tick <= 13) {
+          for (int type : types)
+            interface->effects_interface_->selfTestAddCopy(type);
+        }
+        if (tick == 16)
+          interface->showWavetableEditSection(4 + 2 * 9);
+        if (tick == 20) {
+          interface->showWavetableEditSection(-1);
+          vial_debug::log("selftest done");
+          stopTimer();
+        }
+      }
+    };
+    auto test = std::make_unique<SelfTest>();
+    test->interface = this;
+    test->startTimer(400);
+    self_test_ = std::move(test);
+  }
+#endif
   open_gl_context_.setContinuousRepainting(true);
   open_gl_context_.setOpenGLVersionRequired(OpenGLContext::openGL3_2);
   open_gl_context_.setSwapInterval(0);

@@ -1,0 +1,58 @@
+# Opens the Linux VST3 in pluginval under a virtual display with software OpenGL, with VIALFX_SELFTEST set so the
+# interface adds many effect copies on its own. The debug log and any crash backtrace end up in the job log.
+name: Smoke test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: Open the plugin and add effect copies
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config \
+            libasound2-dev libfreetype6-dev libgl1-mesa-dev libcurl4-openssl-dev \
+            libx11-dev libxext-dev libxinerama-dev libxrandr-dev libxcursor-dev zip unzip \
+            xvfb libgl1-mesa-dri libglx-mesa0 mesa-utils gdb curl
+
+      - name: Build VialFX VST3
+        run: |
+          make -C effects/builds/linux_vst VST3 CONFIG=Release AR=gcc-ar CXXFLAGS="-g1" \
+            SIMDFLAGS="-msse2" GLFLAGS="" BUILD_DATE="$(date +'%Y %m %d %H %M')" > build.log 2>&1 \
+            || { tail -n 40 build.log; exit 1; }
+
+      - name: Get pluginval
+        run: |
+          curl -sSL -o pluginval.zip https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Linux.zip
+          unzip -q pluginval.zip
+          chmod +x pluginval
+          ls -l pluginval
+
+      - name: Open the plugin
+        continue-on-error: true
+        run: |
+          rm -f /tmp/VialFX_debug.log
+          export VIALFX_SELFTEST=1
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export MESA_GL_VERSION_OVERRIDE=4.5
+          export MESA_GLSL_VERSION_OVERRIDE=450
+          xvfb-run -a -s "-screen 0 1600x1000x24 +extension GLX +render -noreset" \
+            gdb -batch -ex "handle SIGPIPE nostop noprint" -ex "run" -ex "bt 40" -ex "info threads" \
+            --args ./pluginval --validate-in-process --strictness-level 1 --timeout-ms 120000 \
+            effects/builds/linux_vst/build/VialFX.vst3 > run.log 2>&1
+          echo "exit status $?"
+
+      - name: Results
+        if: always()
+        run: |
+          echo "=== debug log ==="
+          cat /tmp/VialFX_debug.log || echo "(no debug log)"
+          echo "=== run log (tail) ==="
+          tail -n 120 run.log

@@ -236,6 +236,8 @@ class FullInterface : public SynthSection, public AuthenticationSection::Listene
     // The editors of the Morph copies after the first few are built once their effect section exists.
     WavetableCreator* wavetable_creators_[vital::kNumWavetableSlots] = {};
     void createWavetableEdits();
+    // Set VIALFX_SELFTEST in the environment and the interface adds many effect copies by itself, for CI.
+    std::unique_ptr<Timer> self_test_;
     std::unique_ptr<KeyboardInterface> keyboard_interface_;
     std::unique_ptr<BendSection> bend_section_;
     std::unique_ptr<PortamentoSection> portamento_section_;
