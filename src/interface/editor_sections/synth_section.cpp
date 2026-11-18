@@ -16,6 +16,8 @@
 
 #include "synth_section.h"
 
+#include "debug_log.h"
+
 #include "skin.h"
 #include "fonts.h"
 #include "full_interface.h"
@@ -389,11 +391,18 @@ void SynthSection::drawTempoDivider(Graphics& g, Component* sync) {
 }
 
 void SynthSection::initOpenGlComponents(OpenGlWrapper& open_gl) {
+  double start = Time::getMillisecondCounterHiRes();
   for (auto& open_gl_component : open_gl_components_)
     open_gl_component->init(open_gl);
 
+  double own = Time::getMillisecondCounterHiRes() - start;
   for (auto& sub_section : sub_sections_)
     sub_section->initOpenGlComponents(open_gl);
+
+  double total = Time::getMillisecondCounterHiRes() - start;
+  if (total > 300.0)
+    vial_debug::log("  gl init " + getName() + ": " + String(total, 0) + " ms (own " + String(own, 0) + ", " +
+                    String(static_cast<int>(open_gl_components_.size())) + " parts)");
 }
 
 void SynthSection::renderOpenGlComponents(OpenGlWrapper& open_gl, bool animate) {
