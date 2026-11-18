@@ -2430,13 +2430,18 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
       vial_debug::log("effect section for id " + String(id));
       // The render thread must not see a half built section.
       ScopedLock lock(*(gl_lock_ ? gl_lock_ : &open_gl_critical_section_));
+      vial_debug::log("  lock taken");
       FxEffectSlot* slot = createSlot(id);
+      vial_debug::log("  slot created");
       slot->setSizeRatio(getSizeRatio());
+      vial_debug::log("  size ratio set");
       container_->registerSubSectionControls(slot);
+      vial_debug::log("  controls registered");
 
       SynthGuiInterface* parent = gui();
       if (parent)
         slot->setAllValues(parent->getSynth()->getControls());
+      vial_debug::log("  values set");
       for (Listener* listener : listeners_)
         listener->effectSectionCreated(slot);
       vial_debug::log("effect section built");

@@ -1240,6 +1240,7 @@ void FullInterface::rebuildModulationManager() {
   ScopedLock lock(open_gl_critical_section_);
   bool visible = modulation_manager_->isVisible();
   modulation_manager_->detach();
+  vial_debug::log("  detached");
   removeSubSection(modulation_manager_.get());
   removeChildComponent(modulation_manager_.get());
   // One whose OpenGL parts were never set up has nothing to tear down on the render thread.
@@ -1254,7 +1255,9 @@ void FullInterface::rebuildModulationManager() {
   else
     modulation_manager_ = nullptr;
 
+  vial_debug::log("  old manager retired");
   createModulationSliders(mono_modulations_, poly_modulations_);
+  vial_debug::log("  new manager created");
   modulation_manager_->on_drag_started = [this]() { point_mod_targets_->beginDrag(); };
   modulation_manager_->on_drag_ended = [this]() { point_mod_targets_->endDrag(); };
   modulation_manager_->setSizeRatio(getSizeRatio());
