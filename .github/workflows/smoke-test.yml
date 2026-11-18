@@ -45,7 +45,7 @@ jobs:
           export MESA_GLSL_VERSION_OVERRIDE=450
           xvfb-run -a -s "-screen 0 1600x1000x24 +extension GLX +render -noreset" \
             gdb -batch -ex "handle SIGPIPE nostop noprint" -ex "run" -ex "bt 40" -ex "info threads" \
-            --args ./pluginval --validate-in-process --strictness-level 1 --timeout-ms 120000 \
+            --args ./pluginval --validate-in-process --strictness-level 10 --timeout-ms 120000 \
             effects/builds/linux_vst/build/VialFX.vst3 > run.log 2>&1
           echo "exit status $?"
 
