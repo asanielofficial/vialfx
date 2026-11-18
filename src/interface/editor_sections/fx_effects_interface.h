@@ -369,6 +369,10 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
     bool isOn() const { return section_->activator() && section_->activator()->getToggleState(); }
     bool isMinimized() const { return minimized_; }
     SynthSection* section() { return section_.get(); }
+
+    // Whether its OpenGL parts exist (a copy built after the context was made starts without them).
+    bool openGlReady() const { return gl_ready_; }
+    void setOpenGlReady(bool ready) { gl_ready_ = ready; }
     void addListener(Listener* listener) { listeners_.push_back(listener); }
 
     // The height the effect takes when minimized: its title bar.
@@ -704,6 +708,7 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
     }
 
     int effect_id_;
+    bool gl_ready_ = false;
     bool minimized_;
     Time last_event_time_;
     Path icon_;
@@ -1046,6 +1051,15 @@ class FxEffectList : public SynthSection, public ScrollBar::Listener {
 
     void renderOpenGlComponents(OpenGlWrapper& open_gl, bool animate) override {
       ScopedLock lock(open_gl_critical_section_);
+
+      // A copy built after the context was made gets its OpenGL parts here, under the lock it was built with, so it
+      // is never drawn before they exist.
+      for (auto& slot : slots_) {
+        if (slot && !slot->openGlReady()) {
+          slot->initOpenGlComponents(open_gl);
+          slot->setOpenGlReady(true);
+        }
+      }
       OpenGlComponent::setViewPort(&viewport_, open_gl);
       SynthSection::renderOpenGlComponents(open_gl, animate);
     }
@@ -2013,6 +2027,10 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
     void initOpenGlComponents(OpenGlWrapper& open_gl) override {
       background_.init(open_gl);
       SynthSection::initOpenGlComponents(open_gl);
+      for (auto& slot : slots_) {
+        if (slot)
+          slot->setOpenGlReady(true);
+      }
     }
 
     void renderOpenGlComponents(OpenGlWrapper& open_gl, bool animate) override {
@@ -2040,6 +2058,10 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
     void destroyOpenGlComponents(OpenGlWrapper& open_gl) override {
       background_.destroy(open_gl);
       SynthSection::destroyOpenGlComponents(open_gl);
+      for (auto& slot : slots_) {
+        if (slot)
+          slot->setOpenGlReady(false);
+      }
     }
 
     void scrollBarMoved(ScrollBar* scroll_bar, double range_start) override {

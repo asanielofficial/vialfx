@@ -1262,10 +1262,7 @@ void FullInterface::popupDisplay(Component* source, const std::string& text,
 }
 
 void FullInterface::effectSectionCreated(SynthSection* section) {
-  {
-    ScopedLock pending_lock(pending_lock_);
-    pending_gl_init_.push_back(section);
-  }
+  // (The effects screen sets the new section's OpenGL parts up itself, just before drawing it.)
   if (manager_rebuild_pending_)
     return;
 
