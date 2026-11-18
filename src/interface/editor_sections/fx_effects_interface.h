@@ -1420,8 +1420,9 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
       viewport_.addListener(this);
       viewport_.setScrollBarsShown(false, false, true, false);
 
-      mono_modulations_ = &mono_modulations;
-      poly_modulations_ = &poly_modulations;
+      // Copies: the maps the interface is given may not outlive its construction, and copies built later need them.
+      mono_modulations_ = mono_modulations;
+      poly_modulations_ = poly_modulations;
       engine_ = engine;
       // The first copies of every effect exist from the start, the rest are built when they first join the chain.
       for (int id = 0; id < fx_ui::kPoolSize; ++id) {
@@ -1804,6 +1805,10 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
     }
 
     void setFocus() { grabKeyboardFocus(); }
+
+    bool slotBuilt(int effect_id) const {
+      return effect_id >= 0 && effect_id < fx_ui::kPoolSize && slots_[effect_id] != nullptr;
+    }
 
     // Tremolo and Vibrato have unit selectors under the knobs.
     static constexpr int kUnitSelectorExtraHeightValue = 44;
@@ -2408,7 +2413,7 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
     SynthGuiInterface* gui() { return findParentComponentOfClass<SynthGuiInterface>(); }
 
     FxEffectSlot* createSlot(int id) {
-      slots_[id] = std::make_unique<FxEffectSlot>(id, *mono_modulations_, *poly_modulations_, engine_);
+      slots_[id] = std::make_unique<FxEffectSlot>(id, mono_modulations_, poly_modulations_, engine_);
       slots_[id]->addListener(this);
       container_->addSubSection(slots_[id].get());
       slots_[id]->setVisible(false);
@@ -2729,8 +2734,8 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
     std::function<bool(int, String, InputStream*, WavetableCreator::AudioFileLoadStyle)> table_import_callback_;
     std::function<void(int)> table_editor_callback_;
     static constexpr int kBuiltCopies = 8;
-    const vital::output_map* mono_modulations_ = nullptr;
-    const vital::output_map* poly_modulations_ = nullptr;
+    vital::output_map mono_modulations_;
+    vital::output_map poly_modulations_;
     vital::SoundEngine* engine_ = nullptr;
     CriticalSection* gl_lock_ = nullptr;
     std::unique_ptr<FxEffectSlot> slots_[fx_ui::kPoolSize];

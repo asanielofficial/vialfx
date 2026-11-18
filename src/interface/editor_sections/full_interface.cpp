@@ -90,7 +90,9 @@ FullInterface::FullInterface(SynthGuiData* synth_data) : SynthSection("full_inte
     // The table modes' wavetable editors, one per slot (input / sidechain Distort Table, input / sidechain Spectral
     // Table), opened from the pencil next to the mode's knob.
     for (int i = 0; i < vital::kNumWavetableSlots; ++i) {
-      if (synth_data->wavetable_creators[i] == nullptr)
+      wavetable_creators_[i] = synth_data->wavetable_creators[i];
+      // Four slots for the voice panel, two for each Morph copy; the later copies' are made when needed.
+      if (synth_data->wavetable_creators[i] == nullptr || i >= 4 + 2 * kBuiltEffectCopies)
         continue;
       wavetable_edits_[i] = std::make_unique<WavetableEditSection>(i, synth_data->wavetable_creators[i]);
       addSubSection(wavetable_edits_[i].get());
@@ -1039,6 +1041,8 @@ void FullInterface::showFullScreenSection(SynthSection* full_screen) {
 void FullInterface::showWavetableEditSection(int index) {
   if (!wavetableEditorsInitialized())
     return;
+  if (index >= 0 && index < vital::kNumWavetableSlots && wavetable_edits_[index] == nullptr)
+    return;
 
   ScopedLock lock(open_gl_critical_section_);
   for (int i = 0; i < vital::kNumWavetableSlots; ++i) {
@@ -1243,7 +1247,32 @@ void FullInterface::effectSectionCreated(SynthSection* section) {
 
 // The modulation manager builds its rings and meters for the knobs that exist when it is made, so it is made again
 // once new effect sections have joined.
+void FullInterface::createWavetableEdits() {
+#if VITAL_FX
+  for (int i = 4 + 2 * kBuiltEffectCopies; i < vital::kNumWavetableSlots; ++i) {
+    if (wavetable_edits_[i] || wavetable_creators_[i] == nullptr)
+      continue;
+
+    int morph_id = vital::FxEffectChain::effectId(vital::constants::kMorph, (i - 4) / 2);
+    if (!effects_interface_->slotBuilt(morph_id))
+      continue;
+
+    ScopedLock lock(open_gl_critical_section_);
+    wavetable_edits_[i] = std::make_unique<WavetableEditSection>(i, wavetable_creators_[i]);
+    addSubSection(wavetable_edits_[i].get());
+    wavetable_edits_[i]->setVisible(false);
+    wavetable_edits_[i]->setSizeRatio(getSizeRatio());
+    if (open_gl_.shaders) {
+      ScopedLock pending_lock(pending_lock_);
+      pending_gl_init_.push_back(wavetable_edits_[i].get());
+    }
+  }
+  resized();
+#endif
+}
+
 void FullInterface::rebuildModulationManager() {
+  createWavetableEdits();
   vial_debug::log("rebuild modulation manager");
   manager_rebuild_pending_ = false;
   if (modulation_manager_ == nullptr)

@@ -189,8 +189,11 @@ class FullInterface : public SynthSection, public AuthenticationSection::Listene
     void toggleFilter2Zoom();
 
   private:
+    // Copies of Morph past this many get their editors (and effect sections) when first used.
+    static constexpr int kBuiltEffectCopies = 8;
+
     bool wavetableEditorsInitialized() {
-      for (int i = 0; i < vital::kNumWavetableSlots; ++i) {
+      for (int i = 0; i < vital::kNumWavetableSlots && i < 4 + 2 * kBuiltEffectCopies; ++i) {
         if (wavetable_edits_[i] == nullptr)
           return false;
       }
@@ -230,6 +233,9 @@ class FullInterface : public SynthSection, public AuthenticationSection::Listene
     std::unique_ptr<ExtraModSection> extra_mod_section_;
     std::unique_ptr<EffectsInterface> effects_interface_;
     std::unique_ptr<WavetableEditSection> wavetable_edits_[vital::kNumWavetableSlots];
+    // The editors of the Morph copies after the first few are built once their effect section exists.
+    WavetableCreator* wavetable_creators_[vital::kNumWavetableSlots] = {};
+    void createWavetableEdits();
     std::unique_ptr<KeyboardInterface> keyboard_interface_;
     std::unique_ptr<BendSection> bend_section_;
     std::unique_ptr<PortamentoSection> portamento_section_;
