@@ -5,12 +5,12 @@ audio inputs (main and sidechain) that can each be warped, spectrally morphed an
 effects or straight to the output. It is built from GPLv3 synthesizer source code (see
 [NOTICE.md](NOTICE.md) for the origin of the code).
 
-> **Status:** version 1.4. VST3 and CLAP builds for Linux, macOS and Windows, plus a Windows installer (.exe) and a
+> **Status:** version 1.4.1. VST3 and CLAP builds for Linux, macOS and Windows, plus a Windows installer (.exe) and a
 > macOS installer (.pkg), are produced by CI, and the plugin passes pluginval.
 
 ## Download
 
-The current stable version is [**VialFX 1.4**](https://github.com/asanielofficial/vialfx/releases/latest): a Windows installer (.exe), a macOS installer (.pkg) and VST3 and CLAP zips for Windows, macOS and Linux.
+The current stable version is [**VialFX 1.4.1**](https://github.com/asanielofficial/vialfx/releases/latest): a Windows installer (.exe), a macOS installer (.pkg) and VST3 and CLAP zips for Windows, macOS and Linux.
 
 The newest `main` commit that built on all three platforms is published as the [nightly pre-release](https://github.com/asanielofficial/vialfx/releases/tag/nightly) (Linux, macOS and Windows VST3 and CLAP, plus the Windows and macOS installers, which let you choose which formats to install). These builds are unsigned and meant for testing. Every CI run also attaches its builds as artifacts.
 
@@ -167,6 +167,10 @@ target). The stage is a Hann-windowed overlap-add FFT (75% overlap) between the 
   hover **Host Automation Slot** to assign it; **Manage Automation Slots** lists every mapping and clears one or all.
 - LFOs and envelopes run without any MIDI note held; sync and the other LFO modes work. Notes act as a
   trigger and key-tracking source.
+- **Modulation matrix menus:** the source menu is grouped into LFOs, Envelopes, Randoms, Macros, MIDI and Other, and
+  the destination menu has a section for every effect type (including Pitch Shifter, Utility, Freq Shifter, Vibrato,
+  Tremolo and Morph), Macros and Point Mods. Hover a section to open it. With a menu open, just type to search every
+  entry at once (Backspace edits the search, Escape clears it, Enter picks the first match).
 - The full matrix is wired: LFOs, envelopes, randoms, macros and MIDI sources (note, velocity, aftertouch,
   slide, lift, mod wheel, pitch wheel) can drive lane level and pan, filter parameters and effect parameters.
   The table and morph controls show modulation rings and meters, including when docked.
