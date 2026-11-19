@@ -80,7 +80,7 @@ void ModulationTabSelector::checkNumShown(bool should_repaint) {
   int num_to_show = getNumModulationsToShow();
 
   if (vertical_) {
-    int visible = std::min(num_to_show, kMaxVisibleTabs);
+    int visible = std::min<int>(num_to_show, int(kMaxVisibleTabs));
     scroll_ = std::max(0, std::min(scroll_, num_to_show - visible));
     float cell_height = float(getHeight() + 1) / std::max(1, visible);
     int y = 0;
