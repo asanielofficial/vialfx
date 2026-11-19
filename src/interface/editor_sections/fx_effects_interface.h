@@ -1051,15 +1051,6 @@ class FxEffectList : public SynthSection, public ScrollBar::Listener {
 
     void renderOpenGlComponents(OpenGlWrapper& open_gl, bool animate) override {
       ScopedLock lock(open_gl_critical_section_);
-
-      // A copy built after the context was made gets its OpenGL parts here, under the lock it was built with, so it
-      // is never drawn before they exist.
-      for (auto& slot : slots_) {
-        if (slot && !slot->openGlReady()) {
-          slot->initOpenGlComponents(open_gl);
-          slot->setOpenGlReady(true);
-        }
-      }
       OpenGlComponent::setViewPort(&viewport_, open_gl);
       SynthSection::renderOpenGlComponents(open_gl, animate);
     }
@@ -2035,6 +2026,15 @@ class EffectsInterface : public SynthSection, public FxEffectList::Listener, pub
 
     void renderOpenGlComponents(OpenGlWrapper& open_gl, bool animate) override {
       ScopedLock lock(open_gl_critical_section_);
+
+      // A copy built after the context was made gets its OpenGL parts here, under the lock it was built with, so it
+      // is never drawn before they exist.
+      for (auto& slot : slots_) {
+        if (slot && !slot->openGlReady()) {
+          slot->initOpenGlComponents(open_gl);
+          slot->setOpenGlReady(true);
+        }
+      }
 
       OpenGlComponent::setViewPort(&viewport_, open_gl);
 
