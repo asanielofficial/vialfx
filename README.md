@@ -1,16 +1,16 @@
 # VialFX
 
-VialFX is an audio effect plugin: two modelled filters, a rack of fifteen effects, LFOs and envelopes, and two
+VialFX is an audio effect plugin: two modelled filters, a rack of fifteen effects (up to 32 copies of each, groupable into bins and parallel paths), up to 32 LFOs and 32 envelopes, and two
 audio inputs (main and sidechain) that can each be warped, spectrally morphed and routed to the filters, the
 effects or straight to the output. It is built from GPLv3 synthesizer source code (see
 [NOTICE.md](NOTICE.md) for the origin of the code).
 
-> **Status:** version 1.3. VST3 and CLAP builds for Linux, macOS and Windows, plus a Windows installer (.exe) and a
+> **Status:** version 1.4. VST3 and CLAP builds for Linux, macOS and Windows, plus a Windows installer (.exe) and a
 > macOS installer (.pkg), are produced by CI, and the plugin passes pluginval.
 
 ## Download
 
-The current stable version is [**VialFX 1.3**](https://github.com/asanielofficial/vialfx/releases/latest): a Windows installer (.exe), a macOS installer (.pkg) and VST3 and CLAP zips for Windows, macOS and Linux.
+The current stable version is [**VialFX 1.4**](https://github.com/asanielofficial/vialfx/releases/latest): a Windows installer (.exe), a macOS installer (.pkg) and VST3 and CLAP zips for Windows, macOS and Linux.
 
 The newest `main` commit that built on all three platforms is published as the [nightly pre-release](https://github.com/asanielofficial/vialfx/releases/tag/nightly) (Linux, macOS and Windows VST3 and CLAP, plus the Windows and macOS installers, which let you choose which formats to install). These builds are unsigned and meant for testing. Every CI run also attaches its builds as artifacts.
 
@@ -134,7 +134,7 @@ target). The stage is a Hann-windowed overlap-add FFT (75% overlap) between the 
 - **Fifteen effect types:** Chorus, Compressor, Delay, Distortion, EQ, Filter, Flanger, Morph, Phaser and Reverb, plus
   **Pitch Shifter** (granular, multiband granular, retro and spectral engines with formant control), **Utility** (gain,
   pan, width, Haas, mono bass, phase invert, DC filter and a level meter), **Freq Shifter**, **Vibrato** and
-  **Tremolo**. Each can be added as many times as you like (up to 8 copies).
+  **Tremolo**. Each can be added as many times as you like (up to 32 copies).
 - **New distortions:** Tube (asymmetric, even harmonics), Saturator (smooth cubic) and Overdrive (exponential soft
   clip). Overdrive has a **Stages** knob (1 to 8, with eight ticks around it) that runs the signal through that many
   clipping stages in a row; it can be modulated.
@@ -143,18 +143,28 @@ target). The stage is a Hann-windowed overlap-add FFT (75% overlap) between the 
 
 - The effects tab starts blank. **ADD EFFECT** (top of the left panel) adds a Chorus, Compressor, Delay,
   Distortion, EQ, Filter, Flanger, Phaser, Reverb, Pitch Shifter, Utility, Freq Shifter, Vibrato, Tremolo or Morph (the spectral morph and distortion warp of the input panels as an effect) to the end of the chain. The same effect can be added
-  several times (up to 8 copies of each type); every copy is a full set of automatable, modulatable
+  several times (up to 32 copies of each type; copies past the eighth are built the first time they are added); every copy is a full set of automatable, modulatable
   parameters named e.g. `chorus_2_dry_wet`.
 - Rows in the left panel can be dragged to reorder the chain, and clicking one scrolls to that effect. Both
   panels scroll when the chain is long.
 - Each effect has an on/off button, a `-` that minimizes it to a title bar (name and symbol in the effect's
   colour) and an `x` that removes it (its settings and modulations are reset). Right-click an effect for
   Duplicate (same settings), Minimize or Remove.
+- **FX Bins:** group two or more effects into a bin from the button or the right-click menu. Rename a bin by
+  clicking its title, collapse it with a double click or minimize, and use its power toggle and mix knob. Selections
+  that are not adjacent move into the bin together, keeping their order; drag rows out to leave it.
+- **Parallel Split:** an effect that runs any number of parallel paths, chosen with an EQ-band-style selector and a
+  + button. Each path has gain, pan, mute, solo, a level meter and a dry/wet. Bins and Parallel Splits nest to any
+  depth.
 - The chain is saved with the preset. Presets from before the chain existed load with their enabled effects in
   their old order.
 
 ### Modulation
 
+- **Scale:** up to 32 LFOs, 32 envelopes and 16 random LFOs (scrolling tab row) and 8 macros (expandable second
+  column). Older presets still load.
+- **Host automation slots:** the host sees bypass plus 64 assignable Automation slots. Right-click a parameter and
+  hover **Host Automation Slot** to assign it; **Manage Automation Slots** lists every mapping and clears one or all.
 - LFOs and envelopes run without any MIDI note held; sync and the other LFO modes work. Notes act as a
   trigger and key-tracking source.
 - The full matrix is wired: LFOs, envelopes, randoms, macros and MIDI sources (note, velocity, aftertouch,
@@ -167,7 +177,8 @@ target). The stage is a Hann-windowed overlap-add FFT (75% overlap) between the 
 
 ### Presets and oversampling
 
-- Presets are `.vialfx` files (older `.vital` presets still open). Save, load and browse them from the
+- Presets are `.vialfx` files (`.vialsynth` and older `.vital` presets still open). Undo and redo buttons next to
+  Save step through parameter, modulation and effect chain edits. Save, load and browse them from the
   built-in preset browser.
 - Oversampling defaults to 2x. Higher settings work but roll off the top end slightly (a better interpolator
   is planned).
