@@ -298,12 +298,26 @@ class SinglePopupSelector : public SynthSection, public PopupList::Listener {
     void setCancelCallback(std::function<void()> cancel) { cancel_ = std::move(cancel); }
 
     void showSelections(const PopupItems& selections) {
-      popup_list_->setSelections(selections);
+      all_items_ = selections;
+      filter_.clear();
+      popup_list_->setSelections(displayedItems());
       showSubmenu(-1);
     }
 
+    // Typing filters every item (including those inside submenus) into one flat list; Escape or backspace undo it.
+    bool keyPressed(const KeyPress& key) override;
+
   private:
     void showSubmenu(int row);
+    void applyFilter();
+    PopupItems displayedItems() const;
+    static void collectMatches(const PopupItems& items, const std::string& path, const std::string& filter,
+                               std::vector<PopupItems>& results);
+
+    PopupItems all_items_;
+    std::string filter_;
+    Point<int> last_position_;
+    Rectangle<int> last_bounds_;
 
     OpenGlQuad body_;
     OpenGlQuad border_;

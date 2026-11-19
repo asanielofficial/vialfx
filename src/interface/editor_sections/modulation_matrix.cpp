@@ -69,7 +69,44 @@ namespace {
     { "flanger_", "Flanger" },
     { "reverb_", "Reverb" },
     { "eq_", "Equalizer" },
+    { "pitch_shifter_", "Pitch Shifter" },
+    { "utility_", "Utility" },
+    { "freq_shifter_", "Freq Shifter" },
+    { "vibrato_", "Vibrato" },
+    { "tremolo_", "Tremolo" },
+    { "morph_", "Morph" },
+    { "", "" },
+    { "macro_", "Macros" },
+    { "pointmod_", "Point Mods" },
   };
+
+  struct SourceGroup {
+    const char* name;
+    std::vector<std::string> prefixes;
+    std::vector<std::string> exact;
+  };
+
+  const SourceGroup kSourceGroups[] = {
+    { "LFOs", { "lfo_" }, {} },
+    { "Envelopes", { "env_" }, {} },
+    { "Randoms", { "random_" }, { "random" } },
+    { "Macros", { "macro_control_" }, {} },
+    { "MIDI", {}, { "note", "note_in_octave", "velocity", "lift", "aftertouch", "slide", "mod_wheel", "pitch_wheel" } },
+  };
+
+  int sourceGroupIndex(const std::string& name) {
+    int index = 0;
+    for (const SourceGroup& group : kSourceGroups) {
+      for (const std::string& exact : group.exact)
+        if (name == exact)
+          return index;
+      for (const std::string& prefix : group.prefixes)
+        if (name.compare(0, prefix.size(), prefix) == 0)
+          return index;
+      ++index;
+    }
+    return -1;
+  }
 
   PopupItems createSubMenuForParameterPrefix(const std::string& name, const String& prefix,
                                              const std::vector<String>& parameter_names, bool local) {
@@ -303,15 +340,9 @@ void ModulationSelector::setValueFromName(const String& name, NotificationType n
 }
 
 void ModulationSelector::mouseDown(const juce::MouseEvent &e) {
-  static constexpr int kWideWidth = 420;
-  if (dual_menu_) {
-    parent_->showDualPopupSelector(this, Point<int>(0, getHeight()), kWideWidth * parent_->getSizeRatio(),
-                                   *popup_items_, [=](int selection) { setValue(selection); });
-  }
-  else {
-    parent_->showPopupSelector(this, Point<int>(0, getHeight()), *popup_items_,
-                               [=](int selection) { setValue(selection); });
-  }
+  // Both matrix menus use the hover-submenu popup, which also supports type-to-search.
+  parent_->showPopupSelector(this, Point<int>(0, getHeight()), *popup_items_,
+                             [=](int selection) { setValue(selection); });
 }
 
 ModulationMatrixRow::ModulationMatrixRow(int index, PopupItems* source_items, PopupItems* destination_items,
@@ -568,10 +599,26 @@ ModulationMatrix::ModulationMatrix(const vital::output_map& sources, const vital
 
   std::sort(destination_strings_.begin(), destination_strings_.end(), comparator);
 
+  // Sources are grouped into sections (hover a section to see its sources); anything unlisted goes into "Other".
   source_popup_items_.addItem(0, "-");
-  for (int i = 1; i < source_strings_.size(); ++i) {
-    std::string display_name = getMenuSourceDisplayName(source_strings_[i]).toStdString();
-    source_popup_items_.addItem(i, display_name);
+  {
+    constexpr int kNumGroups = sizeof(kSourceGroups) / sizeof(kSourceGroups[0]);
+    PopupItems groups[kNumGroups + 1];
+    for (int g = 0; g < kNumGroups; ++g)
+      groups[g].name = kSourceGroups[g].name;
+    groups[kNumGroups].name = "Other";
+
+    for (int i = 1; i < source_strings_.size(); ++i) {
+      int group = sourceGroupIndex(source_strings_[i].toStdString());
+      if (group < 0)
+        group = kNumGroups;
+      std::string display_name = getMenuSourceDisplayName(source_strings_[i]).toStdString();
+      groups[group].addItem(i, display_name);
+    }
+
+    for (const PopupItems& group : groups)
+      if (group.size() > 0)
+        source_popup_items_.addItem(group);
   }
 
   destination_popup_items_.addItem(0, kNoConnectionString);

@@ -1029,7 +1029,106 @@ void SinglePopupSelector::hoveredRow(PopupList* list, int index) {
     showSubmenu(index);
 }
 
+PopupItems SinglePopupSelector::displayedItems() const {
+  static constexpr int kMaxResults = 12;
+  if (filter_.empty()) {
+    PopupItems shown = all_items_;
+    bool has_groups = false;
+    for (const PopupItems& item : all_items_.items)
+      has_groups = has_groups || item.size() > 0;
+    if (has_groups && all_items_.size() > 0) {
+      shown.addItem(-1, "");
+      shown.addItem(-1, "Type to search...");
+    }
+    return shown;
+  }
+
+  std::vector<PopupItems> results;
+  collectMatches(all_items_, "", filter_, results);
+
+  PopupItems shown;
+  shown.addItem(-1, "Search: " + filter_);
+  if (results.empty())
+    shown.addItem(-1, "No matches");
+  for (int i = 0; i < static_cast<int>(results.size()) && i < kMaxResults; ++i)
+    shown.addItem(results[i]);
+  return shown;
+}
+
+void SinglePopupSelector::collectMatches(const PopupItems& items, const std::string& path,
+                                         const std::string& filter, std::vector<PopupItems>& results) {
+  String needle = String(filter).toLowerCase();
+  for (const PopupItems& item : items.items) {
+    if (item.size() > 0) {
+      collectMatches(item, item.name, filter, results);
+      continue;
+    }
+    if (item.id < 0 || item.name.empty())
+      continue;
+
+    String label = path.empty() ? String(item.name) : String(path) + ": " + String(item.name);
+    if (String(path + " " + item.name).toLowerCase().contains(needle))
+      results.emplace_back(item.id, label.toStdString(), item.selected, std::vector<PopupItems>());
+  }
+}
+
+void SinglePopupSelector::applyFilter() {
+  popup_list_->setSelections(displayedItems());
+  popup_list_->resetScrollPosition();
+  setPosition(last_position_, last_bounds_);
+}
+
+bool SinglePopupSelector::keyPressed(const KeyPress& key) {
+  if (key == KeyPress::escapeKey) {
+    if (!filter_.empty()) {
+      filter_.clear();
+      applyFilter();
+    }
+    else {
+      setVisible(false);
+      if (cancel_)
+        cancel_();
+    }
+    return true;
+  }
+
+  if (key == KeyPress::backspaceKey) {
+    if (!filter_.empty()) {
+      filter_.pop_back();
+      applyFilter();
+    }
+    return true;
+  }
+
+  if (key == KeyPress::returnKey) {
+    if (!filter_.empty()) {
+      PopupItems shown = displayedItems();
+      for (const PopupItems& item : shown.items) {
+        if (item.id >= 0 && !item.name.empty()) {
+          cancel_ = nullptr;
+          callback_(item.id);
+          setVisible(false);
+          break;
+        }
+      }
+    }
+    return true;
+  }
+
+  juce_wchar character = key.getTextCharacter();
+  if (character >= 32 && character != 127 && !key.getModifiers().isCommandDown() &&
+      !key.getModifiers().isCtrlDown()) {
+    filter_ += String::charToString(character).toStdString();
+    applyFilter();
+    return true;
+  }
+
+  return false;
+}
+
 void SinglePopupSelector::setPosition(Point<int> position, Rectangle<int> bounds) {
+  last_position_ = position;
+  last_bounds_ = bounds;
   int rounding = findValue(Skin::kBodyRounding);
   main_width_ = popup_list_->getBrowseWidth();
   main_height_ = popup_list_->getBrowseHeight() + 2 * rounding;
