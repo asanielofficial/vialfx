@@ -45,6 +45,8 @@ jobs:
             (cd "art/VialFX-$os-vst3" && zip -qr "../../out/VialFX-$VERSION-$os-vst3.zip" .)
             (cd "art/VialFX-$os-clap" && zip -qr "../../out/VialFX-$VERSION-$os-clap.zip" .)
           done
+          (cd art/VialFX-linux-lv2 && zip -qr "../../out/VialFX-$VERSION-linux-lv2.zip" .)
+          (cd art/VialFX-macos-au && zip -qr "../../out/VialFX-$VERSION-macos-au.zip" .)
           cp art/VialFX-windows-installer/*.exe out/
           cp art/VialFX-macos-installer/*.pkg out/
           ls -l out

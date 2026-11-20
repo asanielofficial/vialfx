@@ -121,6 +121,31 @@ jobs:
           name: VialFX-linux-clap
           path: dist-clap
 
+      - name: Build the LV2
+        run: |
+          set +e
+          sudo apt-get install -y --no-install-recommends xvfb > /dev/null
+          # Reuses the objects and shared code library of the VST3 build; adds the LV2 wrapper bundled with JUCE.
+          # The .ttl generator loads the plugin to read its ports, so it runs under a virtual display.
+          xvfb-run -a make -C effects/builds/linux_vst -f Makefile.lv2 lv2 CONFIG=Release AR=gcc-ar \
+            SIMDFLAGS="-msse2" GLFLAGS="" BUILD_DATE="$(date +'%Y %m %d %H %M')" > lv2.log 2>&1
+          status=$?
+          if [ $status -ne 0 ]; then
+            grep -n -m 40 -E "error|undefined reference|No such file|\*\*\*" lv2.log \
+              | cut -c1-450 | while IFS= read -r line; do echo "::error::${line}"; done
+            echo "::error::last lines: $(tail -n 8 lv2.log | tr '\n' '|' | cut -c1-700)"
+            exit $status
+          fi
+          mkdir -p dist-lv2
+          cp -r effects/builds/linux_vst/build/VialFX.lv2 dist-lv2/
+          ls -l dist-lv2/VialFX.lv2
+          if strings -a dist-lv2/VialFX.lv2/VialFX.so | grep -i -E "vital\.audio|account\.vital|store\.vital|forum\.vital|vital audio|tytel"; then echo "::error::[binary] Vital branding found in the LV2"; exit 1; fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VialFX-linux-lv2
+          path: dist-lv2
+
       - name: Validate with pluginval
         run: |
           set +e
@@ -367,6 +392,33 @@ jobs:
           name: VialFX-macos-vst3
           path: dist
 
+      - name: Build VialFX AU (universal, Release)
+        run: |
+          set +e
+          xcodebuild -project effects/builds/osx/VialFX.xcodeproj -scheme "VialFX - AU" -configuration Release \
+            ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO MACOSX_DEPLOYMENT_TARGET=10.13 \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
+            GCC_TREAT_WARNINGS_AS_ERRORS=NO > au.log 2>&1
+          status=$?
+          if [ $status -ne 0 ]; then
+            grep -n -m 40 -E "error:|fatal error|undefined symbol|\*\*\* " au.log \
+              | cut -c1-450 | while IFS= read -r line; do echo "::error::${line}"; done
+            echo "::error::last lines: $(tail -n 8 au.log | tr '\n' '|' | cut -c1-700)"
+            exit $status
+          fi
+          mkdir -p dist-au
+          AU=$(find effects/builds/osx/build -name "VialFX.component" -maxdepth 4 | head -1)
+          if [ -z "$AU" ]; then echo "::error::no AU produced"; exit 1; fi
+          ditto "$AU" dist-au/VialFX.component
+          lipo -archs dist-au/VialFX.component/Contents/MacOS/VialFX
+          if strings -a dist-au/VialFX.component/Contents/MacOS/VialFX | grep -i -E "vital\.audio|account\.vital|store\.vital|forum\.vital|vital audio|tytel"; then echo "::error::[binary] Vital branding found in the AU"; exit 1; fi
+          ls -R dist-au | head -20
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VialFX-macos-au
+          path: dist-au
+
       - name: Build the CLAP
         run: |
           set -e
@@ -402,14 +454,17 @@ jobs:
 
       - name: Build the macOS installer (.pkg)
         run: |
-          # One installer, two choices the user can switch on and off: VST3 and CLAP.
-          mkdir -p pkgroot-vst3 pkgroot-clap pkgs installers
+          # One installer, choices the user can switch on and off: VST3, CLAP and AU.
+          mkdir -p pkgroot-vst3 pkgroot-clap pkgroot-au pkgs installers
           cp -R dist/VialFX.vst3 pkgroot-vst3/VialFX.vst3
           cp -R dist-clap/VialFX.clap pkgroot-clap/VialFX.clap
+          cp -R dist-au/VialFX.component pkgroot-au/VialFX.component
           pkgbuild --root pkgroot-vst3 --identifier com.vialfx.vst3 --version 1.4.1 \
             --install-location /Library/Audio/Plug-Ins/VST3 pkgs/vst3.pkg
           pkgbuild --root pkgroot-clap --identifier com.vialfx.clap --version 1.4.1 \
             --install-location /Library/Audio/Plug-Ins/CLAP pkgs/clap.pkg
+          pkgbuild --root pkgroot-au --identifier com.vialfx.au --version 1.4.1 \
+            --install-location /Library/Audio/Plug-Ins/Components pkgs/au.pkg
           productbuild --distribution installer/macos/distribution.xml --package-path pkgs installers/VialFX-1.4.1-macOS.pkg
           ls -l installers
 

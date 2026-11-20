@@ -40,6 +40,8 @@ jobs:
             (cd "art/VialFX-$os-vst3" && zip -qr "../../out/VialFX-nightly-$(date -u +%Y%m%d)-$short-$os-vst3.zip" .)
             (cd "art/VialFX-$os-clap" && zip -qr "../../out/VialFX-nightly-$(date -u +%Y%m%d)-$short-$os-clap.zip" .)
           done
+          (cd art/VialFX-linux-lv2 && zip -qr "../../out/VialFX-nightly-$(date -u +%Y%m%d)-$short-linux-lv2.zip" .)
+          (cd art/VialFX-macos-au && zip -qr "../../out/VialFX-nightly-$(date -u +%Y%m%d)-$short-macos-au.zip" .)
           cp art/VialFX-windows-installer/*.exe out/
           cp art/VialFX-macos-installer/*.pkg out/
           ls -l out
