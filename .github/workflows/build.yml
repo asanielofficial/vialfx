@@ -127,7 +127,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends xvfb > /dev/null
           # Reuses the objects and shared code library of the VST3 build; adds the LV2 wrapper bundled with JUCE.
           # The .ttl generator loads the plugin to read its ports, so it runs under a virtual display.
-          xvfb-run -a make -C effects/builds/linux_vst -f Makefile.lv2 lv2 CONFIG=Release AR=gcc-ar \
+          xvfb-run -a make -C effects/builds/linux_vst -f lv2.mk lv2 CONFIG=Release AR=gcc-ar \
             SIMDFLAGS="-msse2" GLFLAGS="" BUILD_DATE="$(date +'%Y %m %d %H %M')" > lv2.log 2>&1
           status=$?
           if [ $status -ne 0 ]; then
