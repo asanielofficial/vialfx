@@ -18,6 +18,7 @@
 
 #include "JuceHeader.h"
 
+#include "dice_slider.h"
 #include "open_gl_image_component.h"
 #include "paths.h"
 #include "skin.h"
@@ -81,22 +82,35 @@ class FxMorphSection : public SynthSection {
       prev_warp_ = makeArrow("Prev Warp", Paths::prev());
       next_warp_ = makeArrow("Next Warp", Paths::next());
 
-      // Random Amplitudes: the dice and the shuffle bar sit beside the spectral knob.
+      // Random Amplitudes: the amount knob (MIX), the dice and a SHUFFLE knob of the same size share one row.
       shuffle_ = std::make_unique<SynthSlider>(id + "_random_shuffle");
       addSlider(shuffle_.get());
-      shuffle_->setSliderStyle(Slider::LinearBar);
+      shuffle_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
       shuffle_->setPopupPlacement(BubbleComponent::above);
       shuffle_->setModulationPlacement(BubbleComponent::above);
       shuffle_->setPopupPrefix("Shuffle: ");
       shuffle_->setDoubleClickReturnValue(true, 0.0);
       shuffle_->setVisible(false);
 
+      // The dice is a real parameter (automatable, modulatable, right-click menu) drawn as a button: a click rolls
+      // a new seed, and a flip of its value (automation or modulation) does the same.
       dice_button_ = std::make_unique<OpenGlShapeButton>("Dice");
       addAndMakeVisible(dice_button_.get());
       addOpenGlComponent(dice_button_->getGlComponent());
-      dice_button_->addListener(this);
       dice_button_->setShape(dicePath());
+      dice_button_->setInterceptsMouseClicks(false, false);
       dice_button_->setVisible(false);
+
+      dice_slider_ = std::make_unique<DiceSlider>(id + "_random_dice");
+      addSlider(dice_slider_.get());
+      dice_slider_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
+      dice_slider_->setPopupPlacement(BubbleComponent::above);
+      dice_slider_->setModulationPlacement(BubbleComponent::above);
+      dice_slider_->setPopupPrefix("Dice: ");
+      dice_slider_->getQuadComponent()->setVisible(false);
+      dice_slider_->getImageComponent()->setVisible(false);
+      static_cast<DiceSlider*>(dice_slider_.get())->setClickCallback([this]() { rollDice(); });
+      dice_slider_->setVisible(false);
 
       swap_button_ = std::make_unique<OpenGlShapeButton>("Swap Order");
       addAndMakeVisible(swap_button_.get());
@@ -128,6 +142,17 @@ class FxMorphSection : public SynthSection {
       g.setColour(findColour(Skin::kTextComponentBackground, true));
       g.fillRoundedRectangle(spectral_label_bounds_.toFloat(), findValue(Skin::kLabelBackgroundRounding));
       g.fillRoundedRectangle(warp_label_bounds_.toFloat(), findValue(Skin::kLabelBackgroundRounding));
+
+      if (!random_mix_label_.isEmpty()) {
+        float rounding = static_cast<float>(random_mix_label_.getHeight()) * 0.5f;
+        g.setColour(findColour(Skin::kTextComponentBackground, true));
+        g.fillRoundedRectangle(random_mix_label_.toFloat(), rounding);
+        g.fillRoundedRectangle(random_shuffle_label_.toFloat(), rounding);
+        g.setColour(findColour(Skin::kBodyText, true));
+        g.setFont(getLabelFont().withHeight(random_font_size_));
+        g.drawText("MIX", random_mix_label_, Justification::centred, false);
+        g.drawText("SHUFFLE", random_shuffle_label_, Justification::centred, false);
+      }
     }
 
     void resized() override {
@@ -173,22 +198,73 @@ class FxMorphSection : public SynthSection {
       warp_tool_button_->setBounds(warp_cell.getRight() - tool_size, warp_cell.getY(), tool_size, tool_size);
       warp_edit_button_->setBounds(warp_cell.getX(), warp_cell.getY(), tool_size, tool_size);
 
-      if (current_spectral_ == kRandomAmplitudes) {
-        int strip = std::min(cell_width / 4, std::max(1, static_cast<int>(knob_height * 0.5f)));
-        spectral_morph_->setBounds(spectral_cell.withTrimmedLeft(strip).withTrimmedRight(strip));
-        int centre = spectral_morph_->getRight() + strip / 2;
-        int dice_size = std::max(1, std::min(strip - margin, static_cast<int>(knob_height * 0.22f)));
-        int bar_height = std::max(14, static_cast<int>(knob_height * 0.16f));
-        int bar_width = std::max(1, strip - margin);
-        int block = dice_size + margin + bar_height;
-        int tool_y = spectral_cell.getY() + (knob_height - block) / 2;
-        dice_button_->setBounds(centre - dice_size / 2, tool_y, dice_size, dice_size);
-        shuffle_->setBounds(centre - bar_width / 2, dice_button_->getBottom() + margin, bar_width, bar_height);
-      }
+      if (current_spectral_ == kRandomAmplitudes)
+        layoutRandom(spectral_cell, margin);
       else {
+        spectral_morph_->setKnobSizeScale(1.3f);
+        random_mix_label_ = Rectangle<int>();
+        random_shuffle_label_ = Rectangle<int>();
         dice_button_->setBounds(0, 0, 0, 0);
+        dice_slider_->setBounds(0, 0, 0, 0);
         shuffle_->setBounds(0, 0, 0, 0);
       }
+    }
+
+    // Random Amplitudes: label pills right under one row: the MIX knob, the dice and an equally sized SHUFFLE knob.
+    // The knobs are drawn at their scale around the middle of their bounds, so the scale is fitted to the room, and
+    // the modulation rings follow it (they read the scale).
+    void layoutRandom(const Rectangle<int>& cell, int margin) {
+      const float label_height = findValue(Skin::kLabelBackgroundHeight);
+      const float label_text_height = findValue(Skin::kLabelHeight);
+      const int cell_w = cell.getWidth();
+      const int pill_gap = std::max(1, margin / 2);
+      const int strip_h = std::max(1, static_cast<int>(label_height * 0.72f));
+
+      random_font_size_ = label_text_height * 0.95f;
+      const int pad = std::max(2, margin / 2);
+      int mix_w = 0, shuffle_w = 0;
+      for (;;) {
+        Font font = getLabelFont().withHeight(random_font_size_);
+        mix_w = static_cast<int>(font.getStringWidthFloat("MIX")) + 2 * pad;
+        shuffle_w = static_cast<int>(font.getStringWidthFloat("SHUFFLE")) + 2 * pad;
+        if (mix_w + shuffle_w + pill_gap <= cell_w || random_font_size_ <= 4.0f)
+          break;
+        random_font_size_ -= 0.5f;
+      }
+
+      const int dice_size = std::max(1, strip_h + 5);
+      const float footprint_size = findValue(Skin::kKnobModAmountArcSize);
+      const float area_h = static_cast<float>(cell.getHeight()) - label_height;   // the mode selector takes the bottom
+      float mix_footprint = std::min(area_h - strip_h - pill_gap, (cell_w - dice_size - 4.0f * pill_gap) * 0.5f * 0.96f);
+      float scale = std::max(0.3f, mix_footprint / footprint_size);
+      int knob_d = static_cast<int>(footprint_size * scale);
+      spectral_morph_->setKnobSizeScale(scale);
+      shuffle_->setKnobSizeScale(scale);
+      dice_slider_->setKnobSizeScale(dice_size / findValue(Skin::kKnobArcSize));
+
+      float block_h = knob_d + pill_gap + strip_h;
+      float knob_top = cell.getY() + (area_h - block_h) * 0.5f;
+      float draw_centre_y = knob_top + knob_d * 0.5f;
+      int bounds_centre_y = static_cast<int>(draw_centre_y - findValue(Skin::kKnobOffset));
+      // The knob is drawn above the middle of its bounds (the knob offset): extra height keeps its top from being cut.
+      int bounds_pad = static_cast<int>(std::abs(findValue(Skin::kKnobOffset))) + 2;
+
+      int space = std::max(0, (cell_w - knob_d - dice_size - knob_d) / 4);
+      int x = cell.getX() + space;
+      spectral_morph_->setBounds(x, bounds_centre_y - knob_d / 2 - bounds_pad, knob_d, knob_d + 2 * bounds_pad);
+      x += knob_d + space;
+      dice_slider_->setBounds(x, bounds_centre_y - dice_size / 2 - bounds_pad, dice_size, dice_size + 2 * bounds_pad);
+      int die = std::max(1, static_cast<int>(dice_size * 0.85f));
+      dice_button_->setBounds(x + (dice_size - die) / 2, static_cast<int>(draw_centre_y) - die / 2, die, die);
+      x += dice_size + space;
+      shuffle_->setBounds(x, bounds_centre_y - knob_d / 2 - bounds_pad, knob_d, knob_d + 2 * bounds_pad);
+
+      int strip_y = static_cast<int>(knob_top) + knob_d + pill_gap;
+      int mix_x = std::max(cell.getX(), spectral_morph_->getBounds().getCentreX() - mix_w / 2);
+      int shuffle_x = std::min(cell.getRight() - shuffle_w, shuffle_->getBounds().getCentreX() - shuffle_w / 2);
+      shuffle_x = std::max(shuffle_x, mix_x + mix_w + pill_gap);
+      random_mix_label_ = Rectangle<int>(mix_x, strip_y, mix_w, strip_h);
+      random_shuffle_label_ = Rectangle<int>(shuffle_x, strip_y, shuffle_w, strip_h);
     }
 
     void setAllValues(vital::control_map& controls) override {
@@ -259,8 +335,6 @@ class FxMorphSection : public SynthSection {
         if (isWarpTableMode() && table_editor_callback_)
           table_editor_callback_(vital::FxTables::morphSlot(instance_, false));
       }
-      else if (clicked_button == dice_button_.get())
-        rollDice();
       else
         SynthSection::buttonClicked(clicked_button);
     }
@@ -429,6 +503,7 @@ class FxMorphSection : public SynthSection {
     void updateToolButton() {
       bool dice = current_spectral_ == kRandomAmplitudes;
       dice_button_->setVisible(dice);
+      dice_slider_->setVisible(dice);
       shuffle_->setVisible(dice);
       resized();
       modulationLayoutChanged();
@@ -509,6 +584,9 @@ class FxMorphSection : public SynthSection {
     std::unique_ptr<SynthSlider> spectral_morph_;
     std::unique_ptr<SynthSlider> distortion_;
     std::unique_ptr<SynthSlider> shuffle_;
+    std::unique_ptr<SynthSlider> dice_slider_;
+    Rectangle<int> random_mix_label_, random_shuffle_label_;
+    float random_font_size_ = 8.0f;
     std::unique_ptr<OpenGlShapeButton> dice_button_;
     std::unique_ptr<OpenGlShapeButton> curve_button_;
     std::unique_ptr<OpenGlShapeButton> spectral_edit_button_;

@@ -585,7 +585,7 @@ namespace vital {
     { "morph_spectral_morph_amount", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Morph Spectral Morph", nullptr },
     { "morph_random_dice", 0x000000, 0.0, 1.0, 0.0, 0.0, 1.0,
-      ValueDetails::kIndexed, false, "", "Morph Random Dice", strings::kDiceNames },
+      ValueDetails::kLinear, false, "", "Morph Random Dice", nullptr },
     { "morph_random_shuffle", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Morph Random Shuffle", nullptr },
     { "morph_distortion_type", 0x000000, 0.0, 9.0, 0.0, 0.0, 1.0,

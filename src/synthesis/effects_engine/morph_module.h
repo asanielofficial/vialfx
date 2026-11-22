@@ -71,7 +71,7 @@ namespace vital {
         spectral_mode_ = createBaseControl("morph_spectral_morph_type");
         warp_mode_ = createBaseControl("morph_distortion_type");
         warp_first_ = createBaseControl("morph_warp_first");
-        Value* dice = createBaseControl("morph_random_dice");
+        Output* dice = createMonoModControl("morph_random_dice");
         Output* spectral_amount = createMonoModControl("morph_spectral_morph_amount");
         Output* shuffle = createMonoModControl("morph_random_shuffle");
         Output* warp_amount = createMonoModControl("morph_distortion_amount");

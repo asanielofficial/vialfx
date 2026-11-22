@@ -123,6 +123,7 @@ namespace vital {
       static constexpr int kDefaultFftIndex = 2;
       static constexpr int kOverlap = 4;
       static constexpr float kMaxGain = 8.0f;
+      static constexpr float kMaxRandomGain = 12.0f;
 
       static int fftSizeFromIndex(int index) {
         return 1 << (kMinFftBits + std::max(0, std::min(index, kNumFftSizes - 1)));
@@ -829,9 +830,12 @@ namespace vital {
           uint32_t seed = seed_;
           const std::vector<float>& table_a = randomTable(first, seed);
           const std::vector<float>& table_b = randomTable(first + 1, seed);
+          // The amount runs through 4 times its range (the top leaves about an eighth of the bins standing, louder),
+          // and the pattern holds still while it moves: the shuffle is what changes the pattern.
+          float ra = std::max(0.0f, std::min(a, 1.0f)) * 4.0f;
           for (int k = 0; k <= bins; ++k) {
-            float gain = (1.0f + a) * std::max(1.0f - a - a * randomAt(table_a, table_b, blend, k, bins), 0.0f);
-            gain = std::min(gain, float(kMaxGain));
+            float gain = (1.0f + ra) * std::max(1.0f - ra - ra * randomAt(table_a, table_b, blend, k, bins), 0.0f);
+            gain = std::min(gain, float(kMaxRandomGain));
             spec[2 * k] *= gain;
             spec[2 * k + 1] *= gain;
           }
