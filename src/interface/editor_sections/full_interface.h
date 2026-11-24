@@ -40,6 +40,7 @@ class BendSection;
 class DeleteSection;
 class ExpiredSection;
 #include "extra_mod_section.h"
+#include "table_settings_editor.h"
 class HeaderSection;
 class KeyboardInterface;
 class MasterControlsInterface;
@@ -59,7 +60,7 @@ class VoiceSection;
 class FullInterface : public SynthSection, public AuthenticationSection::Listener, public HeaderSection::Listener,
                       public DownloadSection::Listener, public UpdateCheckSection::Listener,
                       public EffectsInterface::Listener, public ModulationMatrix::Listener,
-                      public ExtraModSection::Listener, public OpenGLRenderer, DragAndDropContainer {
+                      public ExtraModSection::Listener, public TableFileHost, public OpenGLRenderer, DragAndDropContainer {
   public:
     static constexpr double kMinOpenGlVersion = 1.4;
 
@@ -147,6 +148,10 @@ class FullInterface : public SynthSection, public AuthenticationSection::Listene
     void loadDefaultWavetable(int index);
     void resynthesizeToWavetable(int index);
     void saveWavetable(int index);
+
+    void tableLoadFile(int slot, const File& file) override { loadWavetableFile(slot, file); }
+    std::string tableName(int slot) override { return getWavetableName(slot); }
+    void tableSave(int slot) override { saveWavetable(slot); }
     void saveLfo(const json& data);
     json getWavetableJson(int index);
     bool loadAudioAsWavetable(int index, const String& name, InputStream* audio_stream,

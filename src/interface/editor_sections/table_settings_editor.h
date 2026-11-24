@@ -18,8 +18,10 @@
 
 #include "JuceHeader.h"
 
+#include "load_save.h"
 #include "open_gl_image_component.h"
 #include "paths.h"
+#include "preset_selector.h"
 #include "synth_button.h"
 #include "synth_section.h"
 #include "synth_slider.h"
@@ -29,12 +31,22 @@
 
 #include <functional>
 
+// What the table menus need from the main interface to change or save the wavetable of a slot (implemented by
+// FullInterface, found through the parent chain, so this header does not depend on it).
+class TableFileHost {
+  public:
+    virtual ~TableFileHost() { }
+    virtual void tableLoadFile(int slot, const File& file) = 0;
+    virtual std::string tableName(int slot) = 0;
+    virtual void tableSave(int slot) = 0;
+};
+
 // The settings menu of a table mode (Spectral Table or Distort Table of one lane), docked over the filters like the
 // Vocoder menu. The wavetable of the mode is shown large (the Vital wavetable display, with its 3D / 2D / SP button)
 // and follows the mode's amount knob; the fine controls are along the bottom:
 //   Spectral Table: gain, pitch, resonance, mix.
 //   Distort Table:  phase, bias, smooth, drive, DC filter, mix.
-class TableSettingsEditor : public SynthSection, public Wavetable3d::Listener {
+class TableSettingsEditor : public SynthSection, public Wavetable3d::Listener, public PresetSelector::Listener {
   public:
     enum Kind { kSpectral, kDistort };
     static constexpr int kMaxKnobs = 5;
@@ -46,7 +58,8 @@ class TableSettingsEditor : public SynthSection, public Wavetable3d::Listener {
     TableSettingsEditor(Kind kind, const std::string& prefix, int slot,
                         const vital::output_map& mono_modulations, const vital::output_map& poly_modulations,
                         const std::string& subtitle = "") :
-        SynthSection("table_settings_" + prefix + (kind == kSpectral ? "_spectral" : "_distort")), kind_(kind) {
+        SynthSection("table_settings_" + prefix + (kind == kSpectral ? "_spectral" : "_distort")), kind_(kind),
+        slot_(slot) {
       struct KnobInfo {
         std::string parameter;
         const char* label;
@@ -110,6 +123,20 @@ class TableSettingsEditor : public SynthSection, public Wavetable3d::Listener {
       close_button_->addListener(this);
       close_button_->setShape(Paths::exitX());
 
+      // The wavetable bar of Vital's oscillator: previous / next arrows around the name, a click on the name opens the
+      // wavetable browser (Vital's own, with the user's wavetable folders), and SAVE writes the table to a file.
+      name_bar_ = std::make_unique<PresetSelector>();
+      addSubSection(name_bar_.get());
+      name_bar_->addListener(this);
+
+      save_button_ = std::make_unique<OpenGlToggleButton>("save_table");
+      addAndMakeVisible(save_button_.get());
+      addOpenGlComponent(save_button_->getGlComponent());
+      save_button_->addListener(this);
+      save_button_->setNoBackground();
+      save_button_->setLookAndFeel(TextLookAndFeel::instance());
+      save_button_->setText("SAVE");
+
       setSkinOverride(Skin::kLfo);
     }
 
@@ -145,7 +172,48 @@ class TableSettingsEditor : public SynthSection, public Wavetable3d::Listener {
     void saveWavetable() override { }
 
     // The table was edited elsewhere: redraw it.
-    void refreshTable() { wavetable_->setDirty(); repaintBackground(); }
+    void refreshTable() {
+      updateName();
+      wavetable_->setDirty();
+      repaintBackground();
+    }
+
+    void updateName() {
+      if (TableFileHost* host = findParentComponentOfClass<TableFileHost>()) {
+        std::string name = host->tableName(slot_);
+        name_bar_->setText(name.empty() ? String("Init") : String(name));
+      }
+    }
+
+    void prevClicked() override { stepFile(-1); }
+    void nextClicked() override { stepFile(1); }
+
+    void textMouseDown(const MouseEvent& e) override {
+      static constexpr int kBrowserWidth = 600;
+      static constexpr int kBrowserHeight = 400;
+      Rectangle<int> bounds(name_bar_->getX(), name_bar_->getY(),
+                            static_cast<int>(kBrowserWidth * size_ratio_), static_cast<int>(kBrowserHeight * size_ratio_));
+      showPopupBrowser(this, bounds, LoadSave::getWavetableDirectories(), vital::kWavetableExtensionsList,
+                       LoadSave::kWavetableFolderName, LoadSave::kAdditionalWavetableFoldersName);
+    }
+
+    // The popup browser loads the chosen file into this menu's table.
+    void loadFile(const File& file) override {
+      TableFileHost* host = findParentComponentOfClass<TableFileHost>();
+      if (host == nullptr || !file.exists())
+        return;
+
+      current_file_ = file;
+      if (file.getFileExtension() == String(".") + vital::kWavetableExtension) {
+        host->tableLoadFile(slot_, file);
+        refreshTable();
+      }
+      else
+        loadAudioAsWavetable(file.getFileNameWithoutExtension(), new FileInputStream(file),
+                             WavetableCreator::kWavetableSplice);
+    }
+
+    File getCurrentFile() override { return current_file_; }
 
     void paintBackground(Graphics& g) override {
       paintBody(g);
@@ -170,6 +238,10 @@ class TableSettingsEditor : public SynthSection, public Wavetable3d::Listener {
       close_button_->setBounds(getWidth() - margin - title_height_, margin, title_height_, title_height_);
 
       int top = margin + title_height_ + margin;
+      int bar_x = margin + static_cast<int>(size_ratio_ * 260);
+      int bar_right = close_button_->getX() - margin - static_cast<int>(size_ratio_ * 64);
+      name_bar_->setBounds(bar_x, margin, std::max(1, bar_right - bar_x), title_height_);
+      save_button_->setBounds(name_bar_->getRight() + margin, margin, static_cast<int>(size_ratio_ * 56), title_height_);
       int knob_area_height = std::min(getHeight() / 3, static_cast<int>(size_ratio_ * 120));
       int knob_y = getHeight() - knob_area_height - margin;
       wavetable_->setBounds(margin, top, getWidth() - 2 * margin, std::max(1, knob_y - top - margin));
@@ -190,6 +262,13 @@ class TableSettingsEditor : public SynthSection, public Wavetable3d::Listener {
         dc_filter_->setBounds(cell.getX(), cell.getCentreY() - button_height / 2, cell.getWidth(), button_height);
       }
       SynthSection::resized();
+
+      for (Component* button : { static_cast<Component*>(name_bar_.get()), static_cast<Component*>(save_button_.get()),
+                                 static_cast<Component*>(dimension_button_.get()) }) {
+        button->setColour(Skin::kIconButtonOff, findColour(Skin::kUiButton, true));
+        button->setColour(Skin::kIconButtonOffHover, findColour(Skin::kUiButtonHover, true));
+        button->setColour(Skin::kIconButtonOffPressed, findColour(Skin::kUiButtonPressed, true));
+      }
     }
 
     void setVisible(bool should_be_visible) override {
@@ -206,6 +285,11 @@ class TableSettingsEditor : public SynthSection, public Wavetable3d::Listener {
     void buttonClicked(Button* clicked_button) override {
       if (clicked_button == close_button_.get())
         setVisible(false);
+      else if (clicked_button == save_button_.get()) {
+        save_button_->setToggleState(false, dontSendNotification);
+        if (TableFileHost* host = findParentComponentOfClass<TableFileHost>())
+          host->tableSave(slot_);
+      }
       else if (clicked_button == dimension_button_.get()) {
         int render_type = (wavetable_->getRenderType() + 1) % Wavetable3d::kNumRenderTypes;
         dimension_button_->setText(strings::kWavetableDimensionNames[render_type]);
@@ -218,7 +302,19 @@ class TableSettingsEditor : public SynthSection, public Wavetable3d::Listener {
     }
 
   private:
+    void stepFile(int direction) {
+      File file = LoadSave::getShiftedFile(LoadSave::kWavetableFolderName, vital::kWavetableExtensionsList,
+                                           LoadSave::kAdditionalWavetableFoldersName, current_file_, direction);
+      if (file.exists())
+        loadFile(file);
+      updatePopupBrowser(this);
+    }
+
     Kind kind_;
+    int slot_;
+    File current_file_;
+    std::unique_ptr<PresetSelector> name_bar_;
+    std::unique_ptr<OpenGlToggleButton> save_button_;
     std::string title_;
     int num_knobs_ = 0;
     std::unique_ptr<SynthSlider> knobs_[kMaxKnobs];
