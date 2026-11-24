@@ -53,6 +53,7 @@ namespace {
     "Freq Shifter",
     "Vibrato",
     "Tremolo",
+    "Resonator",
     "Modulation Drag Drop",
     "Modulation Matrix",
     "Preset Browser",
@@ -703,6 +704,7 @@ namespace {
       { "Freq Shifter", Skin::kFreqShifter },
       { "Vibrato", Skin::kVibrato },
       { "Tremolo", Skin::kTremolo },
+      { "Resonator", Skin::kResonator },
     };
     return modules;
   }

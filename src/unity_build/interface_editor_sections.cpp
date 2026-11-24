@@ -37,3 +37,4 @@
 #include "freq_shifter_section.cpp"
 #include "vibrato_section.cpp"
 #include "tremolo_section.cpp"
+#include "resonator_section.cpp"

@@ -31,6 +31,7 @@
 #include "fx_containers.h"
 #include "phaser_module.h"
 #include "pitch_shifter_module.h"
+#include "resonator_module.h"
 #include "reverb_module.h"
 #include "tremolo_module.h"
 #include "utility_module.h"
@@ -76,8 +77,11 @@ namespace vital {
       static int instanceOf(int effect_id) { return effect_id % kMaxEffectInstances; }
 
       // keytrack: the played note relative to the center note; notes: the held notes (for the per-note copies).
-      FxEffectChain(const Output* beats_per_second, const Output* keytrack, const KeytrackNotes* notes) :
-          SynthModule(kNumInputs, 1), beats_per_second_(beats_per_second), keytrack_(keytrack), notes_(notes) {
+      // midi: the notes, bend, slide and pressure the Resonators ring at (owned by the engine).
+      FxEffectChain(const Output* beats_per_second, const Output* keytrack, const KeytrackNotes* notes,
+                    ResonatorMidi* midi) :
+          SynthModule(kNumInputs, 1), beats_per_second_(beats_per_second), keytrack_(keytrack), notes_(notes),
+          resonator_midi_(midi) {
         for (auto& slot : slots_)
           slot.store(0);
 
@@ -130,6 +134,12 @@ namespace vital {
           }
           banks_[id]->setNoteOutputs(midi, current_note);
         }
+      }
+
+      // The Resonators follow the scale file of the engine (microtonal tuning).
+      void setResonatorTuning(const Tuning* tuning) {
+        for (int instance = 0; instance < kMaxEffectInstances; ++instance)
+          static_cast<ResonatorModule*>(effects_[effectId(constants::kResonator, instance)])->setTuning(tuning);
       }
 
       // The Morph effects need the FFT size (an index, from the engine).
@@ -208,6 +218,8 @@ namespace vital {
             static_cast<MorphModule*>(effects_[id])->prepare();
           else if (typeOf(id) == constants::kPitchShifter)
             static_cast<PitchShifterModule*>(effects_[id])->prepare();
+          else if (typeOf(id) == constants::kResonator)
+            static_cast<ResonatorModule*>(effects_[id])->prepare();
         }
 
         for (int i = 0; i < kMaxChain; ++i)
@@ -456,6 +468,8 @@ namespace vital {
             return new VibratoModule(beats_per_second_);
           case constants::kTremolo:
             return new TremoloModule(beats_per_second_);
+          case constants::kResonator:
+            return new ResonatorModule(resonator_midi_);
           default:
             return nullptr;
         }
@@ -503,6 +517,7 @@ namespace vital {
 
       const Output* keytrack_;
       const KeytrackNotes* notes_;
+      ResonatorMidi* resonator_midi_;
       KeytrackBank* banks_[kPoolSize] = {};
       FxBinModule* bins_[kMaxFxBins] = {};
       FxSplitModule* splits_[kMaxParallelSplits] = {};

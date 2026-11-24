@@ -190,7 +190,8 @@ namespace strings {
     "utility",
     "freq_shifter",
     "vibrato",
-    "tremolo"
+    "tremolo",
+    "resonator"
   };
 
   const std::string kSyncedFrequencyNames[] = {
@@ -308,6 +309,7 @@ namespace strings {
     "FREQ SHIFTER",
     "VIBRATO",
     "TREMOLO",
+    "RESONATOR",
   };
 
   const std::string kDestinationMenuNames[vital::constants::kNumSourceDestinations + vital::constants::kNumEffects] = {
@@ -331,6 +333,7 @@ namespace strings {
     "Freq Shifter",
     "Vibrato",
     "Tremolo",
+    "Resonator",
   };
 
   const std::string kRateUnitNames[] = {
@@ -348,6 +351,14 @@ namespace strings {
   const std::string kFreqShifterQualityNames[] = {
     "Rough", "Normal", "Better", "Excellent"
   };
+
+  const std::string kResonatorStyleNames[] = { "Comb", "Modal", "String", "Formant" };
+  const std::string kResonatorKeytrackNames[] = { "Off", "MIDI" };
+  const std::string kResonatorVoiceNames[] = { "1", "4", "8", "16" };
+  const std::string kResonatorSlideTargetNames[] = { "Damping", "Color", "Resonance" };
+  const std::string kResonatorPressureTargetNames[] = { "Resonance", "Mix", "Color" };
+  const std::string kResonatorTuningNames[] = { "12-TET", "Scale file" };
+  const std::string kResonatorMpeNames[] = { "Off", "On" };
 
   const std::string kPitchShifterModeNames[] = {
     "GRANULAR",

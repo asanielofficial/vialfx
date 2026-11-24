@@ -46,6 +46,8 @@
 #include "fx_morph_section.h"
 #include "freq_shifter_section.h"
 #include "pitch_shifter_section.h"
+#include "resonator_section.h"
+#include "resonator_settings_panel.h"
 #include "tremolo_section.h"
 #include "utility_section.h"
 #include "vibrato_section.h"
@@ -78,14 +80,14 @@ namespace fx_ui {
   inline std::string typeTitle(int type) {
     static const char* kTitles[kNumTypes] = { "CHORUS", "COMPRESSOR", "DELAY", "DISTORTION", "EQ", "FILTER",
                                               "FLANGER", "PHASER", "REVERB", "MORPH", "PITCH SHIFTER", "UTILITY",
-                                              "FREQ SHIFTER", "VIBRATO", "TREMOLO" };
+                                              "FREQ SHIFTER", "VIBRATO", "TREMOLO", "RESONATOR" };
     return kTitles[type];
   }
 
   inline std::string typeMenuName(int type) {
     static const char* kNames[kNumTypes] = { "Chorus", "Compressor", "Delay", "Distortion", "EQ", "Filter",
                                              "Flanger", "Phaser", "Reverb", "Morph", "Pitch Shifter", "Utility",
-                                             "Freq Shifter", "Vibrato", "Tremolo" };
+                                             "Freq Shifter", "Vibrato", "Tremolo", "Resonator" };
     return kNames[type];
   }
 
@@ -159,6 +161,19 @@ namespace fx_ui {
     return stroked;
   }
 
+  // Rings dying away: a decaying wave.
+  inline Path resonatorIcon() {
+    Path path;
+    path.startNewSubPath(0.0f, 0.5f);
+    for (int i = 0; i <= 32; ++i) {
+      float x = i / 32.0f;
+      path.lineTo(x, 0.5f - 0.4f * std::exp(-2.6f * x) * std::sin(x * 7.0f * MathConstants<float>::pi));
+    }
+    Path stroked;
+    PathStrokeType(0.1f).createStrokedPath(stroked, path);
+    return stroked;
+  }
+
   inline Path typeIcon(int type) {
     switch (type) {
       case vital::constants::kChorus: return Paths::chorus();
@@ -176,6 +191,7 @@ namespace fx_ui {
       case vital::constants::kFreqShifter: return freqShifterIcon();
       case vital::constants::kVibrato: return vibratoIcon();
       case vital::constants::kTremolo: return tremoloIcon();
+      case vital::constants::kResonator: return resonatorIcon();
       default: return Path();
     }
   }
@@ -296,6 +312,12 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
         case vital::constants::kTremolo:
           section_ = std::make_unique<TremoloSection>(title, id);
           break;
+        case vital::constants::kResonator: {
+          auto resonator = std::make_unique<ResonatorSection>(title, id);
+          resonator_ = resonator.get();
+          section_ = std::move(resonator);
+          break;
+        }
         default:
           section_ = std::make_unique<ReverbSection>(title, id, mono_modulations);
           break;
@@ -304,6 +326,8 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
       addSubSection(section_.get());
       if (morph_ != nullptr)
         setupMorphAttachments(id, instance, title, mono_modulations, poly_modulations, engine);
+      if (resonator_ != nullptr)
+        setupResonatorSettings(id, title);
 
       close_button_ = std::make_unique<OpenGlShapeButton>("remove");
       addAndMakeVisible(close_button_.get());
@@ -338,11 +362,13 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
       if (module_height_ == height)
         return;
       module_height_ = height;
-      if (morph_ != nullptr)
+      if (hasDockedPanels())
         resized();
     }
 
-    bool hasAttachments() const { return morph_ != nullptr && !minimized_ && anyAttachmentOpen(); }
+    // The effects that dock a panel below themselves: Morph (its editors) and Resonator (its settings).
+    bool hasDockedPanels() const { return morph_ != nullptr || resonator_ != nullptr; }
+    bool hasAttachments() const { return hasDockedPanels() && !minimized_ && anyAttachmentOpen(); }
 
     int attachmentsHeight(int knob_section_height) {
       if (!hasAttachments())
@@ -436,7 +462,7 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
         close_button_->setBounds(getWidth() - button_size - getWidgetMargin(), y, button_size, button_size);
       }
       else {
-        if (morph_ != nullptr) {
+        if (hasDockedPanels()) {
           int module_height = anyAttachmentOpen() ? std::min(module_height_, getHeight()) : getHeight();
           section_->setBounds(0, 0, getWidth(), module_height);
           layoutAttachments(module_height);
@@ -533,11 +559,21 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
       kRemove
     };
 
-    // The docked editors are about this many knob sections tall (a normal effect is two).
-    static float attachmentHeightInKnobSections() { return 3.3f; }
+    // The docked editors are about this many knob sections tall (a normal effect is two); the Resonator's settings
+    // are one row.
+    float attachmentHeightInKnobSections() const { return resonator_ != nullptr ? 1.5f : 3.3f; }
 
     std::vector<SynthSection*> attachments() const {
-      return { curve_editor_.get(), spectral_table_menu_.get(), distort_table_menu_.get() };
+      return { curve_editor_.get(), spectral_table_menu_.get(), distort_table_menu_.get(),
+               resonator_settings_.get() };
+    }
+
+    void setupResonatorSettings(const std::string& id, const String& title) {
+      resonator_settings_ = std::make_unique<ResonatorSettingsPanel>(id, title.toUpperCase().toStdString());
+      addSubSection(resonator_settings_.get());
+      resonator_settings_->setVisible(false);
+      resonator_settings_->setVisibilityCallback([this](bool) { attachmentVisibilityChanged(); });
+      resonator_->setSettingsCallback([this]() { resonator_settings_->setVisible(!resonator_settings_->isVisible()); });
     }
 
     bool anyAttachmentOpen() const {
@@ -589,7 +625,9 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
     // alone takes the full width.
     void layoutAttachments(int module_height) {
       SynthSection* left = nullptr;
-      if (curve_editor_ && curve_editor_->isVisible())
+      if (resonator_settings_ && resonator_settings_->isVisible())
+        left = resonator_settings_.get();
+      else if (curve_editor_ && curve_editor_->isVisible())
         left = curve_editor_.get();
       else if (spectral_table_menu_ && spectral_table_menu_->isVisible())
         left = spectral_table_menu_.get();
@@ -714,6 +752,8 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
     Path icon_;
     std::unique_ptr<SynthSection> section_;
     FxMorphSection* morph_ = nullptr;   // section_, when this is a Morph effect
+    ResonatorSection* resonator_ = nullptr;   // section_, when this is a Resonator effect
+    std::unique_ptr<ResonatorSettingsPanel> resonator_settings_;
     std::unique_ptr<SpectralWarpEditor> curve_editor_;
     std::unique_ptr<TableSettingsEditor> spectral_table_menu_;
     std::unique_ptr<TableSettingsEditor> distort_table_menu_;

@@ -71,6 +71,7 @@
 #include "freq_shifter_module.cpp"
 #include "vibrato_module.cpp"
 #include "tremolo_module.cpp"
+#include "resonator_module.cpp"
 #include "delay_module.cpp"
 #include "comb_module.cpp"
 #include "compressor_module.cpp"
@@ -89,6 +90,7 @@
 #include "freq_shifter.cpp"
 #include "vibrato.cpp"
 #include "tremolo.cpp"
+#include "resonator.cpp"
 #include "sound_engine.cpp"
 #if VITAL_FX
 #include "effects_modulation_handler.cpp"

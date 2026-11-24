@@ -1,6 +1,6 @@
 # VialFX
 
-VialFX is an audio effect plugin: two modelled filters, a rack of fifteen effects (up to 32 copies of each, groupable into bins and parallel paths), up to 32 LFOs and 32 envelopes, and two
+VialFX is an audio effect plugin: two modelled filters, a rack of sixteen effects (up to 32 copies of each, groupable into bins and parallel paths), up to 32 LFOs and 32 envelopes, and two
 audio inputs (main and sidechain) that can each be warped, spectrally morphed and routed to the filters, the
 effects or straight to the output. It is built from GPLv3 synthesizer source code (see
 [NOTICE.md](NOTICE.md) for the origin of the code).
@@ -131,10 +131,16 @@ target). The stage is a Hann-windowed overlap-add FFT (75% overlap) between the 
 
 ### Effects rack
 
-- **Fifteen effect types:** Chorus, Compressor, Delay, Distortion, EQ, Filter, Flanger, Morph, Phaser and Reverb, plus
+- **Sixteen effect types:** Chorus, Compressor, Delay, Distortion, EQ, Filter, Flanger, Morph, Phaser and Reverb, plus
   **Pitch Shifter** (granular, multiband granular, retro and spectral engines with formant control), **Utility** (gain,
   pan, width, Haas, mono bass, phase invert, DC filter and a level meter), **Freq Shifter**, **Vibrato** and
-  **Tremolo**. Each can be added as many times as you like (up to 32 copies).
+  **Tremolo** and **Resonator**. Each can be added as many times as you like (up to 32 copies).
+- **Resonator:** a tuned resonator that rings the incoming audio at the notes you play. Four styles (Comb, Modal,
+  String, Formant), up to 16 voices, Key Track (Off, or MIDI to follow incoming notes), Tune / Fine, Resonance, Damping,
+  Stretch, Color and Mix. MPE is supported per note: pitch bend, slide (CC74) and pressure, with the Slide and Pressure
+  knobs choosing how much each gesture acts and the cogwheel on the effect opening its settings (12-TET or the loaded
+  scale file for microtonal tuning, MPE and bend range, glide, A4 reference, and what slide and pressure control).
+  Every copy has its own settings and follows the same incoming MIDI.
 - **New distortions:** Tube (asymmetric, even harmonics), Saturator (smooth cubic) and Overdrive (exponential soft
   clip). Overdrive has a **Stages** knob (1 to 8, with eight ticks around it) that runs the signal through that many
   clipping stages in a row; it can be modulated.
@@ -142,7 +148,7 @@ target). The stage is a Hann-windowed overlap-add FFT (75% overlap) between the 
   (source, amount, polarity, stereo, bypass and mapping curve) from LFOs, macros, randoms and envelopes.
 
 - The effects tab starts blank. **ADD EFFECT** (top of the left panel) adds a Chorus, Compressor, Delay,
-  Distortion, EQ, Filter, Flanger, Phaser, Reverb, Pitch Shifter, Utility, Freq Shifter, Vibrato, Tremolo or Morph (the spectral morph and distortion warp of the input panels as an effect) to the end of the chain. The same effect can be added
+  Distortion, EQ, Filter, Flanger, Phaser, Reverb, Pitch Shifter, Utility, Freq Shifter, Vibrato, Tremolo, Resonator or Morph (the spectral morph and distortion warp of the input panels as an effect) to the end of the chain. The same effect can be added
   several times (up to 32 copies of each type; copies past the eighth are built the first time they are added); every copy is a full set of automatable, modulatable
   parameters named e.g. `chorus_2_dry_wet`.
 - Rows in the left panel can be dragged to reorder the chain, and clicking one scrolls to that effect. Both

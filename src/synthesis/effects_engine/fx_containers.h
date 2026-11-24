@@ -17,7 +17,7 @@ namespace vital {
   // A branch slot names the branch's controls ("psplit_<s+1>_b<slot+1>_level"...), so they stay with a branch when
   // branches are added or removed.
   namespace chain_token {
-    // Effect ids use bits 0-14 (the pool holds up to 15 types x kMaxEffectInstances), the minimized flag is bit 15.
+    // Effect ids use bits 0-14 (the pool holds up to 16 types x kMaxEffectInstances), the minimized flag is bit 15.
     constexpr int kMinimizedFlag = 1 << 15;
     constexpr int kBinBegin = 1 << 16;
     constexpr int kBinEnd = 2 << 16;
@@ -81,7 +81,7 @@ namespace vital {
       bool keep[kMaxFxChainEntries + 8] = {};
       int tokens[kMaxFxChainEntries + 8];
       count = std::min(count, kMaxFxChainEntries);
-      bool effect_used[15 * kMaxEffectInstances] = {};
+      bool effect_used[16 * kMaxEffectInstances] = {};
       bool bin_used[kMaxFxBins] = {};
       bool split_used[kMaxParallelSplits] = {};
       Frame stack[kMaxFxNesting + 1];
@@ -96,7 +96,7 @@ namespace vital {
         tokens[i] = token;
         if (isEffect(token)) {
           int id = (token - 1) & (kMinimizedFlag - 1);
-          if (id < effect_pool_size && id < 15 * kMaxEffectInstances && !effect_used[id]) {
+          if (id < effect_pool_size && id < 16 * kMaxEffectInstances && !effect_used[id]) {
             effect_used[id] = true;
             keep[i] = true;
           }

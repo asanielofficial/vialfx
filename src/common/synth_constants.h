@@ -61,8 +61,8 @@ namespace vital {
   constexpr int kMaxParallelSplits = 8;
   constexpr int kMaxParallelBranches = 16;
   constexpr int kMaxFxNesting = 8;
-  // Entries of the effect chain: one per effect (15 types x kMaxEffectInstances) plus the begin/end/branch markers.
-  constexpr int kMaxFxChainEntries = 15 * kMaxEffectInstances + 2 * kMaxFxBins +
+  // Entries of the effect chain: one per effect (16 types x kMaxEffectInstances) plus the begin/end/branch markers.
+  constexpr int kMaxFxChainEntries = 16 * kMaxEffectInstances + 2 * kMaxFxBins +
                                      kMaxParallelSplits * (2 + kMaxParallelBranches);
 
   constexpr int kOscilloscopeMemorySampleRate = 22000;
@@ -147,6 +147,7 @@ namespace vital {
       kFreqShifter,
       kVibrato,
       kTremolo,
+      kResonator,
       kNumEffects
     };
 

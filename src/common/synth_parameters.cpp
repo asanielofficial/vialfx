@@ -665,6 +665,46 @@ namespace vital {
       ValueDetails::kLinear, false, "%", "Tremolo Amount A", nullptr },
     { "tremolo_amount_b", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Tremolo Amount B", nullptr },
+    { "resonator_on", 0x000000, 0.0, 1.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Resonator Switch", strings::kOffOnNames },
+    { "resonator_style", 0x000000, 0.0, 3.0, 1.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Resonator Style", strings::kResonatorStyleNames },
+    { "resonator_keytrack", 0x000000, 0.0, 1.0, 1.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Resonator Key Track", strings::kResonatorKeytrackNames },
+    { "resonator_voices", 0x000000, 0.0, 3.0, 2.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Resonator Voices", strings::kResonatorVoiceNames },
+    { "resonator_tune", 0x000000, -24.0, 24.0, 0.0, 0.0, 1.0,
+      ValueDetails::kLinear, false, " st", "Resonator Tune", nullptr },
+    { "resonator_fine", 0x000000, -100.0, 100.0, 0.0, 0.0, 1.0,
+      ValueDetails::kLinear, false, " ct", "Resonator Fine", nullptr },
+    { "resonator_resonance", 0x000000, 0.0, 1.0, 0.72, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Resonator Resonance", nullptr },
+    { "resonator_damping", 0x000000, 8.0, 136.0, 100.0, 0.0, 1.0,
+      ValueDetails::kLinear, false, "", "Resonator Damping", nullptr },
+    { "resonator_stretch", 0x000000, -1.0, 1.0, 0.1, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Resonator Stretch", nullptr },
+    { "resonator_color", 0x000000, -1.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Resonator Color", nullptr },
+    { "resonator_mix", 0x000000, 0.0, 1.0, 0.65, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Resonator Mix", nullptr },
+    { "resonator_slide", 0x000000, 0.0, 1.0, 0.4, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Resonator Slide Amount", nullptr },
+    { "resonator_pressure", 0x000000, 0.0, 1.0, 0.3, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Resonator Pressure Amount", nullptr },
+    { "resonator_slide_target", 0x000000, 0.0, 2.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Resonator Slide Destination", strings::kResonatorSlideTargetNames },
+    { "resonator_pressure_target", 0x000000, 0.0, 2.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Resonator Pressure Destination", strings::kResonatorPressureTargetNames },
+    { "resonator_ref_pitch", 0x000000, 392.0, 494.0, 440.0, 0.0, 1.0,
+      ValueDetails::kLinear, false, " Hz", "Resonator A4 Reference", nullptr },
+    { "resonator_bend_range", 0x000000, 0.0, 96.0, 48.0, 0.0, 1.0,
+      ValueDetails::kLinear, false, " st", "Resonator Bend Range", nullptr },
+    { "resonator_glide", 0x000000, 0.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Resonator Glide", nullptr },
+    { "resonator_tuning", 0x000000, 0.0, 1.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Resonator Tuning", strings::kResonatorTuningNames },
+    { "resonator_mpe", 0x000000, 0.0, 1.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Resonator MPE", strings::kResonatorMpeNames },
     { "utility_on", 0x000000, 0.0, 1.0, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Utility Switch", strings::kOffOnNames },
     { "utility_gain", 0x000000, -30.0, 30.0, 0.0, 0.0, 1.0,
@@ -1123,11 +1163,11 @@ namespace vital {
     {
       static const char* kEffectIds[] = { "chorus", "compressor", "delay", "distortion", "eq", "filter_fx",
                                           "flanger", "phaser", "reverb", "morph", "pitch_shifter",
-                                          "utility", "freq_shifter", "vibrato", "tremolo" };
+                                          "utility", "freq_shifter", "vibrato", "tremolo", "resonator" };
       static const char* kEffectTitles[] = { "Chorus", "Compressor", "Delay", "Distortion", "EQ", "Filter fx",
                                              "Flanger", "Phaser", "Reverb", "Morph", "Pitch Shifter",
-                                             "Utility", "Freq Shifter", "Vibrato", "Tremolo" };
-      for (int e = 0; e < 15; ++e) {
+                                             "Utility", "Freq Shifter", "Vibrato", "Tremolo", "Resonator" };
+      for (int e = 0; e < 16; ++e) {
         std::string id = kEffectIds[e];
         std::string title = kEffectTitles[e];
         std::string start = id + "_";

@@ -74,6 +74,7 @@ namespace {
     { "freq_shifter_", "Freq Shifter" },
     { "vibrato_", "Vibrato" },
     { "tremolo_", "Tremolo" },
+    { "resonator_", "Resonator" },
     { "morph_", "Morph" },
     { "", "" },
     { "macro_", "Macros" },

@@ -21,6 +21,7 @@
 #include "keytrack_voices.h"
 #include "note_handler.h"
 #include "tuning.h"
+#include "resonator_midi.h"
 #include "synth_constants.h"
 #include "wavetable.h"
 
@@ -177,6 +178,8 @@ namespace vital {
       FiltersModule* filters_module_;
       AudioUpsampler* upsampler_;
       FxEffectChain* effect_chain_;
+      // The notes and MPE expression the Resonator effects ring at (fed from the MIDI handlers below).
+      ResonatorMidi resonator_midi_;
       static constexpr int kEngineKeytrackVoices = 8;
       KeytrackNotes keytrack_notes_;
       KeytrackBank* filters_bank_;
