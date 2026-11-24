@@ -86,8 +86,8 @@ namespace vital {
     Output* sidechain_spectral_amount = createMonoModControl("sidechain_spectral_morph_amount");
     Value* input_spectral_mode = createBaseControl("input_spectral_morph_type");
     Value* sidechain_spectral_mode = createBaseControl("sidechain_spectral_morph_type");
-    Value* input_random_dice = createBaseControl("input_random_dice");
-    Value* sidechain_random_dice = createBaseControl("sidechain_random_dice");
+    Output* input_random_dice = createMonoModControl("input_random_dice");
+    Output* sidechain_random_dice = createMonoModControl("sidechain_random_dice");
     Output* input_random_shuffle = createMonoModControl("input_random_shuffle");
     Output* sidechain_random_shuffle = createMonoModControl("sidechain_random_shuffle");
     Output* input_spectral_position = createMonoModControl("input_spectral_position");
@@ -231,7 +231,7 @@ namespace vital {
       return gate;
     };
     auto makeSpectral = [this](bool main, const LaneControls& c, Processor* audio, Processor* mode,
-                               Output* amount, Output* position, Output* shuffle, Value* dice, Processor* modulator,
+                               Output* amount, Output* position, Output* shuffle, Output* dice, Processor* modulator,
                                int table_index) {
       SpectralMorphProcessor* sp = new SpectralMorphProcessor(main);
       sp->plug(audio, SpectralMorphProcessor::kAudio);

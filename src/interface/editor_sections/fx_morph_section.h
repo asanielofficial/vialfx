@@ -110,6 +110,7 @@ class FxMorphSection : public SynthSection {
       dice_slider_->getQuadComponent()->setVisible(false);
       dice_slider_->getImageComponent()->setVisible(false);
       static_cast<DiceSlider*>(dice_slider_.get())->setClickCallback([this]() { rollDice(); });
+      static_cast<DiceSlider*>(dice_slider_.get())->linkDisplay(dice_button_.get());
       dice_slider_->setVisible(false);
 
       swap_button_ = std::make_unique<OpenGlShapeButton>("Swap Order");
@@ -201,7 +202,7 @@ class FxMorphSection : public SynthSection {
       if (current_spectral_ == kRandomAmplitudes)
         layoutRandom(spectral_cell, margin);
       else {
-        spectral_morph_->setKnobSizeScale(1.3f);
+        setKnobScale(spectral_morph_.get(), 1.3f);
         random_mix_label_ = Rectangle<int>();
         random_shuffle_label_ = Rectangle<int>();
         dice_button_->setBounds(0, 0, 0, 0);
@@ -238,9 +239,9 @@ class FxMorphSection : public SynthSection {
       float mix_footprint = std::min(area_h - strip_h - pill_gap, (cell_w - dice_size - 4.0f * pill_gap) * 0.5f * 0.96f);
       float scale = std::max(0.3f, mix_footprint / footprint_size);
       int knob_d = static_cast<int>(footprint_size * scale);
-      spectral_morph_->setKnobSizeScale(scale);
-      shuffle_->setKnobSizeScale(scale);
-      dice_slider_->setKnobSizeScale(dice_size / findValue(Skin::kKnobArcSize));
+      setKnobScale(spectral_morph_.get(), scale);
+      setKnobScale(shuffle_.get(), scale);
+      setKnobScale(dice_slider_.get(), dice_size / findValue(Skin::kKnobArcSize));
 
       float block_h = knob_d + pill_gap + strip_h;
       float knob_top = cell.getY() + (area_h - block_h) * 0.5f;
@@ -556,6 +557,15 @@ class FxMorphSection : public SynthSection {
     }
 
     // The dice is a switch parameter: every flip scrambles the pattern to a new seed.
+    // The knob's image is cached, so a new scale needs the image drawn again (otherwise a knob that was shrunk for
+    // Random Amplitudes keeps its small picture after another mode is chosen).
+    static void setKnobScale(SynthSlider* slider, float scale) {
+      if (std::abs(slider->getKnobSizeScale() - scale) < 0.001f)
+        return;
+      slider->setKnobSizeScale(scale);
+      slider->redoImage();
+    }
+
     void rollDice() {
       SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
       if (parent == nullptr || parent->getSynth() == nullptr)
