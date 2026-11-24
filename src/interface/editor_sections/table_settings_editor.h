@@ -238,10 +238,21 @@ class TableSettingsEditor : public SynthSection, public Wavetable3d::Listener, p
       close_button_->setBounds(getWidth() - margin - title_height_, margin, title_height_, title_height_);
 
       int top = margin + title_height_ + margin;
+      int save_width = static_cast<int>(size_ratio_ * 56);
       int bar_x = margin + static_cast<int>(size_ratio_ * 260);
-      int bar_right = close_button_->getX() - margin - static_cast<int>(size_ratio_ * 64);
-      name_bar_->setBounds(bar_x, margin, std::max(1, bar_right - bar_x), title_height_);
-      save_button_->setBounds(name_bar_->getRight() + margin, margin, static_cast<int>(size_ratio_ * 56), title_height_);
+      int bar_right = close_button_->getX() - margin - save_width - margin;
+      if (bar_right - bar_x >= static_cast<int>(size_ratio_ * 150)) {
+        // Wide enough (a menu on its own): the bar sits in the title row, after the title.
+        name_bar_->setBounds(bar_x, margin, bar_right - bar_x, title_height_);
+        save_button_->setBounds(name_bar_->getRight() + margin, margin, save_width, title_height_);
+      }
+      else {
+        // Split view (two menus side by side) leaves no room beside the title: the bar gets its own row below it.
+        int row_width = getWidth() - 4 * margin - save_width - margin;
+        name_bar_->setBounds(margin * 2, top, std::max(1, row_width), title_height_);
+        save_button_->setBounds(name_bar_->getRight() + margin, top, save_width, title_height_);
+        top = name_bar_->getBottom() + margin;
+      }
       int knob_area_height = std::min(getHeight() / 3, static_cast<int>(size_ratio_ * 120));
       int knob_y = getHeight() - knob_area_height - margin;
       wavetable_->setBounds(margin, top, getWidth() - 2 * margin, std::max(1, knob_y - top - margin));
