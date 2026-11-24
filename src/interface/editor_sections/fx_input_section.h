@@ -455,11 +455,11 @@ class FxInputSection : public SynthSection {
     }
 
     // The knob's image is cached, so a new scale needs the image drawn again.
-    static void setKnobScale(SynthSlider* slider, float scale) {
+    void setKnobScale(SynthSlider* slider, float scale) {
       if (std::abs(slider->getKnobSizeScale() - scale) < 0.001f)
         return;
-      slider->setKnobSizeScale(scale);
-      slider->redoImage();
+      slider->setKnobSizeScale(scale);   // rebuilds the knob's geometry and image
+      repaintBackground();               // the knob shadow is part of the cached background
     }
 
     void visibilityChanged() override {

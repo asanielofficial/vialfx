@@ -559,11 +559,11 @@ class FxMorphSection : public SynthSection {
     // The dice is a switch parameter: every flip scrambles the pattern to a new seed.
     // The knob's image is cached, so a new scale needs the image drawn again (otherwise a knob that was shrunk for
     // Random Amplitudes keeps its small picture after another mode is chosen).
-    static void setKnobScale(SynthSlider* slider, float scale) {
+    void setKnobScale(SynthSlider* slider, float scale) {
       if (std::abs(slider->getKnobSizeScale() - scale) < 0.001f)
         return;
-      slider->setKnobSizeScale(scale);
-      slider->redoImage();
+      slider->setKnobSizeScale(scale);   // rebuilds the knob's geometry and image
+      repaintBackground();               // the knob shadow is part of the cached background
     }
 
     void rollDice() {

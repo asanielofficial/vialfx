@@ -384,7 +384,18 @@ class SynthSlider : public OpenGlSlider, public TextEditor::Listener {
     void setShiftIndexAmount(int shift_amount) { shift_index_amount_ = shift_amount; }
     void setShowPopupOnHover(bool show) { show_popup_on_hover_ = show; }
     void setPopupPrefix(String prefix) { popup_prefix_ = prefix; }
-    void setKnobSizeScale(float scale) { knob_size_scale_ = scale; }
+    // The knob's quad geometry and cached image depend on the scale, so a change after the knob has its size
+    // (for example a mode that shrinks the knob and one that restores it) must rebuild both.
+    void setKnobSizeScale(float scale) {
+      if (knob_size_scale_ == scale)
+        return;
+
+      knob_size_scale_ = scale;
+      if (getWidth() > 0 && getHeight() > 0) {
+        setSliderDisplayValues();
+        redoImage();
+      }
+    }
     float getKnobSizeScale() const override { return knob_size_scale_; }
     void useSuffix(bool use) { use_suffix_ = use; }
     void setExtraModulationTarget(Component* component) { extra_modulation_target_ = component; }
