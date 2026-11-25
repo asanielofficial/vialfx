@@ -602,6 +602,8 @@ class FxEffectSlot : public SynthSection, public Value::Listener {
       distort_table_menu_->setFrameSlider(morph_->getDistortionSlider());
 
       for (SynthSection* attachment : attachments()) {
+        if (attachment == nullptr)   // (the Resonator's settings panel, which a Morph effect does not have)
+          continue;
         addSubSection(attachment);
         attachment->setVisible(false);
       }
