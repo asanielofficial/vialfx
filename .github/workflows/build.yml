@@ -1,7 +1,6 @@
 name: Build VialFX
 
-# One workflow for every platform: the Linux, Windows and macOS VST3 builds, plus the Windows (.exe) and macOS (.pkg)
-# installers. Run it from the Actions tab or push to main; the Nightly release workflow publishes its artifacts.
+# One workflow for every platform: the Linux, Windows and macOS VST3 builds, (installers are gone: VialLauncher installs the zips). Run it from the Actions tab or push to main; the Nightly release workflow publishes its artifacts.
 on:
   # Whole builds (all platforms, installers, CLAP, pluginval) run only when asked for: from the Actions tab, from the
   # Nightly release workflow, or from the release workflow. Pushes do not start them; use "Test build" for a quick
@@ -186,7 +185,7 @@ jobs:
           exit $final
 
   windows:
-    name: Windows (VST3 + installer)
+    name: Windows (VST3 + CLAP)
     runs-on: windows-2022
     timeout-minutes: 90
     env:
@@ -269,20 +268,36 @@ jobs:
           name: VialFX-windows-clap
           path: dist-clap
 
-      - name: Build the Windows installer
+      - name: Build the LV2
         shell: pwsh
         run: |
-          choco install innosetup -y --no-progress
-          New-Item -ItemType Directory installers | Out-Null
-          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          & $iscc "/DSourceFile=$PWD\dist\VialFX.vst3" "/DClapFile=$PWD\dist-clap\VialFX.clap" "/DAppVersion=1.5" "/O$PWD\installers" installer\windows\VialFX.iss
-          if ($LASTEXITCODE -ne 0) { Write-Host "::error::Inno Setup failed"; exit 1 }
-          Get-ChildItem installers | Format-Table Name, Length
+          cmake -S effects\lv2 -B lv2-build -G "Visual Studio 17 2022" -A x64 `
+            "-DVIALFX_SHARED_LIB=$PWD\effects\builds\vs17\x64\Release\Shared Code\VialFX.lib" -DVIALFX_VERSION=1.5
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build lv2-build --config Release --target VialFX_lv2 -- /m /nologo "/flp:logfile=lv2.log;verbosity=minimal"
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            Select-String -Path lv2.log -Pattern ' error ' | Select-Object -Unique -First 40 |
+              ForEach-Object { $t = $_.Line.Trim(); if ($t.Length -gt 450) { $t = $t.Substring(0,450) }; Write-Host "::error::$t" }
+            exit $code
+          }
+          New-Item -ItemType Directory dist-lv2\VialFX.lv2 | Out-Null
+          Copy-Item lv2-build\Release\VialFX.dll dist-lv2\VialFX.lv2\
+          # The .ttl generator loads the plugin to read its ports.
+          cl /nologo /Fe:lv2_ttl_generator.exe effects\builds\linux_lv2\lv2_ttl_generator.c
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Push-Location dist-lv2\VialFX.lv2
+          & ..\..\lv2_ttl_generator.exe .\VialFX.dll
+          Pop-Location
+          if (-not (Test-Path dist-lv2\VialFX.lv2\manifest.ttl)) { Write-Host "::error::no manifest.ttl"; exit 1 }
+          python -c "import re,sys; d=open('dist-lv2/VialFX.lv2/VialFX.dll','rb').read(); m=re.findall(rb'(?i)vital\.audio|account\.vital|store\.vital|forum\.vital|vital audio|tytel', d); print(m[:10]); sys.exit(1 if m else 0)"
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::[binary] Vital branding found in the LV2"; exit 1 }
+          Get-ChildItem dist-lv2\VialFX.lv2 | Format-Table Name, Length
 
       - uses: actions/upload-artifact@v4
         with:
-          name: VialFX-windows-installer
-          path: installers
+          name: VialFX-windows-lv2
+          path: dist-lv2
 
       - name: Validate with pluginval (non-blocking)
         continue-on-error: true
@@ -303,7 +318,7 @@ jobs:
           }
 
   macos:
-    name: macOS (VST3 + installer)
+    name: macOS (VST3 + CLAP + AU)
     # The last Intel runner: the prebuilt Projucer of the JUCE version this project uses is an Intel binary. The plugin
     # itself is built universal (arm64 + x86_64).
     runs-on: macos-15-intel
@@ -452,23 +467,30 @@ jobs:
           name: VialFX-macos-clap
           path: dist-clap
 
-      - name: Build the macOS installer (.pkg)
+      - name: Build the LV2
         run: |
-          # One installer, choices the user can switch on and off: VST3, CLAP and AU.
-          mkdir -p pkgroot-vst3 pkgroot-clap pkgroot-au pkgs installers
-          cp -R dist/VialFX.vst3 pkgroot-vst3/VialFX.vst3
-          cp -R dist-clap/VialFX.clap pkgroot-clap/VialFX.clap
-          cp -R dist-au/VialFX.component pkgroot-au/VialFX.component
-          pkgbuild --root pkgroot-vst3 --identifier com.vialfx.vst3 --version 1.5 \
-            --install-location /Library/Audio/Plug-Ins/VST3 pkgs/vst3.pkg
-          pkgbuild --root pkgroot-clap --identifier com.vialfx.clap --version 1.5 \
-            --install-location /Library/Audio/Plug-Ins/CLAP pkgs/clap.pkg
-          pkgbuild --root pkgroot-au --identifier com.vialfx.au --version 1.5 \
-            --install-location /Library/Audio/Plug-Ins/Components pkgs/au.pkg
-          productbuild --distribution installer/macos/distribution.xml --package-path pkgs installers/VialFX-1.5-macOS.pkg
-          ls -l installers
+          set -e
+          LIB=$(find effects/builds/osx/build -name "libVialFX.a" | head -1)
+          cmake -S effects/lv2 -B lv2-build -DCMAKE_BUILD_TYPE=Release -DVIALFX_SHARED_LIB="$PWD/$LIB" -DVIALFX_VERSION=1.5 2>&1 | tail -30
+          set +e
+          cmake --build lv2-build --config Release -j"$(sysctl -n hw.ncpu)" > lv2.log 2>&1
+          status=$?
+          if [ $status -ne 0 ]; then
+            grep -n -m 40 -E "error:|fatal error|undefined symbol|\*\*\* " lv2.log | cut -c1-450 | while IFS= read -r line; do echo "::error::${line}"; done
+            echo "::error::last lines: $(tail -n 8 lv2.log | tr '\n' '|' | cut -c1-700)"
+            exit $status
+          fi
+          set -e
+          mkdir -p dist-lv2/VialFX.lv2
+          cp lv2-build/VialFX.dylib dist-lv2/VialFX.lv2/
+          cc -o lv2_ttl_generator effects/builds/linux_lv2/lv2_ttl_generator.c -ldl
+          (cd dist-lv2/VialFX.lv2 && ../../lv2_ttl_generator ./VialFX.dylib)
+          test -f dist-lv2/VialFX.lv2/manifest.ttl
+          lipo -archs dist-lv2/VialFX.lv2/VialFX.dylib
+          if strings -a dist-lv2/VialFX.lv2/VialFX.dylib | grep -i -E "vital\.audio|account\.vital|store\.vital|forum\.vital|vital audio|tytel"; then echo "::error::[binary] Vital branding found in the LV2"; exit 1; fi
+          ls -R dist-lv2 | head -20
 
       - uses: actions/upload-artifact@v4
         with:
-          name: VialFX-macos-installer
-          path: installers
+          name: VialFX-macos-lv2
+          path: dist-lv2

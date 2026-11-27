@@ -41,14 +41,11 @@ jobs:
           notes=".github/release-notes/$VERSION.md"
           test -f "$notes"
           mkdir out
-          for os in linux macos windows; do
-            (cd "art/VialFX-$os-vst3" && zip -qr "../../out/VialFX-$VERSION-$os-vst3.zip" .)
-            (cd "art/VialFX-$os-clap" && zip -qr "../../out/VialFX-$VERSION-$os-clap.zip" .)
+          # Every artifact of the build (VialFX-<os>[-<arch>]-<format>) becomes one zip.
+          for dir in art/VialFX-*; do
+            name="${dir#art/VialFX-}"
+            (cd "$dir" && zip -qr "../../out/VialFX-$VERSION-$name.zip" .)
           done
-          (cd art/VialFX-linux-lv2 && zip -qr "../../out/VialFX-$VERSION-linux-lv2.zip" .)
-          (cd art/VialFX-macos-au && zip -qr "../../out/VialFX-$VERSION-macos-au.zip" .)
-          cp art/VialFX-windows-installer/*.exe out/
-          cp art/VialFX-macos-installer/*.pkg out/
           ls -l out
           gh release create "v$VERSION" out/* --repo "$REPO" --target "${{ github.sha }}" \
             --title "VialFX $VERSION" --notes-file "$notes" --latest
