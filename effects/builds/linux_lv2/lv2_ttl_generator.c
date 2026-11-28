@@ -50,7 +50,8 @@ int main(int argc, char* argv[])
 
     if (ttlFn != NULL)
     {
-        char basename[strlen(argv[1])+1];
+        char basename[4096];
+        if (strlen(argv[1]) >= sizeof(basename)) return 3;
 
         char* base2 = 0;
 #ifdef TTL_GENERATOR_WINDOWS
