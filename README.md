@@ -5,11 +5,13 @@ audio inputs (main and sidechain) that can each be warped, spectrally morphed an
 effects or straight to the output. It is built from GPLv3 synthesizer source code (see
 [NOTICE.md](NOTICE.md) for the origin of the code).
 
-> **Status:** version 1.5. VST3, CLAP and LV2 builds for Linux, macOS and Windows and an Audio Unit (AU) build for macOS are produced by CI as zips (use VialLauncher to install), and the plugin passes pluginval.
+> **Install:** use **VialLauncher** to install and update VialFX. Manual downloads are zips (no installers).
+>
+> **Status:** version 1.6. VST3, CLAP and LV2 builds for Linux, macOS and Windows and an Audio Unit (AU) build for macOS are produced by CI, and the plugin passes pluginval.
 
 ## Download
 
-The current stable version is [**VialFX 1.5**](https://github.com/asanielofficial/vialfx/releases/latest): VST3 and CLAP zips for Windows, macOS and Linux, an AU zip for macOS and an LV2 zip for Linux (the 1.5 release also included Windows and macOS installers, which later builds replace with VialLauncher). LV2 for macOS and Windows is new in builds after 1.5. AU and LV2 are lightly tested; please report problems.
+The current stable version is [**VialFX 1.6**](https://github.com/asanielofficial/vialfx/releases/latest): install it with **VialLauncher**, or download the zips (VST3, CLAP and LV2 for Windows, macOS and Linux, plus AU for macOS). AU and LV2 are lightly tested; please report problems.
 
 The newest `main` commit that built on all three platforms is published as the [nightly pre-release](https://github.com/asanielofficial/vialfx/releases/tag/nightly) (zips of VST3, CLAP and LV2 for Linux, macOS and Windows, plus macOS AU; no installers, use VialLauncher). These builds are unsigned and meant for testing. Every CI run also attaches its builds as artifacts.
 

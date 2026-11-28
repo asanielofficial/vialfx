@@ -108,7 +108,7 @@ jobs:
           git -C clap-ext submodule update -q --init --depth 1 --recursive
           cmake -S effects/clap -B clap-build -DCMAKE_BUILD_TYPE=Release \
             -DPATH_TO_CLAP_EXTENSIONS="$PWD/clap-ext" \
-            -DVIALFX_SHARED_LIB="$PWD/effects/builds/linux_vst/build/VialFX.a" -DVIALFX_VERSION=1.5 2>&1 | tail -30
+            -DVIALFX_SHARED_LIB="$PWD/effects/builds/linux_vst/build/VialFX.a" -DVIALFX_VERSION=1.6 2>&1 | tail -30
           cmake --build clap-build --target VialFX_CLAP -j"$(nproc)" 2>&1 | tail -60
           mkdir -p dist-clap
           cp clap-build/VialFX_artefacts/Release/VialFX.clap dist-clap/
@@ -248,7 +248,7 @@ jobs:
           git -C clap-ext checkout -q FETCH_HEAD
           git -C clap-ext submodule update -q --init --depth 1 --recursive
           cmake -S effects\clap -B clap-build -G "Visual Studio 17 2022" -A x64 `
-            "-DPATH_TO_CLAP_EXTENSIONS=$PWD\clap-ext" "-DVIALFX_SHARED_LIB=$PWD\effects\builds\vs17\x64\Release\Shared Code\VialFX.lib" "-DVIALFX_VERSION=1.5"
+            "-DPATH_TO_CLAP_EXTENSIONS=$PWD\clap-ext" "-DVIALFX_SHARED_LIB=$PWD\effects\builds\vs17\x64\Release\Shared Code\VialFX.lib" "-DVIALFX_VERSION=1.6"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build clap-build --config Release --target VialFX_CLAP -- /m /nologo "/flp:logfile=clap.log;verbosity=minimal"
           $code = $LASTEXITCODE
@@ -277,7 +277,7 @@ jobs:
         shell: pwsh
         run: |
           cmake -S effects\lv2 -B lv2-build -G "Visual Studio 17 2022" -A x64 `
-            "-DVIALFX_SHARED_LIB=$PWD\effects\builds\vs17\x64\Release\Shared Code\VialFX.lib" "-DVIALFX_VERSION=1.5"
+            "-DVIALFX_SHARED_LIB=$PWD\effects\builds\vs17\x64\Release\Shared Code\VialFX.lib" "-DVIALFX_VERSION=1.6"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build lv2-build --config Release --target VialFX_lv2 -- /m /nologo "/flp:logfile=lv2.log;verbosity=minimal"
           $code = $LASTEXITCODE
@@ -450,7 +450,7 @@ jobs:
           LIB=$(find effects/builds/osx/build -name "libVialFX.a" | head -1)
           echo "shared code library: $LIB"
           cmake -S effects/clap -B clap-build -G Xcode -DCMAKE_BUILD_TYPE=Release \
-            -DPATH_TO_CLAP_EXTENSIONS="$PWD/clap-ext" -DVIALFX_SHARED_LIB="$PWD/$LIB" -DVIALFX_VERSION=1.5 \
+            -DPATH_TO_CLAP_EXTENSIONS="$PWD/clap-ext" -DVIALFX_SHARED_LIB="$PWD/$LIB" -DVIALFX_VERSION=1.6 \
             -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED=NO 2>&1 | tail -30
           set +e
           cmake --build clap-build --config Release --target VialFX_CLAP > clap.log 2>&1
@@ -476,7 +476,7 @@ jobs:
         run: |
           set -e
           LIB=$(find effects/builds/osx/build -name "libVialFX.a" | head -1)
-          cmake -S effects/lv2 -B lv2-build -DCMAKE_BUILD_TYPE=Release -DVIALFX_SHARED_LIB="$PWD/$LIB" -DVIALFX_VERSION=1.5 2>&1 | tail -30
+          cmake -S effects/lv2 -B lv2-build -DCMAKE_BUILD_TYPE=Release -DVIALFX_SHARED_LIB="$PWD/$LIB" -DVIALFX_VERSION=1.6 2>&1 | tail -30
           set +e
           cmake --build lv2-build --config Release -j"$(sysctl -n hw.ncpu)" > lv2.log 2>&1
           status=$?

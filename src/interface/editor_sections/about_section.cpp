@@ -34,7 +34,7 @@ namespace {
 
 #if VITAL_FX
 namespace {
-  const char* const kVialFxVersion = "1.5";
+  const char* const kVialFxVersion = "1.6";
   const char* const kVialFxUrl = "https://github.com/asanielofficial/vialfx";
 }
 #endif
