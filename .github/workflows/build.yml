@@ -277,7 +277,7 @@ jobs:
           cmake --build lv2-build --config Release --target VialFX_lv2 -- /m /nologo "/flp:logfile=lv2.log;verbosity=minimal"
           $code = $LASTEXITCODE
           if ($code -ne 0) {
-            Select-String -Path lv2.log -Pattern ' error ' | Select-Object -Unique -First 40 |
+            Select-String -Path (Get-ChildItem -Recurse -Filter lv2.log | Select-Object -First 1).FullName -Pattern ' error ' | Select-Object -Unique -First 40 |
               ForEach-Object { $t = $_.Line.Trim(); if ($t.Length -gt 450) { $t = $t.Substring(0,450) }; Write-Host "::error::$t" }
             exit $code
           }

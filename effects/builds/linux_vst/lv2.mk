@@ -6,7 +6,8 @@ include Makefile
 
 LV2_URI := urn:vialfx:vialfx
 LV2_DEFINES := "-DJucePlugin_Build_LV2=1" "-DJucePlugin_LV2URI=\"$(LV2_URI)\"" "-DJucePlugin_LV2Category=\"Plugin\"" \
-  "-DJucePlugin_WantsLV2Presets=1" "-DJucePlugin_WantsLV2State=1" "-DJucePlugin_WantsLV2TimePos=1"
+  "-DJucePlugin_WantsLV2Presets=1" "-DJucePlugin_WantsLV2State=1" "-DJucePlugin_WantsLV2TimePos=1" \
+  "-DJucePlugin_MaxNumInputChannels=2"
 JUCE_CPPFLAGS_LV2 := "-DJucePlugin_Build_VST=0" "-DJucePlugin_Build_VST3=0" "-DJucePlugin_Build_AU=0" "-DJucePlugin_Build_AUv3=0" \
   "-DJucePlugin_Build_RTAS=0" "-DJucePlugin_Build_AAX=0" "-DJucePlugin_Build_Standalone=0" "-DJucePlugin_Build_Unity=0" $(LV2_DEFINES)
 LV2_BUNDLE := $(JUCE_OUTDIR)/VialFX.lv2
