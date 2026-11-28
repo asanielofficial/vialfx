@@ -53,35 +53,15 @@ target_include_directories(${lv2_target} PRIVATE
   "${VIALFX_ROOT}/effects/JuceLibraryCode"
 )
 
-# What the wrapper reads from the plugin's metadata (the same values as effects/JuceLibraryCode/JucePluginDefines.h).
+# The plugin metadata (names, channels, LV2 settings) comes from the header, force included in every file.
+if(MSVC)
+  target_compile_options(${lv2_target} PRIVATE "/FI${CMAKE_CURRENT_LIST_DIR}/JucePluginDefinesLv2.h")
+else()
+  target_compile_options(${lv2_target} PRIVATE -include "${CMAKE_CURRENT_LIST_DIR}/JucePluginDefinesLv2.h")
+endif()
+
 target_compile_definitions(${lv2_target} PRIVATE
   JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1
-  JucePlugin_Name="VialFX"
-  JucePlugin_Desc=""
-  JucePlugin_Manufacturer="VialFX"
-  JucePlugin_ManufacturerWebsite="https://github.com/asanielofficial/vialfx"
-  JucePlugin_VersionString="${VIALFX_VERSION}"
-  JucePlugin_ManufacturerCode=0x4f70656e
-  JucePlugin_PluginCode=0x566c4658
-  JucePlugin_VSTUniqueID=0x566c4658
-  JucePlugin_IsSynth=0
-  JucePlugin_WantsMidiInput=1
-  JucePlugin_ProducesMidiOutput=0
-  JucePlugin_EditorRequiresKeyboardFocus=1
-  JucePlugin_Build_VST=0
-  JucePlugin_Build_VST3=0
-  JucePlugin_Build_AU=0
-  JucePlugin_Build_AUv3=0
-  JucePlugin_Build_RTAS=0
-  JucePlugin_Build_AAX=0
-  JucePlugin_Build_Standalone=0
-  JucePlugin_Build_Unity=0
-  JucePlugin_Build_LV2=1
-  JucePlugin_LV2URI="urn:vialfx:vialfx"
-  JucePlugin_LV2Category="Plugin"
-  JucePlugin_WantsLV2Presets=1
-  JucePlugin_WantsLV2State=1
-  JucePlugin_WantsLV2TimePos=1
   VITAL_FX=1
   JUCE_OPENGL3=1
   NDEBUG=1
